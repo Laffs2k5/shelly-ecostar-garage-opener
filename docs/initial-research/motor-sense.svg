@@ -1,0 +1,223 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" font-family="Consolas, monospace">
+  <style>
+    text { font-size: 13px; fill: #222; }
+    .title { font-size: 18px; font-weight: bold; }
+    .subtitle { font-size: 12px; fill: #666; }
+    .label { font-size: 12px; font-weight: bold; fill: #333; }
+    .signal { font-size: 11px; fill: #0066cc; font-weight: bold; }
+    .note { font-size: 10px; fill: #888; }
+    .wire { stroke: #333; stroke-width: 2; fill: none; }
+    .wire-red { stroke: #cc0000; stroke-width: 2.5; fill: none; }
+    .wire-black { stroke: #111; stroke-width: 2.5; fill: none; }
+    .wire-green { stroke: #228833; stroke-width: 2; fill: none; stroke-dasharray: 6,3; }
+    .component { stroke: #333; stroke-width: 1.5; fill: #f8f8f0; }
+    .opto-box { stroke: #333; stroke-width: 2; fill: #fff8e0; rx: 4; }
+    .resistor { stroke: #333; stroke-width: 2; fill: none; }
+    .dot { fill: #333; }
+    .motor-box { stroke: #cc0000; stroke-width: 2; fill: #ffe8e8; rx: 6; }
+    .shelly-box { stroke: #0066cc; stroke-width: 2; fill: #e8f0ff; rx: 6; }
+    .ground { stroke: #333; stroke-width: 2; fill: none; }
+  </style>
+
+  <!-- Title -->
+  <text x="450" y="30" text-anchor="middle" class="title">EcoStar B Motor Direction Sensing Circuit</text>
+  <text x="450" y="48" text-anchor="middle" class="subtitle">Two optocouplers (anti-parallel) for galvanic isolation — feeds Shelly Plus i4 DC inputs</text>
+
+  <!-- Motor box -->
+  <rect x="30" y="80" width="160" height="160" class="motor-box"/>
+  <text x="110" y="105" text-anchor="middle" class="label" style="fill:#cc0000;">EcoStar B Motor</text>
+  <text x="110" y="125" text-anchor="middle" class="note">Valeo 24VDC</text>
+  
+  <!-- Motor symbol -->
+  <circle cx="110" cy="170" r="25" stroke="#cc0000" stroke-width="2" fill="#fff0f0"/>
+  <text x="110" y="175" text-anchor="middle" style="font-size:16px; font-weight:bold; fill:#cc0000;">M</text>
+  
+  <!-- Motor wire labels -->
+  <text x="200" y="138" class="label" style="fill:#cc0000;">RED (+)</text>
+  <text x="200" y="208" class="label">BLACK (−)</text>
+  
+  <!-- Motor voltage annotations -->
+  <text x="60" y="225" text-anchor="middle" class="note">Opening: +19..+24V</text>
+  <text x="60" y="237" text-anchor="middle" class="note">Closing: −19..−24V</text>
+
+  <!-- Red wire from motor -->
+  <line x1="190" y1="145" x2="300" y2="145" class="wire-red"/>
+  <!-- Black wire from motor -->
+  <line x1="190" y1="200" x2="300" y2="200" class="wire-black"/>
+
+  <!-- Junction dot on red wire -->
+  <circle cx="300" cy="145" r="4" class="dot"/>
+  <!-- Junction dot on black wire -->
+  <circle cx="300" cy="200" r="4" class="dot"/>
+
+  <!-- Split red wire to two paths -->
+  <line x1="300" y1="145" x2="300" y2="120" class="wire-red"/>
+  <line x1="300" y1="120" x2="350" y2="120" class="wire-red"/>
+  
+  <line x1="300" y1="145" x2="300" y2="340" class="wire-red"/>
+  <line x1="300" y1="340" x2="350" y2="340" class="wire-red"/>
+
+  <!-- ===== OPTO 1 (Opening) ===== -->
+  
+  <!-- R1 resistor (zigzag) -->
+  <path d="M350,120 l10,-8 l10,16 l10,-16 l10,16 l10,-16 l10,16 l10,-8" class="resistor"/>
+  <text x="390" y="108" text-anchor="middle" class="label">R1</text>
+  <text x="390" y="98" text-anchor="middle" class="note">10kΩ</text>
+  
+  <!-- Wire from R1 to Opto1 -->
+  <line x1="420" y1="120" x2="460" y2="120" class="wire"/>
+
+  <!-- Opto1 box -->
+  <rect x="460" y="80" width="160" height="100" class="opto-box"/>
+  <text x="540" y="100" text-anchor="middle" class="label">OPTO 1 — PC817</text>
+  <text x="540" y="172" text-anchor="middle" class="signal">→ OPENING signal</text>
+  
+  <!-- LED symbol inside opto1 -->
+  <!-- Triangle -->
+  <polygon points="480,120 480,145 505,132" stroke="#333" stroke-width="1.5" fill="#ffcccc"/>
+  <!-- Line (cathode) -->
+  <line x1="505" y1="118" x2="505" y2="148" stroke="#333" stroke-width="1.5"/>
+  <!-- Arrows (light emission) -->
+  <line x1="492" y1="115" x2="500" y2="108" stroke="#333" stroke-width="1"/>
+  <path d="M498,108 l2,0 l0,-2" stroke="#333" stroke-width="1" fill="none"/>
+  <line x1="497" y1="120" x2="505" y2="113" stroke="#333" stroke-width="1"/>
+  <path d="M503,113 l2,0 l0,-2" stroke="#333" stroke-width="1" fill="none"/>
+  
+  <!-- LED anode input -->
+  <line x1="460" y1="120" x2="480" y2="132" class="wire"/>
+  <!-- Cathode connects to line going to black wire -->
+  <line x1="505" y1="132" x2="520" y2="132" class="wire"/>
+  <line x1="520" y1="132" x2="520" y2="165" class="wire"/>
+  <line x1="520" y1="165" x2="460" y2="165" class="wire"/>
+  <line x1="460" y1="165" x2="460" y2="200" class="wire"/>
+  <line x1="300" y1="200" x2="460" y2="200" class="wire-black"/>
+
+  <!-- Phototransistor symbol inside opto1 -->
+  <!-- Collector -->
+  <line x1="575" y1="108" x2="575" y2="125" stroke="#333" stroke-width="1.5"/>
+  <!-- Emitter with arrow -->
+  <line x1="575" y1="140" x2="575" y2="157" stroke="#333" stroke-width="1.5"/>
+  <polygon points="575,155 570,145 580,145" stroke="#333" stroke-width="1" fill="#333"/>
+  <!-- Base line -->
+  <line x1="565" y1="125" x2="585" y2="125" stroke="#333" stroke-width="1.5"/>
+  <line x1="565" y1="140" x2="585" y2="140" stroke="#333" stroke-width="1.5"/>
+  <line x1="565" y1="125" x2="565" y2="140" stroke="#333" stroke-width="2"/>
+
+  <!-- Isolation line in opto -->
+  <line x1="540" y1="90" x2="540" y2="170" stroke="#999" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- Output wires from opto1 -->
+  <line x1="575" y1="108" x2="575" y2="90" class="wire"/>
+  <line x1="575" y1="90" x2="620" y2="90" class="wire"/>
+  
+  <line x1="575" y1="157" x2="575" y2="165" class="wire"/>
+  <line x1="575" y1="165" x2="620" y2="165" class="wire"/>
+
+  <!-- Labels for output -->
+  <text x="623" y="93" class="label" style="fill:#0066cc;">C (collector)</text>
+  <text x="623" y="168" class="label" style="fill:#0066cc;">E (emitter)</text>
+
+  <!-- Wires to Shelly -->
+  <line x1="620" y1="90" x2="740" y2="90" class="wire-green"/>
+  <line x1="620" y1="165" x2="740" y2="165" class="wire-green"/>
+
+  <!-- ===== OPTO 2 (Closing) ===== -->
+  
+  <!-- R2 resistor (zigzag) - note: current flows other direction -->
+  <path d="M350,340 l10,-8 l10,16 l10,-16 l10,16 l10,-16 l10,16 l10,-8" class="resistor"/>
+  <text x="390" y="328" text-anchor="middle" class="label">R2</text>
+  <text x="390" y="318" text-anchor="middle" class="note">10kΩ</text>
+  
+  <!-- Wire from R2 to Opto2 LED cathode -->
+  <line x1="420" y1="340" x2="460" y2="340" class="wire"/>
+
+  <!-- Opto2 box -->
+  <rect x="460" y="300" width="160" height="100" class="opto-box"/>
+  <text x="540" y="320" text-anchor="middle" class="label">OPTO 2 — PC817</text>
+  <text x="540" y="392" text-anchor="middle" class="signal">→ CLOSING signal</text>
+  
+  <!-- LED symbol inside opto2 (reversed direction) -->
+  <!-- Triangle pointing opposite -->
+  <polygon points="505,340 505,365 480,352" stroke="#333" stroke-width="1.5" fill="#ccccff"/>
+  <!-- Line (cathode) -->
+  <line x1="480" y1="338" x2="480" y2="368" stroke="#333" stroke-width="1.5"/>
+  <!-- Arrows -->
+  <line x1="492" y1="335" x2="500" y2="328" stroke="#333" stroke-width="1"/>
+  <path d="M498,328 l2,0 l0,-2" stroke="#333" stroke-width="1" fill="none"/>
+  <line x1="497" y1="340" x2="505" y2="333" stroke="#333" stroke-width="1"/>
+  <path d="M503,333 l2,0 l0,-2" stroke="#333" stroke-width="1" fill="none"/>
+
+  <!-- Anode of LED2 connects to black wire -->
+  <line x1="505" y1="352" x2="520" y2="352" class="wire"/>
+  <line x1="520" y1="352" x2="520" y2="385" class="wire"/>
+  <line x1="520" y1="385" x2="460" y2="385" class="wire"/>
+  <line x1="460" y1="385" x2="460" y2="420" class="wire"/>
+
+  <!-- Black wire continues down to opto2 -->
+  <line x1="300" y1="200" x2="300" y2="420" class="wire-black"/>
+  <line x1="300" y1="420" x2="460" y2="420" class="wire-black"/>
+  
+  <!-- Junction dot on black wire lower -->
+  <circle cx="300" cy="420" r="4" class="dot"/>
+
+  <!-- Cathode input -->
+  <line x1="460" y1="340" x2="480" y2="352" class="wire"/>
+
+  <!-- Phototransistor symbol inside opto2 -->
+  <line x1="575" y1="328" x2="575" y2="345" stroke="#333" stroke-width="1.5"/>
+  <line x1="575" y1="360" x2="575" y2="377" stroke="#333" stroke-width="1.5"/>
+  <polygon points="575,375 570,365 580,365" stroke="#333" stroke-width="1" fill="#333"/>
+  <line x1="565" y1="345" x2="585" y2="345" stroke="#333" stroke-width="1.5"/>
+  <line x1="565" y1="360" x2="585" y2="360" stroke="#333" stroke-width="1.5"/>
+  <line x1="565" y1="345" x2="565" y2="360" stroke="#333" stroke-width="2"/>
+
+  <!-- Isolation line -->
+  <line x1="540" y1="310" x2="540" y2="390" stroke="#999" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- Output wires from opto2 -->
+  <line x1="575" y1="328" x2="575" y2="310" class="wire"/>
+  <line x1="575" y1="310" x2="620" y2="310" class="wire"/>
+  
+  <line x1="575" y1="377" x2="575" y2="385" class="wire"/>
+  <line x1="575" y1="385" x2="620" y2="385" class="wire"/>
+
+  <text x="623" y="313" class="label" style="fill:#0066cc;">C (collector)</text>
+  <text x="623" y="388" class="label" style="fill:#0066cc;">E (emitter)</text>
+
+  <line x1="620" y1="310" x2="740" y2="310" class="wire-green"/>
+  <line x1="620" y1="385" x2="740" y2="385" class="wire-green"/>
+
+  <!-- ===== SHELLY i4 DC ===== -->
+  <rect x="740" y="55" width="145" height="410" class="shelly-box"/>
+  <text x="812" y="78" text-anchor="middle" class="label" style="fill:#0066cc; font-size:14px;">Shelly Plus</text>
+  <text x="812" y="94" text-anchor="middle" class="label" style="fill:#0066cc; font-size:14px;">i4 DC</text>
+
+  <!-- SW3 input -->
+  <text x="755" y="90" class="label" style="font-size:11px;">SW3</text>
+  <circle cx="748" cy="87" r="4" fill="#0066cc"/>
+  
+  <!-- GND shared for SW3 -->
+  <text x="755" y="168" class="label" style="font-size:11px;">GND</text>
+  <circle cx="748" cy="165" r="4" fill="#0066cc"/>
+
+  <!-- SW4 input -->
+  <text x="755" y="313" class="label" style="font-size:11px;">SW4</text>
+  <circle cx="748" cy="310" r="4" fill="#0066cc"/>
+  
+  <!-- GND shared for SW4 -->
+  <text x="755" y="388" class="label" style="font-size:11px;">GND</text>
+  <circle cx="748" cy="385" r="4" fill="#0066cc"/>
+
+  <!-- SW1 and SW2 labels -->
+  <text x="812" y="440" text-anchor="middle" class="note">SW1 ← Reed CLOSED</text>
+  <text x="812" y="455" text-anchor="middle" class="note">SW2 ← Reed OPEN</text>
+
+  <!-- Legend box -->
+  <rect x="30" y="480" width="855" height="130" rx="6" stroke="#ccc" stroke-width="1" fill="#fafafa"/>
+  <text x="50" y="505" class="label" style="font-size:13px;">How it works:</text>
+  <text x="50" y="525" class="note" style="font-size:11px;">• Motor OPENING (+24V on red): Current flows RED → R1 → Opto1 LED → BLACK. Opto1 transistor conducts → SW3 sees closed contact.</text>
+  <text x="50" y="543" class="note" style="font-size:11px;">• Motor CLOSING (−24V on red): Current flows BLACK → Opto2 LED → R2 → RED. Opto2 transistor conducts → SW4 sees closed contact.</text>
+  <text x="50" y="561" class="note" style="font-size:11px;">• Motor STOPPED (0V): No current through either optocoupler → SW3 and SW4 both open.</text>
+  <text x="50" y="579" class="note" style="font-size:11px;">• Full galvanic isolation — EcoStar and Shelly share NO electrical connection.</text>
+  <text x="50" y="600" class="note" style="font-size:11px;">• Components: 2× PC817 optocoupler, 2× 10kΩ ¼W resistor. Mount on small perfboard inside the box.</text>
+</svg>

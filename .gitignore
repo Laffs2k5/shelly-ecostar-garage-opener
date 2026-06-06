@@ -1,0 +1,26 @@
+# Credentials — never commit these
+*.env
+secrets.*
+
+# Private local-only dir: ALL real keys/certs/creds/network inventory + the
+# NEW-PROJECT-GUIDE live here. Anything under private/ is ignored.
+private/
+
+# Android Studio (app/ added in a later phase)
+app/.gradle/
+app/build/
+app/local.properties
+app/.idea/
+app/*.iml
+app/captures/
+app/.externalNativeBuild/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
