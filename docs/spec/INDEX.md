@@ -11,6 +11,7 @@ mapping is obvious.
 | [03-mqtt-and-monitoring.md](03-mqtt-and-monitoring.md) | MQTT topics, retain rules, monitor-spec adherence |
 | [08-decisions-and-open-questions.md](08-decisions-and-open-questions.md) | Decision log + open questions |
 | [09-phase-plan.md](09-phase-plan.md) | Gated phase plan |
+| [10-i4-device-facts.md](10-i4-device-facts.md) | i4 RPC snapshot: firmware, inputs, capabilities (Phase 1.1) |
 
 Source hardware design: [../initial-research/hardware-spec.md](../initial-research/hardware-spec.md).
 Reference build lessons: `private/NEW-PROJECT-GUIDE.md` (gitignored).

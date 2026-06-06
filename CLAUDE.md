@@ -64,16 +64,20 @@ Keep `mon/#` off the cloud bridge. Set `status_ntf`/`rpc_ntf` = `false` (else fi
 - `JSON.parse()` returns `undefined` on failure (not null, never throws). Don't rely on try/catch.
 - Max ~4–5 timers (consolidate into ONE with counter dispatch); max ~3 concurrent `Shelly.call` (chain
   them). HTTP request size limit ≈ 3072 bytes. Minify before deploying (heap is tiny).
-- **The i4 HAS real Input components** (`input:0..3` with proper events) — unlike the Plug S, so the
-  coffee-timer's "button-toggle flag" workaround does NOT apply here. Verify on firmware.
+- **The i4 HAS real Input components** — confirmed on fw 1.7.5: inputs are type `switch`, status
+  `{id,state:bool}`, emit `input:N` toggle events. Unlike the Plug S, the coffee-timer's
+  "button-toggle flag" workaround does NOT apply here. See `docs/spec/10-i4-device-facts.md`.
 
 ## Development environment
 
-Windows ARM64 + WSL2 (Ubuntu). Same constraints as the reference repo:
+Windows ARM64 + WSL2 (Ubuntu).
 - **APK cannot be built in WSL** (aapt2 is x86_64-only) — build on Windows. **Emulator doesn't work on
   Windows-ARM** — test on a physical device via `adb.exe` (Windows paths, not `/mnt/c/...`).
-- **WSL can't reach the LAN** — drive Shellys from Windows via `pwsh.exe` → `Invoke-RestMethod
-  http://<ip>/rpc`. **RPC result is under `.result`.**
+- **WSL CAN reach the LAN here** (verified 2026-06-07 — `curl http://192.0.2.160/rpc/...` reaches the
+  i4). This **differs from the reference repo's environment**; drive the Shellys directly from WSL with
+  `curl`. Shelly Plus/Gen2 RPC over `GET http://<ip>/rpc/<Method>?<params>` returns the result object
+  **directly** — no `.result` envelope (that wrapper is only for JSON-RPC POSTs to `/rpc`). No
+  `pwsh.exe` detour needed for device control.
 
 ## Credentials & public-repo hygiene
 

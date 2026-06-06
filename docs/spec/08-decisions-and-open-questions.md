@@ -17,12 +17,13 @@
 | D-11 | Remote open/close does **not** require visual confirmation; a camera check is a possible future addition, not a gate | User Q-04 |
 | D-12 | This project's job is to **expose rich door status** (state, duration, time-of-day) on the heartbeat; alerting decisions belong to HA, not us | User Q-05 |
 | D-13 | Repo + working dir renamed to **ecostar** | User Q-07 |
+| D-14 | i4 inputs run as type **`switch`** (level), not `button` — door sensing is level-based; Plug-S button quirk N/A | Confirmed on fw 1.7.5 (spec 10) |
 
 ## Open questions
 
 | # | Question | Notes |
 |---|---|---|
-| Q-01 | i4 firmware version + exact Input component event model? | Confirm `input:0..3` push/toggle semantics on the real device before writing the script |
+| Q-01 | ~~i4 firmware + Input event model~~ | RESOLVED → D-14. fw 1.7.5; inputs type `switch`, `{id,state:bool}`, `input:N` toggle events (spec 10) |
 | Q-02 | Confirm motor-voltage / optocoupler behaviour on the bench | hardware-spec measured ±19–24V; verify SW3/SW4 actually toggle cleanly |
 | Q-03 | ~~Impulse stop/reverse semantics~~ | RESOLVED → D-09. Remaining bench item: the `STOPPED_OPENING`+open / `STOPPED_CLOSING`+close "resume same direction" edge (next start reverses) — confirm pulse count on hardware (spec 02) |
 | Q-04 | ~~Visual confirmation for remote close~~ | RESOLVED → D-11 (not required; possible future) |
@@ -30,6 +31,8 @@
 | Q-06 | S1 static IP reservation (suggest .161) + hostname | Open — not yet on network. Non-blocking: i4 tolerates S1 absence (D-10) |
 | Q-07 | ~~Repo name~~ | RESOLVED → D-13 (renamed to ecostar) |
 | Q-08 | ~~LICENSE choice~~ | RESOLVED: none for now (private repo); revisit if it goes public |
+| Q-09 | Per-input `invert` strategy for NC reeds + disable per-input `factory_reset`? | Inputs ship `invert:false`, `factory_reset:true`. Normalise NC sense + stop a stuck contact from factory-resetting at boot (spec 10) |
+| Q-10 | Keep or disable Shelly Cloud on the devices? | Cloud `enable:true` now; local-broker arch reaches cloud via the broker bridge, so device-cloud may be redundant/extra surface |
 
 ## Flagged design tensions vs. source docs
 
