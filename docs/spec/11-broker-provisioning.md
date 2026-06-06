@@ -23,18 +23,20 @@ needed on the LAN broker** (those are only for the cloud bridge, which is the br
 
 Each device's **CN = its MQTT identity = its `topic_prefix` root**. With CN `<MONITOR_ID>` / `<CONTROLLER_ID>`:
 
+Identities (D-15): i4 = **`garage-monitor`**, S1 = **`garage-controller`**.
+
 | Device | CN / identity | Publishes | Subscribes |
 |---|---|---|---|
-| i4 (monitor) | `<MONITOR_ID>` | `devices/<MONITOR_ID>/heartbeat` (retained door state), `mon/<MONITOR_ID>/alive`, `devices/<MONITOR_ID>/online` (LWT) | — |
-| S1 (controller) | `<CONTROLLER_ID>` | `devices/<CONTROLLER_ID>/heartbeat`, `mon/<CONTROLLER_ID>/alive`, `…/online` | `devices/<CONTROLLER_ID>/command`, `…/config` |
+| i4 (monitor) | `garage-monitor` | `devices/garage-monitor/heartbeat` (retained door state), `mon/garage-monitor/alive`, `devices/garage-monitor/online` (LWT) | — |
+| S1 (controller) | `garage-controller` | `devices/garage-controller/heartbeat`, `mon/garage-controller/alive`, `…/online` | `devices/garage-controller/command`, `…/config` |
 
 **ACL fit:** the default per-CN pattern is **sufficient for both Shellys** — each only touches its own
 `devices/<own-CN>/#` + `mon/<own-CN>/#`. No broad-scope ACL entry needed for them.
 
 - The **i4→S1 link is HTTP-direct** (D-03), not MQTT, so S1 needs no cross-subtree read for normal
-  operation. *(Optional resilience — see Q-11: if we later want S1 to also read the i4's heartbeat as a
-  fallback when an HTTP push is missed, S1's CN would need read on `devices/<MONITOR_ID>/#`, an explicit
-  ACL grant to request.)*
+  operation. *(Optional resilience — see Q-12: if we later want S1 to also read the i4's heartbeat as a
+  fallback when an HTTP push is missed, `garage-controller` would need read on `devices/garage-monitor/#`,
+  an explicit ACL grant to request.)*
 - The **app/web/HA** clients that read both devices + send commands are **separate identities** with
   broad `devices/#` scope (like the broker's existing `oneplus-13`). Those are ordered later (Phase 4 /
   monitor), not now.
