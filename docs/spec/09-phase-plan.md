@@ -12,7 +12,7 @@ gate must pass before the next starts. The **device tier comes first** — app/w
 - [x] `git init`, mirror reference layout (`device/ app/ web/ scripts/ docs/ .github/ private/`)
 - [x] Port `.gitignore`, `.env.example`, `CLAUDE.md`, move lessons guide to `private/`
 - [x] Write decision docs (00–03, 08) + this plan
-- [ ] Create the **private** GitHub remote under Laffs2k5 and push
+- [x] Create the **private** GitHub remote under Laffs2k5 and push
 - [ ] Resolve Q-07 (repo name) — currently `shelly-eurostar-garage-opener`
 
 **Gate:** repo pushed, scaffold in place, architecture decisions written down.
