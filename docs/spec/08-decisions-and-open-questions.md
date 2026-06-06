@@ -33,6 +33,8 @@
 | Q-08 | ~~LICENSE choice~~ | RESOLVED: none for now (private repo); revisit if it goes public |
 | Q-09 | Per-input `invert` strategy for NC reeds + disable per-input `factory_reset`? | Inputs ship `invert:false`, `factory_reset:true`. Normalise NC sense + stop a stuck contact from factory-resetting at boot (spec 10) |
 | Q-10 | Keep or disable Shelly Cloud on the devices? | Cloud `enable:true` now; local-broker arch reaches cloud via the broker bridge, so device-cloud may be redundant/extra surface |
+| Q-11 | MQTT CN/identity convention for the two devices (gates the cert order, spec 11) | Friendly role IDs (`ecostar-monitor`/`-controller`) vs Shelly device IDs. Determines topic roots + what we order |
+| Q-12 | Should S1 also subscribe to the i4 heartbeat over MQTT as a fallback when an HTTP push is missed? | Adds resilience but needs a cross-subtree ACL read grant for S1's CN (spec 11). Default: no |
 
 ## Flagged design tensions vs. source docs
 

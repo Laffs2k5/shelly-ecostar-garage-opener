@@ -28,7 +28,7 @@ gate must pass before the next starts. The **device tier comes first** — app/w
 | 1.1 | ~~Pull i4 device info + Input config via RPC~~ — **DONE** (spec 10) | fw 1.7.5; inputs type `switch`; mTLS + HTTP.* capabilities confirmed |
 | 1.2 | Bench-verify optocoupler SW3/SW4 toggling against motor voltage (Q-02) | Clean OPENING/CLOSING signals observed |
 | 1.3 | Bench-confirm the stop-then-reverse model (D-09) + inter-pulse delay + the STOPPED_* resume edge (Q-03) | Command→pulse table in spec 02 confirmed on hardware; delay value chosen |
-| 1.4 | Capture broker mTLS provisioning steps from `mqtt-leiflan` | Repeatable `Mqtt.SetConfig` recipe per device |
+| 1.4 | ~~Capture broker mTLS provisioning steps~~ — **recipe written** (spec 11) | Recipe done; blocked on Q-11 (CN) + the cert order to maintainers |
 | 1.5 | Reserve S1 static IP + add to network (Q-06) | S1 reachable, recorded in `private/network-inventory.md` |
 
 **Gate:** Q-01..Q-03 answered (or workarounds designed); spec 02 table final; broker recipe written.

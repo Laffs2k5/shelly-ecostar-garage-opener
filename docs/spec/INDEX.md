@@ -12,6 +12,7 @@ mapping is obvious.
 | [08-decisions-and-open-questions.md](08-decisions-and-open-questions.md) | Decision log + open questions |
 | [09-phase-plan.md](09-phase-plan.md) | Gated phase plan |
 | [10-i4-device-facts.md](10-i4-device-facts.md) | i4 RPC snapshot: firmware, inputs, capabilities (Phase 1.1) |
+| [11-broker-provisioning.md](11-broker-provisioning.md) | mTLS onboarding: broker facts, identity→topic map, RPC sequence, the "order" |
 
 Source hardware design: [../initial-research/hardware-spec.md](../initial-research/hardware-spec.md).
 Reference build lessons: `private/NEW-PROJECT-GUIDE.md` (gitignored).
