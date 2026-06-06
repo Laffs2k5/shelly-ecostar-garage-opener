@@ -93,17 +93,45 @@ stateDiagram-v2
 
 ## Controller use of state (on S1)
 
-The EcoStar impulse is a single deterministic cycle (move → stop → reverse → stop → …). A pulse at the
-wrong moment stops the door. So S1 maps a command + current door state to "pulse or not":
+### Impulse model (confirmed — D-09)
 
-| Command | Door state | Action |
-|---|---|---|
-| open | CLOSED, STOPPED_CLOSING | pulse |
-| open | OPENING, OPEN | **suppress** (already going / there) |
-| open | CLOSING | pulse? → needs care: a pulse stops it, not reverse. See open question Q-03. |
-| close | OPEN, STOPPED_OPENING | pulse (gated on close-confirmation policy, spec 08) |
-| close | CLOSING, CLOSED | **suppress** |
+The EcoStar has no "open"/"close" notion. Each impulse just advances a fixed cycle:
 
-The CLOSING-then-open and edge "stop then reverse needs two pulses" cases are flagged as open
-questions in [08-decisions-and-open-questions.md](08-decisions-and-open-questions.md) (Q-03) — to be
-nailed down on the bench, since they depend on the EcoStar's exact impulse semantics.
+```
+… MOVING(dir) ──[pulse]──► STOPPED ──[pulse]──► MOVING(opposite dir) ──[pulse]──► STOPPED …
+```
+
+- **One pulse to a moving door = STOP** it ("stop what you're doing").
+- **One pulse to a stopped door = START in the *opposite* direction to its last movement** ("reverse").
+- The unit **alternates direction on each start**, so reversing a moving door takes **two pulses**
+  (stop, then reverse) with a **deliberate delay between them** — the unit must register them as
+  distinct presses. Tune the delay on the bench (Phase 1.3).
+
+So S1 maps `command + current door state` to a pulse sequence:
+
+| Command | Door state | Pulse sequence | Result |
+|---|---|---|---|
+| open | CLOSED | 1 pulse | OPENING |
+| open | STOPPED_CLOSING | 1 pulse | OPENING (reverse of last move) |
+| open | CLOSING | pulse · **delay** · pulse | stop → OPENING |
+| open | OPENING, OPEN | none — **suppress** | already going / there |
+| open | STOPPED_OPENING | **bench-TBD** | next start reverses to CLOSING; "resume opening" isn't a single pulse — see note |
+| close | OPEN | 1 pulse | CLOSING |
+| close | STOPPED_OPENING | 1 pulse | CLOSING (reverse of last move) |
+| close | OPENING | pulse · **delay** · pulse | stop → CLOSING |
+| close | CLOSING, CLOSED | none — **suppress** | already going / there |
+| close | STOPPED_CLOSING | **bench-TBD** | next start reverses to OPENING; "resume closing" isn't a single pulse — see note |
+
+### Multi-pulse execution
+
+For the two-pulse cases, the robust pattern is **closed-loop**: pulse → wait for the i4 to report the
+intermediate `STOPPED_*` state → pulse again. Because the i4 may be offline (D-10), S1 also needs a
+**timed-delay fallback** (blind second pulse after the bench-tuned delay). Decide the primary path in
+Phase 3; both are bounded by the same minimum inter-pulse delay.
+
+### Remaining edge (bench item, Q-03)
+
+The `STOPPED_OPENING` + `open` and `STOPPED_CLOSING` + `close` "resume the same direction" cases are
+awkward: the unit's next start always *reverses*, so resuming the same direction isn't a single pulse.
+Confirm the exact pulse count/behaviour on hardware before encoding it — most real UX here is "press
+again," and the user rarely commands the direction the door was already heading when it stopped.

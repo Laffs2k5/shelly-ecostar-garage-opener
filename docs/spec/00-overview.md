@@ -15,7 +15,8 @@ Shelly devices, with full galvanic isolation from the opener electronics.
 
 ## Out of scope / deferred
 
-- Unattended remote **close** — gated on a visual-confirmation design (see [08](08-decisions-and-open-questions.md)).
+- Visual confirmation (camera) before remote close — a possible future addition, **not** required for
+  remote operation (D-11).
 - Obstruction / safety sensing beyond what the EcoStar already enforces.
 - Android app & web client — later phases (the device tier comes first).
 

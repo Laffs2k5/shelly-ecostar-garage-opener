@@ -55,7 +55,9 @@ graph LR
    i4→S1 HTTP path works on the LAN with the broker/Pi down. MQTT is an overlay for remote clients +
    monitoring, not a dependency of the door working.
 2. **i4→S1 is HTTP-direct** for latency and independence; MQTT is *additional*, not the link between
-   the two devices.
+   the two devices. The POST is **fire-and-forget with a short timeout** — if S1 is down/unreachable the
+   i4 logs it and carries on (still publishing to MQTT). The i4 must **never block or wedge** on a failed
+   POST (D-10).
 3. **Why state lives on the i4, not S1** (differs from the original hardware-spec, which put the state
    machine on S1): the i4 is the only device wired to the sensors, so it has first-hand truth and can
    derive + broadcast state without a round-trip. S1 consumes that picture to make command decisions.
@@ -68,5 +70,5 @@ graph LR
 | Broker / Pi down | Yes (button, RF, local HTTP, i4→S1 HTTP) | Local only; MQTT subscribers stale |
 | WiFi down | Yes (button, RF) | No smart control until WiFi returns |
 | i4 down | Yes (button, RF, direct command to S1) | No derived state; S1 should treat state as UNKNOWN |
-| S1 down | Yes (button, RF) | i4 still publishes state to MQTT |
+| S1 down / unreachable | Yes (button, RF) | i4 **never blocks** on the failed POST — still publishes state to MQTT and carries on (D-10) |
 | Mains power loss | Yes once restored | Boot to safe state; resume only on `reset_reason == 3` |

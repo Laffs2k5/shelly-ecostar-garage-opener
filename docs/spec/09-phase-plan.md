@@ -27,7 +27,7 @@ gate must pass before the next starts. The **device tier comes first** — app/w
 |---|---|---|
 | 1.1 | Pull i4 device info + Input config via RPC (`Shelly.GetDeviceInfo`, `Input.GetConfig`) (Q-01) | Firmware + input event model known |
 | 1.2 | Bench-verify optocoupler SW3/SW4 toggling against motor voltage (Q-02) | Clean OPENING/CLOSING signals observed |
-| 1.3 | Bench-verify EcoStar impulse semantics mid-travel (Q-03) | Command→pulse table in spec 02 finalised |
+| 1.3 | Bench-confirm the stop-then-reverse model (D-09) + inter-pulse delay + the STOPPED_* resume edge (Q-03) | Command→pulse table in spec 02 confirmed on hardware; delay value chosen |
 | 1.4 | Capture broker mTLS provisioning steps from `mqtt-leiflan` | Repeatable `Mqtt.SetConfig` recipe per device |
 | 1.5 | Reserve S1 static IP + add to network (Q-06) | S1 reachable, recorded in `private/network-inventory.md` |
 
@@ -66,7 +66,7 @@ works with broker down; 24h+ stable.
 ## Phase 4 — Clients (app + web)
 
 Android app (Kotlin/Compose, Paho) + HTML fallback. Two-device aware. Reuse reference patterns.
-**Remote close stays disabled until Q-04 (visual confirmation) is designed.**
+Remote open **and** close are supported — no visual-confirmation gate (D-11).
 
 ## Phase 5 — Testing & quality
 

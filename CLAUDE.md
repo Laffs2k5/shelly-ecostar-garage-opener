@@ -14,14 +14,16 @@ Two devices, two roles (see `docs/spec/01-architecture.md`):
 - **Shelly Plus i4 DC — MONITORING unit.** Owns door-state derivation from 4 dry-contact inputs (2 reed
   switches + 2 optocoupler motor-direction signals). On every state change it (a) publishes to MQTT so
   any subscriber can follow the door, and (b) HTTP-POSTs the state directly to the controller for
-  lowest latency.
+  lowest latency. If the controller is unreachable the i4 just keeps publishing to MQTT — the POST is
+  fire-and-forget and **never blocks** (D-10).
 - **Shelly 1 Gen3 — CONTROLLING unit.** Receives open/close/toggle commands from the outside world,
   holds the latest door picture (from the i4), and pulses the EcoStar impulse input (terminals 1+2) —
   but *suppresses counterproductive pulses* (e.g. won't pulse while already OPENING, which would stop
   the door).
 
 **Safety-first.** The door is a security device. Core control (physical button, RF remotes) never
-depends on WiFi/MQTT. No unattended remote *close* until visual confirmation is designed (spec 08).
+depends on WiFi/MQTT. Remote open/close does **not** require visual confirmation (D-11); a camera check
+is a possible future addition, not a gate.
 Carry the coffee-timer boot-to-safe pattern: resume persisted state only on a software/watchdog reboot
 (`reset_reason == 3`), never on mains power loss.
 
