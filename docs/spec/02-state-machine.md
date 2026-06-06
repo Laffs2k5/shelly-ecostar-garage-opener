@@ -40,6 +40,32 @@ NC reeds are fail-safe: a broken wire reads "not in position" rather than a fals
 5. **Manual (cord-pull) moves** produce no motor signal; reeds still catch end positions. Mid-travel
    by hand is invisible — accepted edge case.
 
+## Signal overlap & transients (nuance)
+
+Inputs are **not** mutually exclusive instantaneously — expect transient windows where two signals are
+active at once:
+
+- **Reed-then-motor-coast:** as the door reaches an end position the reed (SW1/SW2) triggers, but the
+  EcoStar may drive the motor a little longer before disengaging — so SW4 (CLOSING) can still be active
+  for a short window *after* SW1 (CLOSED) goes active. Symmetrically for SW2/SW3 at the open end.
+- **Motor spin-down / contact bounce:** SW3/SW4 may flicker briefly as the H-bridge relays release,
+  and reed contacts can bounce.
+
+**This does not change the states** — Rule 1 (reeds win) already resolves the meaningful overlap: the
+moment SW1 is active the door **is** `CLOSED` regardless of a lingering SW4, and likewise SW2 ⇒ `OPEN`
+over a lingering SW3. The point is an **implementation** one, called out so the i4 script handles it
+deliberately rather than glitching through a spurious state:
+
+- Evaluate state from the **full input snapshot** with reed precedence, not from "whichever edge fired
+  last" — otherwise a CLOSED→(SW4 still on) read could momentarily emit `CLOSING` right after arrival.
+- **Debounce** reed and optocoupler edges (short settle, e.g. tens of ms — tune on the Pico rig), and
+  prefer a brief settle before publishing a state change, so coast/bounce doesn't produce a flurry of
+  MQTT/HTTP updates.
+- The Pico rig (Phase 2) should **replay these overlaps on purpose** (reed asserts while motor signal is
+  still on; motor flicker on release) as test cases.
+
+(Tracked as a Phase-2 implementation detail; see Q-02 in [08-decisions-and-open-questions.md](08-decisions-and-open-questions.md).)
+
 ## Transitions
 
 ```mermaid
