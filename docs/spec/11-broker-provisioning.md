@@ -86,7 +86,26 @@ its identity is fixed (Q-06). Exact order text lives with the project owner to r
 | Device | CN | Date | Result |
 |---|---|---|---|
 | i4 (monitor) | `garage-monitor` | 2026-06-07 | **DONE** — certs uploaded (CA 668 / crt 725 / key 241 B), `Mqtt.SetConfig` applied, `Mqtt.GetStatus → connected:true` ~6 s after reboot |
-| S1 (controller) | `garage-controller` | — | pending device on network (Q-06) |
+| S1 (controller) | `garage-controller` | — | **cert ordered ahead**; upload when device is on network (Q-06). Default per-CN ACL |
+| dev tooling | `garage-devtool` | — | **ordered**; WSL-side observe/inject for testing. Needs an **explicit least-privilege ACL** (not the default per-CN) — see below |
+
+### Dev tooling identity (`garage-devtool`)
+
+A separate mTLS identity so we can `mosquitto_sub`/`pub` from WSL to **verify the heartbeat/alive
+end-to-end** and **inject test commands/configs** to the controller — without reusing a device CN
+(which would clash with the live device). It needs broader-than-default scope, so the maintainer must
+add an explicit ACL block (the default `pattern …/%u/#` only grants it `devices/garage-devtool/#`):
+
+```
+user garage-devtool
+topic readwrite devices/garage-monitor/#
+topic readwrite devices/garage-controller/#
+topic read      mon/garage-monitor/#
+topic read      mon/garage-controller/#
+```
+
+Least-privilege: limited to *our* two devices' subtrees (read their state, write the controller's
+command/config for tests), read-only on their `mon/` liveness. Then redeploy the broker to load the ACL.
 
 Notes from the i4 provisioning:
 
