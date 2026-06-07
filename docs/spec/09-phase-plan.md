@@ -47,15 +47,14 @@ gate must pass before the next starts. The **device tier comes first** — app/w
 - [x] Node test harness (`device/test/`, 15 tests) mocking the Shelly runtime — `scripts/test-device.sh`.
 - [x] **Deployed + running on the live i4** ([scripts/deploy-device.sh](../../scripts/deploy-device.sh)):
   `running:true`, `/state` returns `UNKNOWN` (unwired inputs float released). 2026-06-07.
-- [~] **Opto interface board** per spec 12 — **ch1 (SW1) wired + verified** with **10 kΩ** (3/3 clean,
-  → `CLOSED`); 10 kΩ confirmed for all channels. Remaining: wire ch2–4 (SW2/SW3/SW4), then run the full
-  door-scenario matrix.
+- [x] **Opto interface board** (4× PS2501, 10 kΩ) built + verified — all 4 channels map correctly
+  (no swaps/cross-talk); **full door-scenario matrix 13/13 PASS** on real hardware (cycle, both STOPPED
+  states, stop-then-reverse, reed-coast overlap). 2026-06-07.
 - [x] MQTT end-to-end confirmed via `garage-devtool` ([scripts/mqtt-sub.sh](../../scripts/mqtt-sub.sh)):
-  observed the retained heartbeat + `online` LWT. (Fresh heartbeat + `mon/alive` to re-check with the
-  board powered + driven.)
+  fresh heartbeats tracked every state change (all 6 transitional states) + `mon/alive` observed live.
 
-**Gate:** all door scenarios on the Pico rig produce correct state; Node tests pass; `mon/alive` +
-retained heartbeat observed on the broker.
+**Gate: PASSED** — all door scenarios produce correct state on the rig; Node tests pass (15);
+heartbeat + `mon/alive` observed on the broker.
 
 ---
 
