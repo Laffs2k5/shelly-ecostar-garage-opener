@@ -68,6 +68,13 @@ Keep `mon/#` off the cloud bridge. Set `status_ntf`/`rpc_ntf` = `false` (else fi
   `{id,state:bool}`, emit `input:N` toggle events. Unlike the Plug S, the coffee-timer's
   "button-toggle flag" workaround does NOT apply here. See `docs/spec/10-i4-device-facts.md`.
 
+## Device dev loop (i4 monitor)
+
+`scripts/test-device.sh` (Node mock-harness, no hardware) → `scripts/build-device.sh` (minify
+`device/monitor.js` → `.min.js`) → `scripts/deploy-device.sh monitor` (chunked `Script.PutCode` over
+RPC). Observe with `scripts/i4-watch.sh` (raw inputs), `curl http://<i4>/script/<id>/state` (derived
+state), and the Pico rig `scripts/pico.sh` (drive inputs). See spec 12.
+
 ## Development environment
 
 Windows ARM64 + WSL2 (Ubuntu).

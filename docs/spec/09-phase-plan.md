@@ -42,10 +42,14 @@ gate must pass before the next starts. The **device tier comes first** — app/w
 - [x] **Simulator contract + control path** — Pico MicroPython sim ([device/test-rig/main.py](../../device/test-rig/main.py))
   driving 4 channels (SW1–SW4), controlled from WSL via [scripts/pico.sh](../../scripts/pico.sh);
   observe with [scripts/i4-watch.sh](../../scripts/i4-watch.sh). Design: spec 12. (Established 2026-06-07.)
-- [ ] **Build the opto interface board** (4× PS2501, ~470 Ω) per spec 12 and bring up the physical path:
-  `pico.sh closing` → `i4-watch.sh` shows `SW4=1`. *(user — needs ~470 Ω resistors, see spec 12)*
-- [ ] Build `device/monitor.js` (the i4 script): derive state → HTTP POST to S1 + MQTT publish + `mon/alive`.
-- [ ] Node test harness (`device/test/`) mocking the Shelly runtime for the pure state-derivation logic.
+- [x] Build `device/monitor.js` (i4 script): derive state → MQTT heartbeat + `mon/alive` + HTTP POST to
+  S1 (fire-and-forget) + `/state` HTTP endpoint. Built/minified ([scripts/build-device.sh](../../scripts/build-device.sh)).
+- [x] Node test harness (`device/test/`, 15 tests) mocking the Shelly runtime — `scripts/test-device.sh`.
+- [x] **Deployed + running on the live i4** ([scripts/deploy-device.sh](../../scripts/deploy-device.sh)):
+  `running:true`, `/state` returns `UNKNOWN` (unwired inputs float released). 2026-06-07.
+- [ ] **Build the opto interface board** (4× PS2501, ~470 Ω) per spec 12, then verify live transitions:
+  `pico.sh closing` → `/state` shows `CLOSING` & `i4-watch.sh` shows `SW4=1`. *(user — needs ~470 Ω)*
+- [ ] Subscribe to `devices/garage-monitor/heartbeat` to confirm MQTT end-to-end (needs a tooling cert).
 
 **Gate:** all door scenarios on the Pico rig produce correct state; Node tests pass; `mon/alive` +
 retained heartbeat observed on the broker.

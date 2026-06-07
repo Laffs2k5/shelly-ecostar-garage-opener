@@ -1,0 +1,142 @@
+// Tests for the i4 monitor script. Run: scripts/test-device.sh  (or: node --test device/test/)
+const { test } = require("node:test");
+const assert = require("node:assert");
+const { createHarness } = require("./harness");
+
+// ---------- pure derivation (spec 02) ----------
+test("derive: reeds win and map to end states", function () {
+  const { derive } = createHarness();
+  assert.equal(derive(true, false, false, false, "").state, "CLOSED");
+  assert.equal(derive(false, true, false, false, "").state, "OPEN");
+  // reed beats a lingering motor signal (coast overlap, spec 02)
+  assert.equal(derive(true, false, false, true, "closing").state, "CLOSED");
+  assert.equal(derive(false, true, true, false, "opening").state, "OPEN");
+});
+
+test("derive: motor signals map to moving states and set direction", function () {
+  const { derive } = createHarness();
+  let d = derive(false, false, true, false, "");
+  assert.equal(d.state, "OPENING"); assert.equal(d.dir, "opening");
+  d = derive(false, false, false, true, "");
+  assert.equal(d.state, "CLOSING"); assert.equal(d.dir, "closing");
+});
+
+test("derive: mid-travel stop uses last direction", function () {
+  const { derive } = createHarness();
+  assert.equal(derive(false, false, false, false, "opening").state, "STOPPED_OPENING");
+  assert.equal(derive(false, false, false, false, "closing").state, "STOPPED_CLOSING");
+  assert.equal(derive(false, false, false, false, "").state, "UNKNOWN"); // bootstrap, never moved
+});
+
+test("derive: impossible combinations are faults -> UNKNOWN", function () {
+  const { derive } = createHarness();
+  assert.equal(derive(true, true, false, false, "").state, "UNKNOWN");   // both reeds
+  assert.equal(derive(false, false, true, true, "").state, "UNKNOWN");   // both motor dirs
+});
+
+// ---------- boot behaviour ----------
+test("boot: no inputs -> UNKNOWN, publishes a retained heartbeat + an alive", function () {
+  const h = createHarness();
+  assert.equal(h.state(), "UNKNOWN");
+  const hb = h.heartbeats()[0];
+  assert.equal(hb.retain, true, "heartbeat must be retained");
+  assert.equal(hb.topic, "devices/garage-monitor/heartbeat");
+  assert.equal(h.alives().length, 1);
+  assert.equal(h.alives()[0].retain, false, "alive must NOT be retained");
+  assert.equal(h.alives()[0].topic, "mon/garage-monitor/alive");
+});
+
+test("boot: door already closed -> initial state CLOSED", function () {
+  const h = createHarness({ inputs: { c: true } });
+  assert.equal(h.state(), "CLOSED");
+});
+
+// ---------- live transitions through the tick loop ----------
+test("full cycle: CLOSED -> OPENING -> OPEN -> CLOSING -> CLOSED", function () {
+  const h = createHarness({ inputs: { c: true } });
+  assert.equal(h.state(), "CLOSED");
+  h.setInputs(false, false, true, false); h.settle();   // motor opening
+  assert.equal(h.state(), "OPENING");
+  h.setInputs(false, true, false, false); h.settle();   // open reed
+  assert.equal(h.state(), "OPEN");
+  h.setInputs(false, false, false, true); h.settle();   // motor closing
+  assert.equal(h.state(), "CLOSING");
+  h.setInputs(true, false, false, false); h.settle();   // closed reed
+  assert.equal(h.state(), "CLOSED");
+});
+
+test("stop mid-travel yields direction-aware STOPPED state, then reverse", function () {
+  const h = createHarness({ inputs: { c: true } });
+  h.setInputs(false, false, false, true); h.settle();   // CLOSING
+  assert.equal(h.state(), "CLOSING");
+  h.setInputs(false, false, false, false); h.settle();  // motor stops, no reed
+  assert.equal(h.state(), "STOPPED_CLOSING");
+  h.setInputs(false, false, true, false); h.settle();   // 2nd pulse reverses -> opening
+  assert.equal(h.state(), "OPENING");
+});
+
+test("debounce: a sub-threshold transient does not change state", function () {
+  const h = createHarness({ inputs: { c: true } });
+  assert.equal(h.state(), "CLOSED");
+  const before = h.heartbeats().length;
+  // single-tick blip to OPENING then immediately back to CLOSED -> never stable -> ignored
+  h.setInputs(false, false, true, false); h.tick(1);
+  h.setInputs(true, false, false, false); h.tick(1);
+  assert.equal(h.state(), "CLOSED");
+  assert.equal(h.heartbeats().length, before, "no new heartbeat for a filtered transient");
+});
+
+test("reed-then-motor-coast overlap settles to the end state without a glitch", function () {
+  const h = createHarness({ inputs: { c: false, o: false, op: false, cl: true } });
+  h.settle();
+  assert.equal(h.state(), "CLOSING");
+  // closed reed engages while motor still coasting (both c and cl true) -> reed wins -> CLOSED
+  h.setInputs(true, false, false, true); h.settle();
+  assert.equal(h.state(), "CLOSED");
+  // motor releases; still CLOSED, no spurious transition
+  const n = h.heartbeats().length;
+  h.setInputs(true, false, false, false); h.settle();
+  assert.equal(h.state(), "CLOSED");
+  assert.equal(h.heartbeats().length, n, "no extra heartbeat when only the coasting motor drops");
+});
+
+// ---------- outputs: HTTP POST to controller (D-10) ----------
+test("controller POST: skipped when no controller_url is set", function () {
+  const h = createHarness({ inputs: { c: true } });
+  h.setInputs(false, false, true, false); h.settle();
+  assert.equal(h.posts.length, 0, "must not POST when S1 is unconfigured");
+});
+
+test("controller POST: fires on state change when controller_url is set", function () {
+  const h = createHarness({ inputs: { c: true }, controllerUrl: "http://10.0.0.5/script/1/door_state" });
+  h.setInputs(false, false, true, false); h.settle();
+  assert.equal(h.posts.length, 1);
+  assert.equal(h.posts[0].url, "http://10.0.0.5/script/1/door_state");
+  assert.equal(JSON.parse(h.posts[0].body).state, "OPENING");
+});
+
+// ---------- outputs: MQTT skipped when disconnected (never blocks) ----------
+test("MQTT disconnected: no publishes, but derivation/endpoint still work", function () {
+  const h = createHarness({ inputs: { c: true }, mqttConnected: false });
+  h.setInputs(false, false, true, false); h.settle();
+  assert.equal(h.published.length, 0, "nothing published while MQTT down");
+  assert.equal(h.endpointState().state, "OPENING", "state still derived + exposed via HTTP");
+});
+
+// ---------- HTTP /state endpoint ----------
+test("/state endpoint returns the current door picture", function () {
+  const h = createHarness({ inputs: { o: true } });
+  const s = h.endpointState();
+  assert.equal(s.state, "OPEN");
+  assert.equal(s.inputs.o, true);
+  assert.equal(s.v, 1);
+});
+
+// ---------- heartbeat payload shape (spec 03 / D-12) ----------
+test("heartbeat carries state, dir, inputs, since and ts for HA", function () {
+  const h = createHarness({ inputs: { c: true } });
+  const hb = h.lastHeartbeat();
+  for (const k of ["state", "dir", "inputs", "since", "ts", "v"]) {
+    assert.ok(Object.prototype.hasOwnProperty.call(hb, k), "missing heartbeat field: " + k);
+  }
+});
