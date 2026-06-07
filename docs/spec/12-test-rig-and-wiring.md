@@ -106,6 +106,23 @@ graph TD
 
 Motor-sense opto LED side (across the motor leads, via 10 kΩ) is per `hardware-spec.md §3.3` — unchanged.
 
+## Optocoupler reuse: 2 permanent + 2 test-only
+
+The final install uses **only 2 optos** (SW3/SW4 motor-sense); SW1/SW2 are mechanical reed switches.
+So the rig splits into a permanent pair and a throwaway pair:
+
+| Channel | Rig element | Permanent? | LED driven by (test → final) |
+|---------|-------------|------------|------------------------------|
+| SW3 (GP4) | PS2501 #3 — **motor-sense** | **Yes** (solder to perfboard) | Pico GP4 → 10 kΩ → LED → Pico GND  →  **motor leads (anti-parallel, 10 kΩ)** |
+| SW4 (GP5) | PS2501 #4 — **motor-sense** | **Yes** (solder to perfboard) | Pico GP5 → 10 kΩ → LED → Pico GND  →  **motor leads (anti-parallel, 10 kΩ)** |
+| SW1 (GP2) | PS2501 #1 — **reed sim** | No (breadboard, test-only) | Pico GP2 → 10 kΩ → LED → Pico GND  →  **removed; real reed wires SW1↔⏚** |
+| SW2 (GP3) | PS2501 #2 — **reed sim** | No (breadboard, test-only) | Pico GP3 → 10 kΩ → LED → Pico GND  →  **removed; real reed wires SW2↔⏚** |
+
+Key point: for the 2 permanent optos, only the **LED (input) side** is rewired at final install
+(Pico → motor leads). The **transistor side to the i4 (`collector→SWn`, `emitter→⏚`) never changes** —
+the soldered board you bench-test *is* the final motor-sense board. The 2 reed-sim optos come out and
+the real reed switches take over. (D-18.)
+
 ## The closed test loop (no human in the loop)
 
 1. **Deploy** the mJS to the i4 over RPC (chunked `Script.PutCode`) from WSL.
