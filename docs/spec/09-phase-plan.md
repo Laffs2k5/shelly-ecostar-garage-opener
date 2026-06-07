@@ -39,11 +39,13 @@ gate must pass before the next starts. The **device tier comes first** — app/w
 
 **Goal:** develop the door-state derivation with **no wiring to the actual EcoStar**.
 
-- Define the **simulator contract**: the Pico drives the 4 dry-contact lines (SW1–SW4) to replay every
-  door scenario (close→open, open→close, stop-mid, safety reversal, manual move), and can watch for the
-  S1 relay pulse. This is the physical-layer analogue of the reference repo's Node mock harness.
-- Build `device/monitor.js` (the i4 script): derive state → HTTP POST to S1 + MQTT publish + `mon/alive`.
-- Node test harness (`device/test/`) mocking the Shelly runtime for the pure state-derivation logic.
+- [x] **Simulator contract + control path** — Pico MicroPython sim ([device/test-rig/main.py](../../device/test-rig/main.py))
+  driving 4 channels (SW1–SW4), controlled from WSL via [scripts/pico.sh](../../scripts/pico.sh);
+  observe with [scripts/i4-watch.sh](../../scripts/i4-watch.sh). Design: spec 12. (Established 2026-06-07.)
+- [ ] **Build the opto interface board** (4× PS2501, ~470 Ω) per spec 12 and bring up the physical path:
+  `pico.sh closing` → `i4-watch.sh` shows `SW4=1`. *(user — needs ~470 Ω resistors, see spec 12)*
+- [ ] Build `device/monitor.js` (the i4 script): derive state → HTTP POST to S1 + MQTT publish + `mon/alive`.
+- [ ] Node test harness (`device/test/`) mocking the Shelly runtime for the pure state-derivation logic.
 
 **Gate:** all door scenarios on the Pico rig produce correct state; Node tests pass; `mon/alive` +
 retained heartbeat observed on the broker.

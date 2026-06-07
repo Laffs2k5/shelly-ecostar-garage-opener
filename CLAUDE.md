@@ -78,6 +78,9 @@ Windows ARM64 + WSL2 (Ubuntu).
   `curl`. Shelly Plus/Gen2 RPC over `GET http://<ip>/rpc/<Method>?<params>` returns the result object
   **directly** — no `.result` envelope (that wrapper is only for JSON-RPC POSTs to `/rpc`). No
   `pwsh.exe` detour needed for device control.
+- **Test-rig Pico** (RP2040, MicroPython) is USB-attached to **Windows** as **COM5** — WSL can't see it
+  directly (no usbipd). Drive it from WSL via `powershell.exe` → Windows `python -m mpremote`. State
+  persists across calls only with `mpremote resume`. Wrapped in `scripts/pico.sh`; see spec 12.
 
 ## Credentials & public-repo hygiene
 
