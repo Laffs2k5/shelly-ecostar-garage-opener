@@ -80,3 +80,25 @@ For **each** device we onboard:
 
 **Order now:** the **i4** (it's on the network). **Order later:** the **S1** once it's on the network and
 its identity is fixed (Q-06). Exact order text lives with the project owner to relay.
+
+## Provisioning record
+
+| Device | CN | Date | Result |
+|---|---|---|---|
+| i4 (monitor) | `garage-monitor` | 2026-06-07 | **DONE** — certs uploaded (CA 668 / crt 725 / key 241 B), `Mqtt.SetConfig` applied, `Mqtt.GetStatus → connected:true` ~6 s after reboot |
+| S1 (controller) | `garage-controller` | — | pending device on network (Q-06) |
+
+Notes from the i4 provisioning:
+
+- Cert material (ECDSA P-256, CN `garage-monitor`, EKU clientAuth, valid 2026-06-07 → 2028-06-06)
+  verified locally before upload: chain OK against `ca.crt`, cert↔key pubkey match. Kept in `private/`
+  (gitignored) for re-provisioning after any factory reset; the broker can re-issue anytime.
+- Cert upload **persists across a mains power cycle** (proven: connect succeeded after a `reset_reason 1`
+  boot, then a `reset_reason 3` software reboot). There is no `GetUserCA` read-back — a successful mTLS
+  connect is the verification.
+- **`reset_reason` confirmed on this hardware:** `1` = mains power-on, `3` = software reboot — the gate
+  the boot-to-safe / watchdog-resume pattern depends on.
+- At this phase there is **no device script yet**, so the only broker traffic is the firmware's retained
+  `devices/garage-monitor/online` LWT. Heartbeat + `mon/garage-monitor/alive` arrive with the Phase 2
+  script. (Don't subscribe from tooling using the `garage-monitor` identity — it would clash with the
+  live device; use a separate tooling CN if broker-side inspection is needed.)
