@@ -77,15 +77,11 @@ terminal (the two ⏚ are both `−`). **Do not** connect Pico GND to i4 `−` (
 
 ### Resistor value — what to use with the on-hand parts (3× 330 Ω + many 10 kΩ)
 
-The i4 input is high-impedance, so the opto only needs to sink a tiny current to pull `SWn` low — a
-**10 kΩ** LED resistor (≈0.2 mA) *may well be enough*, which would let us use 10 kΩ on all four and keep
-the 330 Ω as spares. It's uncertain (depends on the i4 input's pull-up strength), so:
-
-1. **Wire channel 1 with a single 10 kΩ first** and test (`pico.sh set 1 1` → `i4-watch.sh` shows
-   `SW1=1`). If it asserts cleanly → **use 10 kΩ for all 4 channels** (plenty on hand).
-2. If 10 kΩ is too weak → use the **3× 330 Ω** for channels 1–3, and for channel 4 either parallel
-   ~3–5× 10 kΩ (~2–3 kΩ, ≈1 mA) or grab one more low-value resistor. 330 Ω ≈ 6 mA is the comfortable
-   nominal.
+**CONFIRMED on hardware (2026-06-07): use 10 kΩ on all 4 channels.** The i4 input is high-impedance, so
+the ~0.2 mA from a 10 kΩ LED resistor is plenty. Bench test on SW1: Pico ch1 asserted → `SW1 = true` →
+script derived `CLOSED`; released → `false`; **3/3 assert/release cycles clean**, no marginal behaviour.
+The 3× 330 Ω stay as spares. *(If a future opto ever proves weak, 330 Ω ≈ 6 mA is the comfortable
+fallback.)*
 
 *(Alternative rig: a 4-channel relay module, each NO contact across `SWn↔−` — zero resistor math, also
 isolated, but mechanical/slow; fine for reeds, marginal for fast motor transients given our debounce.)*

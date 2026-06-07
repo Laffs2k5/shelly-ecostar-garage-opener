@@ -47,9 +47,12 @@ gate must pass before the next starts. The **device tier comes first** — app/w
 - [x] Node test harness (`device/test/`, 15 tests) mocking the Shelly runtime — `scripts/test-device.sh`.
 - [x] **Deployed + running on the live i4** ([scripts/deploy-device.sh](../../scripts/deploy-device.sh)):
   `running:true`, `/state` returns `UNKNOWN` (unwired inputs float released). 2026-06-07.
-- [ ] **Build the opto interface board** (4× PS2501, ~470 Ω) per spec 12, then verify live transitions:
-  `pico.sh closing` → `/state` shows `CLOSING` & `i4-watch.sh` shows `SW4=1`. *(user — needs ~470 Ω)*
-- [ ] Subscribe to `devices/garage-monitor/heartbeat` to confirm MQTT end-to-end (needs a tooling cert).
+- [~] **Opto interface board** per spec 12 — **ch1 (SW1) wired + verified** with **10 kΩ** (3/3 clean,
+  → `CLOSED`); 10 kΩ confirmed for all channels. Remaining: wire ch2–4 (SW2/SW3/SW4), then run the full
+  door-scenario matrix.
+- [x] MQTT end-to-end confirmed via `garage-devtool` ([scripts/mqtt-sub.sh](../../scripts/mqtt-sub.sh)):
+  observed the retained heartbeat + `online` LWT. (Fresh heartbeat + `mon/alive` to re-check with the
+  board powered + driven.)
 
 **Gate:** all door scenarios on the Pico rig produce correct state; Node tests pass; `mon/alive` +
 retained heartbeat observed on the broker.
