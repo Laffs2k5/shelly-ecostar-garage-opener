@@ -43,9 +43,12 @@ The Pico's USB is on the **Windows** side; we drive it from WSL via `powershell.
 Uses the on-hand **PS2501** optos (BOM has 10). Galvanically isolated; the Pico and i4 share **no**
 ground. Repeat for channels 1–4 (GP2→SW1, GP3→SW2, GP4→SW3, GP5→SW4).
 
+**Proper schematic:** [test-rig-schematic.svg](test-rig-schematic.svg) (one-channel detail + 4-channel
+map). Logical view:
+
 ```mermaid
 graph LR
-    GP["Pico GPn<br/>(3.3 V out)"] -->|"R ≈ 470 Ω"| A["PS2501 LED anode (1)"]
+    GP["Pico GPn<br/>(3.3 V out)"] -->|"R (see below)"| A["PS2501 LED anode (1)"]
     A --> K["PS2501 LED cathode (2)"]
     K --> PGND["Pico GND"]
     C["PS2501 transistor C (4)"] --> SWn["i4 SWn"]
@@ -53,15 +56,39 @@ graph LR
     A -. "opto isolation" .-> C
 ```
 
-- **Pico side:** `GPn → R → LED(1)`, `LED(2) → Pico GND`. With 3.3 V and ~470 Ω, LED current ≈ 4–5 mA
-  (well within PS2501).
-- **i4 side:** transistor `C(4) → SWn`, `E(3) → i4 −`. Asserting `GPn` lights the LED → transistor
-  conducts → `SWn` pulled to `−` → input active. Releasing `GPn` opens it → input floats to `+` →
-  inactive. The 5 V never reaches the Pico.
-- **Parts note:** the BOM's resistors are **10 kΩ** (sized for the 20 V motor-sense side). At 3.3 V that
-  gives only ~0.2 mA — too weak. **Source 4× ~330–470 Ω** for the rig. *(Alternative: a 4-channel relay
-  module with each NO contact across `SWn↔−` — simplest, also isolated, but mechanical/slow; fine for
-  reeds, marginal for fast motor transients given our debounce.)*
+**PS2501-1 pinout (DIP-4):** 1 = LED anode, 2 = LED cathode, 3 = transistor emitter, 4 = transistor
+collector (pin 1 marked by the dot/bevel).
+
+Per-channel connections — `GPn → R → pin1`; `pin2 → Pico GND`; `pin4 → i4 SWn`; `pin3 → i4 −/⏚`.
+Asserting `GPn` lights the LED → transistor conducts → `SWn` pulled to `−` → input active; releasing it
+floats `SWn` to `+` → inactive. The 5 V stays on the i4 side.
+
+### Breadboard wiring table
+
+| Ch | Pico GPIO | Pico phys pin | → R → | PS2501 | pin4 (C) → | pin3 (E) → | i4 input |
+|----|-----------|---------------|-------|--------|------------|------------|----------|
+| 1 | GP2 | 4 | pin1 | #1 | i4 SW1 | i4 −/⏚ | closed reed |
+| 2 | GP3 | 5 | pin1 | #2 | i4 SW2 | i4 −/⏚ | open reed |
+| 3 | GP4 | 6 | pin1 | #3 | i4 SW3 | i4 −/⏚ | opening |
+| 4 | GP5 | 7 | pin1 | #4 | i4 SW4 | i4 −/⏚ | closing |
+
+Common to all: each `pin2 (cathode) → Pico GND` (phys pin 3 or 8); each `pin3 (emitter) → an i4 ⏚`
+terminal (the two ⏚ are both `−`). **Do not** connect Pico GND to i4 `−` (that's the isolation).
+
+### Resistor value — what to use with the on-hand parts (3× 330 Ω + many 10 kΩ)
+
+The i4 input is high-impedance, so the opto only needs to sink a tiny current to pull `SWn` low — a
+**10 kΩ** LED resistor (≈0.2 mA) *may well be enough*, which would let us use 10 kΩ on all four and keep
+the 330 Ω as spares. It's uncertain (depends on the i4 input's pull-up strength), so:
+
+1. **Wire channel 1 with a single 10 kΩ first** and test (`pico.sh set 1 1` → `i4-watch.sh` shows
+   `SW1=1`). If it asserts cleanly → **use 10 kΩ for all 4 channels** (plenty on hand).
+2. If 10 kΩ is too weak → use the **3× 330 Ω** for channels 1–3, and for channel 4 either parallel
+   ~3–5× 10 kΩ (~2–3 kΩ, ≈1 mA) or grab one more low-value resistor. 330 Ω ≈ 6 mA is the comfortable
+   nominal.
+
+*(Alternative rig: a 4-channel relay module, each NO contact across `SWn↔−` — zero resistor math, also
+isolated, but mechanical/slow; fine for reeds, marginal for fast motor transients given our debounce.)*
 
 ## Real i4 wiring (target install — for reference)
 

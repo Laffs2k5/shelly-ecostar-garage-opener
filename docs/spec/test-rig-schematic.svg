@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 760" font-family="Segoe UI, Arial, sans-serif" font-size="14">
+  <rect x="0" y="0" width="980" height="760" fill="#ffffff"/>
+  <text x="20" y="28" font-size="20" font-weight="bold">EcoStar test rig — Pico → PS2501 optocoupler → Shelly Plus i4 DC input</text>
+  <text x="20" y="48" fill="#555">Assert a channel (Pico GP HIGH) → opto conducts → i4 SWn pulled to i4 “−” → input reads active. Released → SWn floats to + (≤5V, never reaches the Pico).</text>
+
+  <!-- ===================== PANEL A: one channel detail ===================== -->
+  <rect x="16" y="64" width="948" height="300" rx="8" fill="#fafafa" stroke="#bbb"/>
+  <text x="32" y="88" font-weight="bold">One channel — repeat ×4 (one PS2501 per i4 input)</text>
+
+  <!-- Pico side labels -->
+  <text x="40" y="160">Pico GPn</text>
+  <text x="40" y="164" dy="18" fill="#777" font-size="12">(3.3V out)</text>
+  <text x="40" y="300">Pico GND</text>
+
+  <!-- GPn -> resistor -> opto pin1 -->
+  <circle cx="120" cy="150" r="3"/>
+  <line x1="120" y1="150" x2="170" y2="150" stroke="#000"/>
+  <!-- resistor zigzag -->
+  <polyline points="170,150 178,140 190,160 202,140 214,160 226,140 234,150" fill="none" stroke="#000"/>
+  <line x1="234" y1="150" x2="330" y2="150" stroke="#000"/>
+  <text x="172" y="128" fill="#a00">R</text>
+  <text x="150" y="116" fill="#a00" font-size="12">10kΩ (test) — else 330Ω</text>
+
+  <!-- Pico GND wire to pin2 -->
+  <circle cx="120" cy="290" r="3"/>
+  <line x1="120" y1="290" x2="150" y2="290" stroke="#000"/>
+  <line x1="150" y1="290" x2="150" y2="230" stroke="#000"/>
+  <line x1="150" y1="230" x2="330" y2="230" stroke="#000"/>
+
+  <!-- PS2501 package -->
+  <rect x="330" y="110" width="210" height="160" rx="4" fill="#fff" stroke="#333" stroke-dasharray="5 4"/>
+  <text x="372" y="104" font-weight="bold">PS2501-1</text>
+  <!-- isolation barrier -->
+  <line x1="435" y1="110" x2="435" y2="270" stroke="#08c" stroke-dasharray="3 3"/>
+  <text x="435" y="288" fill="#08c" font-size="11" text-anchor="middle">galvanic isolation</text>
+
+  <!-- pin labels -->
+  <text x="338" y="146" font-size="11" fill="#555">1 (A)</text>
+  <text x="338" y="246" font-size="11" fill="#555">2 (K)</text>
+  <text x="500" y="146" font-size="11" fill="#555">4 (C)</text>
+  <text x="500" y="246" font-size="11" fill="#555">3 (E)</text>
+
+  <!-- LED inside (pins 1-2) -->
+  <line x1="330" y1="150" x2="380" y2="150" stroke="#000"/>
+  <line x1="380" y1="150" x2="380" y2="168" stroke="#000"/>
+  <polygon points="368,168 392,168 380,190" fill="#000"/>
+  <line x1="368" y1="192" x2="392" y2="192" stroke="#000"/>
+  <line x1="380" y1="192" x2="380" y2="230" stroke="#000"/>
+  <line x1="330" y1="230" x2="380" y2="230" stroke="#000"/>
+  <!-- emission arrows -->
+  <line x1="396" y1="178" x2="416" y2="170" stroke="#e80" /><polygon points="416,170 408,168 412,176" fill="#e80"/>
+  <line x1="396" y1="190" x2="416" y2="182" stroke="#e80" /><polygon points="416,182 408,180 412,188" fill="#e80"/>
+
+  <!-- phototransistor inside (pins 3-4) -->
+  <circle cx="478" cy="190" r="26" fill="none" stroke="#000"/>
+  <line x1="540" y1="150" x2="478" y2="150" stroke="#000"/>
+  <line x1="478" y1="150" x2="478" y2="172" stroke="#000"/>      <!-- collector -->
+  <line x1="478" y1="208" x2="478" y2="230" stroke="#000"/>      <!-- emitter -->
+  <line x1="540" y1="230" x2="478" y2="230" stroke="#000"/>
+  <line x1="466" y1="176" x2="466" y2="204" stroke="#000"/>      <!-- base bar -->
+  <line x1="466" y1="180" x2="478" y2="168" stroke="#000"/>
+  <line x1="466" y1="200" x2="478" y2="212" stroke="#000"/>
+  <polygon points="478,212 470,206 474,214" fill="#000"/>
+
+  <!-- opto -> i4 -->
+  <line x1="540" y1="150" x2="700" y2="150" stroke="#000"/>
+  <line x1="540" y1="230" x2="700" y2="230" stroke="#000"/>
+  <circle cx="700" cy="150" r="3"/><circle cx="700" cy="230" r="3"/>
+  <text x="712" y="154" font-weight="bold">i4 SWn</text>
+  <text x="712" y="234" font-weight="bold">i4 − / ⏚</text>
+  <text x="712" y="186" fill="#777" font-size="12">(i4 powered by its</text>
+  <text x="712" y="204" fill="#777" font-size="12"> own 5V USB)</text>
+
+  <text x="32" y="346" fill="#080" font-size="12">GP HIGH → LED on → phototransistor conducts → SWn → i4 “−”. Pico GND and i4 “−” are NOT joined (the opto isolates them).</text>
+
+  <!-- ===================== PANEL B: 4-channel map ===================== -->
+  <rect x="16" y="380" width="948" height="364" rx="8" fill="#fafafa" stroke="#bbb"/>
+  <text x="32" y="404" font-weight="bold">Full rig — 4 channels (GP2..GP5 → opto → SW1..SW4); all emitters return to i4 “−/⏚”</text>
+
+  <!-- Pico block -->
+  <rect x="40" y="430" width="180" height="270" rx="6" fill="#fff" stroke="#333"/>
+  <text x="130" y="452" text-anchor="middle" font-weight="bold">Raspberry Pi Pico</text>
+  <text x="130" y="470" text-anchor="middle" fill="#777" font-size="12">(USB → Windows / COM5)</text>
+  <text x="56" y="500">GP2  (phys pin 4)</text>
+  <text x="56" y="532">GP3  (phys pin 5)</text>
+  <text x="56" y="564">GP4  (phys pin 6)</text>
+  <text x="56" y="596">GP5  (phys pin 7)</text>
+  <text x="56" y="640">GND (phys pin 3</text>
+  <text x="56" y="658">       or 8)</text>
+  <circle cx="206" cy="495" r="3"/><circle cx="206" cy="527" r="3"/>
+  <circle cx="206" cy="559" r="3"/><circle cx="206" cy="591" r="3"/>
+  <circle cx="206" cy="640" r="3"/>
+
+  <!-- four opto blocks -->
+  <g>
+    <!-- ch rows: y = 495,527,559,591 -->
+    <!-- resistors + optos as compact boxes -->
+    <!-- channel 1 -->
+    <line x1="206" y1="495" x2="250" y2="495" stroke="#000"/>
+    <polyline points="250,495 256,489 264,501 272,489 280,501 286,495" fill="none" stroke="#000"/>
+    <line x1="286" y1="495" x2="330" y2="495" stroke="#000"/>
+    <rect x="330" y="479" width="120" height="32" rx="3" fill="#fff" stroke="#333" stroke-dasharray="4 3"/>
+    <text x="390" y="500" text-anchor="middle" font-size="12">PS2501 #1</text>
+    <line x1="450" y1="495" x2="700" y2="495" stroke="#000"/>
+    <circle cx="700" cy="495" r="3"/>
+    <!-- channel 2 -->
+    <line x1="206" y1="527" x2="250" y2="527" stroke="#000"/>
+    <polyline points="250,527 256,521 264,533 272,521 280,533 286,527" fill="none" stroke="#000"/>
+    <line x1="286" y1="527" x2="330" y2="527" stroke="#000"/>
+    <rect x="330" y="511" width="120" height="32" rx="3" fill="#fff" stroke="#333" stroke-dasharray="4 3"/>
+    <text x="390" y="532" text-anchor="middle" font-size="12">PS2501 #2</text>
+    <line x1="450" y1="527" x2="700" y2="527" stroke="#000"/>
+    <circle cx="700" cy="527" r="3"/>
+    <!-- channel 3 -->
+    <line x1="206" y1="559" x2="250" y2="559" stroke="#000"/>
+    <polyline points="250,559 256,553 264,565 272,553 280,565 286,559" fill="none" stroke="#000"/>
+    <line x1="286" y1="559" x2="330" y2="559" stroke="#000"/>
+    <rect x="330" y="543" width="120" height="32" rx="3" fill="#fff" stroke="#333" stroke-dasharray="4 3"/>
+    <text x="390" y="564" text-anchor="middle" font-size="12">PS2501 #3</text>
+    <line x1="450" y1="559" x2="700" y2="559" stroke="#000"/>
+    <circle cx="700" cy="559" r="3"/>
+    <!-- channel 4 -->
+    <line x1="206" y1="591" x2="250" y2="591" stroke="#000"/>
+    <polyline points="250,591 256,585 264,597 272,585 280,597 286,591" fill="none" stroke="#000"/>
+    <line x1="286" y1="591" x2="330" y2="591" stroke="#000"/>
+    <rect x="330" y="575" width="120" height="32" rx="3" fill="#fff" stroke="#333" stroke-dasharray="4 3"/>
+    <text x="390" y="596" text-anchor="middle" font-size="12">PS2501 #4</text>
+    <line x1="450" y1="591" x2="700" y2="591" stroke="#000"/>
+    <circle cx="700" cy="591" r="3"/>
+  </g>
+  <text x="300" y="430" fill="#a00" font-size="12">R (each)</text>
+
+  <!-- emitter common bus to i4 - -->
+  <line x1="465" y1="511" x2="465" y2="660" stroke="#000"/>
+  <line x1="450" y1="511" x2="465" y2="511" stroke="#000"/>
+  <line x1="450" y1="543" x2="465" y2="543" stroke="#000"/>
+  <line x1="450" y1="575" x2="465" y2="575" stroke="#000"/>
+  <line x1="450" y1="607" x2="465" y2="607" stroke="#000"/>
+  <text x="470" y="650" font-size="11" fill="#555">emitters → i4 −</text>
+  <line x1="465" y1="660" x2="700" y2="660" stroke="#000"/>
+  <circle cx="700" cy="660" r="3"/>
+
+  <!-- Pico GND bus to all cathodes (drawn schematically as a note) -->
+  <text x="56" y="690" fill="#777" font-size="11">each opto pin2 (cathode) → Pico GND;  each pin1 (anode) ← R ← GPn</text>
+
+  <!-- i4 terminal block -->
+  <rect x="700" y="455" width="210" height="240" rx="6" fill="#fff" stroke="#333"/>
+  <text x="805" y="477" text-anchor="middle" font-weight="bold">Shelly Plus i4 DC</text>
+  <text x="720" y="499">SW1  ← #1 collector  (closed reed)</text>
+  <text x="720" y="531">SW2  ← #2 collector  (open reed)</text>
+  <text x="720" y="563">SW3  ← #3 collector  (opening)</text>
+  <text x="720" y="595">SW4  ← #4 collector  (closing)</text>
+  <text x="720" y="664">−/⏚  ← all emitters</text>
+  <text x="720" y="688" fill="#777" font-size="11">+ , 5V USB power (not shown)</text>
+
+  <text x="32" y="726" fill="#08c" font-size="12">Isolation: the Pico (GP/GND) and the i4 (SW/−) share NO wires — only light crosses inside each PS2501. The i4’s 5V never reaches the Pico.</text>
+</svg>
