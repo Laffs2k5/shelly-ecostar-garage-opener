@@ -51,10 +51,15 @@ active at once:
 - **Motor spin-down / contact bounce:** SW3/SW4 may flicker briefly as the H-bridge relays release,
   and reed contacts can bounce.
 
-**This does not change the states** — Rule 1 (reeds win) already resolves the meaningful overlap: the
-moment SW1 is active the door **is** `CLOSED` regardless of a lingering SW4, and likewise SW2 ⇒ `OPEN`
-over a lingering SW3. The point is an **implementation** one, called out so the i4 script handles it
-deliberately rather than glitching through a spurious state:
+**Reeds win on *arrival*** — the moment SW1 is active during a *close* (lingering SW4) the door **is**
+`CLOSED`, and likewise SW2 ⇒ `OPEN` over a lingering SW3. The point is an **implementation** one, called
+out so the i4 script handles it deliberately rather than glitching through a spurious state:
+
+> ⚠️ **Caveat — this holds only when *arriving*, not *departing*.** With the real MR-00326 reed's wide
+> ~5 cm window, "reed active + motor driving *away* from that end" (e.g. SW1 still active + SW3 opening,
+> just after leaving closed) is a *departure* — there the reed reading is stale and the motor direction
+> is the truth. Today's `derive()` mis-reports the old end-state through that window. **Deferred fix in
+> [14-motion-timing-and-pulse-safety.md](14-motion-timing-and-pulse-safety.md) (Q-16).**
 
 - Evaluate state from the **full input snapshot** with reed precedence, not from "whichever edge fired
   last" — otherwise a CLOSED→(SW4 still on) read could momentarily emit `CLOSING` right after arrival.

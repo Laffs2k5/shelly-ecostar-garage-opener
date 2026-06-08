@@ -149,6 +149,10 @@ phone; app broker path pending cert import)*
   `reset_reason` 1/3 observed, nothing depends on it.
 - [ ] **Tunables via config** (optional): pulse gap (Q-03), debounce — version-gated `…/config` topic so a
   client can change them without reflashing; expose current version in heartbeat
+- [ ] **Motion-timing & pulse safety (Q-16, [spec 14](14-motion-timing-and-pulse-safety.md))** — TDD:
+  failing tests first (incl. **time as a factor**), then fix monitor `derive()` departure asymmetry +
+  controller at-rest guard (`!moving && settledMs >= REST_GUARD`), then eval regression. Engineer for it
+  off the real door; depends on Q-02 for final confidence. `REST_GUARD_MS` becomes a config tunable above
 - [x] Q-09: set i4 inputs `factory_reset:false` (stuck reed at boot must not wipe the device) — done
 - [x] Q-10: device Shelly Cloud — **keep enabled** (default); harmless alongside the broker→cloud bridge
 - [x] Q-12: S1 subscribe to i4 heartbeat as fallback — **no** (HTTP-direct is the link; avoids extra ACL/surface)
