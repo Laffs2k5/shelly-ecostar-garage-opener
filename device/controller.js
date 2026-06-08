@@ -25,6 +25,11 @@ var ALIVE_MS = 30000;
 var TICK_MS = 1000;
 var STALE_MS = 0;            // (door-picture staleness threshold; 0 = don't flag yet)
 
+// Connectivity watchdog (Phase 7): reboot to recover a wedged Wi-Fi/MQTT stack after a prolonged
+// outage. The controller is boot-safe (relay initial_state:off, never auto-acts) and holds no resumable
+// state, so boot is always safe — no reset_reason gate. Overridable via KVS "wd_cfg" {on,wifi,mqtt}.
+var WD = { on: true, wifiMs: 600000, mqttMs: 1800000, mqttEnabled: false, wifiDown: 0, mqttDown: 0 };
+
 var CFG = { hbTopic: "", aliveTopic: "", cmdTopic: "", id: "" };
 var DOOR = { state: "UNKNOWN", dir: "", since: 0, ts: 0, rx: 0 };   // last picture from the i4
 var LASTCMD = ""; var LASTCMD_TS = 0; var LASTPULSES = 0;
@@ -47,6 +52,14 @@ function pulsesFor(cmd, state) {
     return 1;  // STOPPED_CLOSING (resume edge, Q-03) / UNKNOWN -> best-effort single pulse
   }
   return 0;  // unknown command
+}
+
+// pure watchdog decision (shared shape with monitor.js) — tested in the harness.
+function wdReboot(wifiDownMs, mqttDownMs, cfg) {
+  if (!cfg.on) return "";
+  if (wifiDownMs >= cfg.wifiMs) return "wifi";
+  if (mqttDownMs >= cfg.mqttMs) return "mqtt";
+  return "";
 }
 
 // ---- parse a command from an MQTT message or a query value ----
@@ -133,8 +146,26 @@ function registerHttp() {
   });
 }
 
+function wifiUp() { var w = Shelly.getComponentStatus("wifi"); return !!(w && w.status === "got ip"); }
+function mqttUp() { var m = Shelly.getComponentStatus("mqtt"); return !!(m && m.connected === true); }
+function watchdogTick() {
+  WD.wifiDown = wifiUp() ? 0 : (WD.wifiDown + TICK_MS);
+  WD.mqttDown = (!WD.mqttEnabled || !wifiUp() || mqttUp()) ? 0 : (WD.mqttDown + TICK_MS);
+  var why = wdReboot(WD.wifiDown, WD.mqttDown, WD);
+  if (why !== "") { print("controller: watchdog reboot —", why, "down too long"); Shelly.call("Shelly.Reboot", {}); }
+}
+function applyWdCfg(str) {
+  if (!str) return;
+  var c = JSON.parse(str);
+  if (!c) return;
+  if (typeof c.on !== "undefined") WD.on = c.on ? true : false;
+  if (c.wifi) WD.wifiMs = c.wifi * 1000;
+  if (c.mqtt) WD.mqttMs = c.mqtt * 1000;
+}
+
 function tick() {
   ticks++;
+  watchdogTick();
   if ((ticks % (ALIVE_MS / TICK_MS)) === 0) { publishAlive(); publishHeartbeat(); }
 }
 
@@ -155,12 +186,16 @@ function boot() {
           var prefix = cfg.topic_prefix || ""; var id = cfg.client_id || "";
           if (prefix !== "") { CFG.hbTopic = prefix + "/heartbeat"; CFG.cmdTopic = prefix + "/command"; }
           if (id !== "") CFG.aliveTopic = "mon/" + id + "/alive";
+          WD.mqttEnabled = (cfg.enable === true);
         }
         if (CFG.cmdTopic !== "" && typeof MQTT !== "undefined") {
           MQTT.subscribe(CFG.cmdTopic, function (topic, msg) { handleCommand(msg, "mqtt"); });
         }
-        registerHttp();
-        startLoop();
+        Shelly.call("KVS.Get", { key: "wd_cfg" }, function (w) {
+          applyWdCfg(w && w.value);
+          registerHttp();
+          startLoop();
+        });
       });
     });
 }

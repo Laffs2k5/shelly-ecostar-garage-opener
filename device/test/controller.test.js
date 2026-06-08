@@ -117,3 +117,13 @@ test("heartbeat carries relay, lastCmd, door and ts", function () {
   assert.equal(hb.lastCmd, "open");
   assert.equal(hb.door.state, "CLOSED");
 });
+
+// ---------- watchdog ----------
+test("watchdog reboots S1 after a broker-down threshold; safe when connected", function () {
+  const h = mk();
+  h.sandbox.WD.on = true; h.sandbox.WD.mqttEnabled = true; h.sandbox.WD.mqttMs = 1000; h.sandbox.WD.wifiMs = 9e9;
+  h.setNet(true, true); h.tick(3);
+  assert.equal(h.reboots, 0, "no reboot while broker connected");
+  h.setNet(true, false); h.tick(3);   // TICK_MS=1000 → mqttDown hits 1000 within a few ticks
+  assert.ok(h.reboots >= 1, "reboot once broker is down past threshold");
+});

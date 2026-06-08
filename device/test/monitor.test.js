@@ -140,3 +140,32 @@ test("heartbeat carries state, dir, inputs, since and ts for HA", function () {
     assert.ok(Object.prototype.hasOwnProperty.call(hb, k), "missing heartbeat field: " + k);
   }
 });
+
+// ---------- watchdog (Phase 7) ----------
+test("watchdog pure decision: wifi/mqtt thresholds + disable", function () {
+  const { wdReboot } = createHarness();
+  const cfg = { on: true, wifiMs: 1000, mqttMs: 2000 };
+  assert.equal(wdReboot(0, 0, cfg), "");
+  assert.equal(wdReboot(1000, 0, cfg), "wifi");
+  assert.equal(wdReboot(0, 2000, cfg), "mqtt");
+  assert.equal(wdReboot(500, 1500, cfg), "");                 // both under threshold
+  assert.equal(wdReboot(9e9, 9e9, { on: false, wifiMs: 1, mqttMs: 1 }), ""); // disabled
+});
+
+test("watchdog reboots after the broker-down threshold (wifi up)", function () {
+  const h = createHarness();
+  h.sandbox.WD.on = true; h.sandbox.WD.mqttEnabled = true;
+  h.sandbox.WD.mqttMs = 100; h.sandbox.WD.wifiMs = 9e9;       // short broker threshold
+  h.setNet(true, false);                                      // wifi up, broker down
+  h.tick(5);
+  assert.ok(h.reboots >= 1, "should reboot when the broker is down past the threshold");
+});
+
+test("watchdog: no reboot while connected, or when broker disabled", function () {
+  const h = createHarness();
+  h.sandbox.WD.on = true; h.sandbox.WD.mqttEnabled = true; h.sandbox.WD.mqttMs = 100;
+  h.setNet(true, true); h.tick(10);                           // all good
+  assert.equal(h.reboots, 0);
+  h.sandbox.WD.mqttEnabled = false; h.setNet(true, false); h.tick(10); // broker down but MQTT disabled
+  assert.equal(h.reboots, 0);
+});

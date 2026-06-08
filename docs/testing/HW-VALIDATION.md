@@ -3,6 +3,14 @@
 What was **actually observed on real hardware** (vs. mocked/inferred) — NEW-PROJECT-GUIDE §10. Newest
 first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 
+## 2026-06-08 — Connectivity watchdog (Phase 7)
+- Both scripts carry the watchdog (spec 13); 31 device tests incl. the reboot path.
+- **i4 hardware:** broker up → `mqttUp()=true`, counter 0, no false reboot. Booted into a dead-broker
+  config → `mqttUp()=false`, `WD.mqttDown` climbed monotonically (5150→13150 ms), `wd_cfg` (mqtt=150 s)
+  read from KVS. Restored → reconnected, script running. Defaults armed (Wi-Fi 600 s / broker 1800 s).
+- Observation: under heavy `Script.Eval` polling the 50 ms tick ran a bit slow → thresholds approximate
+  (fine for recover-a-wedged-stack). `Mqtt.SetConfig` server change needs a reboot to apply (`restart_required`).
+
 ## 2026-06-08 — Clients + CI; bench re-confirm
 - **Android app** compiles on the Windows toolchain (driven from WSL via `scripts/win-build.sh`):
   `assembleDebug` BUILD SUCCESSFUL → 23 MB debug APK; `testDebugUnitTest` 16/16.

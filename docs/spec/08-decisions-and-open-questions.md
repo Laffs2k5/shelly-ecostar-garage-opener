@@ -23,6 +23,7 @@
 | D-17 | Test rig = **Pico (MicroPython) → 4× PS2501 optos → i4 inputs**, driven from WSL via `mpremote resume` | Isolated (5 V never hits the Pico), on-hand parts, faithful to the real motor-sense optos (spec 12) |
 | D-18 | Of the 4 rig optos, **2 are permanent** (SW3/SW4 motor-sense — solder, dual-use) and **2 are test-only** (SW1/SW2 reed sims — breadboard, replaced by real reeds at install) | Final install has only 2 optos (D from hardware-spec §3.3/§3.4); the permanent pair's i4 side never changes, only the LED side rewires Pico→motor (spec 12) |
 | D-19 | Controller command→pulse: `toggle`=always 1 pulse; directional commands suppress when already there/going, 1 pulse from the matching end/stop, 2 pulses (stop+reverse) when moving the wrong way, and **1 best-effort pulse when door state is UNKNOWN** | Mirrors the physical button; UNKNOWN (i4 down/boot) still lets remote control work. Implemented in `controller.js`, verified on hardware |
+| D-20 | Devices are **stateless across reboot** (monitor re-derives from inputs; controller boots relay-off) → the connectivity **watchdog needs no `reset_reason`/resume gate**; it only reboots-to-recover on prolonged Wi-Fi/broker loss | Simpler + safer than the coffee-timer resume gate; watchdog validated on hardware (spec 13) |
 
 ## Open questions
 
@@ -40,6 +41,7 @@
 | Q-10 | Keep or disable Shelly Cloud on the devices? | Cloud `enable:true` now; local-broker arch reaches cloud via the broker bridge, so device-cloud may be redundant/extra surface |
 | Q-11 | ~~MQTT CN/identity convention~~ | RESOLVED → D-15 (`garage-monitor` / `garage-controller`) |
 | Q-12 | Should S1 also subscribe to the i4 heartbeat over MQTT as a fallback when an HTTP push is missed? | Adds resilience but needs a cross-subtree ACL read grant for S1's CN (spec 11). Default: no |
+| Q-13 | **Bench-test at least one real reed switch** (the on-hand NC magnetic contacts) into an i4 input — confirm it operates + registers (CLOSED/OPEN) as planned | Much easier on the bench than at the garage; do before install. The rig used opto reed-*sims*; verify a real reed end-to-end (magnet near/away → SW1/SW2) |
 
 ## Flagged design tensions vs. source docs
 

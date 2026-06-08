@@ -130,10 +130,11 @@ HTTP-direct works with the broker down; no identity hardcoded/bundled. *(web ✓
 
 ## Phase 7 — Device hardening & resilience — ☁ (device-side; do before install)
 
-- [ ] **Connectivity watchdog** (coffee-timer pattern): reboot on prolonged Wi-Fi/broker loss to recover a
-  wedged stack. Monitor re-derives from inputs on boot; controller is already boot-safe → no risky resume
-- [ ] Validate `reset_reason` gating on **both** devices (1 = power-on → safe; 3 = sw/watchdog) — confirmed
-  ad-hoc already; make it explicit + logged
+- [x] **Connectivity watchdog** in both scripts (spec 13): reboot on prolonged Wi-Fi/broker loss; KVS
+  `wd_cfg` overrides thresholds. **Validated on hardware** (i4): detects real broker disconnect, counter
+  climbs, resets on reconnect, no false reboot; 31 device tests incl. the reboot path. Defaults armed.
+- [x] **No `reset_reason` gate needed (D-20)** — devices are stateless across reboot (boot always safe);
+  `reset_reason` 1/3 observed, nothing depends on it.
 - [ ] **Tunables via config** (optional): pulse gap (Q-03), debounce — version-gated `…/config` topic so a
   client can change them without reflashing; expose current version in heartbeat
 - [ ] Q-09: set i4 inputs `factory_reset:false` (stuck reed at boot must not wipe the device)

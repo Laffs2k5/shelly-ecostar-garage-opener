@@ -17,6 +17,9 @@ function createHarness(opts) {
     kvs: {},
     switchOutput: false,
     switchConfig: null,
+    wifiUp: true,
+    mqttConn: opts.mqttConnected !== false,
+    reboots: 0,
     published: [],   // {topic, msg, qos, retain}
     posts: [],       // HTTP.POST {url, body}
     switchSets: [],  // {id, on}
@@ -34,6 +37,8 @@ function createHarness(opts) {
   function compStatus(key) {
     if (key.indexOf("input:") === 0) { const id = parseInt(key.slice(6), 10); return { id: id, state: !!h.inputs[id] }; }
     if (key.indexOf("switch:") === 0) { return { id: 0, output: h.switchOutput }; }
+    if (key === "wifi") return { status: h.wifiUp ? "got ip" : "disconnected" };
+    if (key === "mqtt") return { connected: h.mqttConn };
     if (key === "sys") return { unixtime: h.clock };
     return undefined;
   }
@@ -50,6 +55,7 @@ function createHarness(opts) {
       if (method === "HTTP.POST") { h.posts.push({ url: params.url, body: params.body }); return void cb({ code: 200 }, 0, ""); }
       if (method === "Switch.Set") { h.switchSets.push({ id: params.id, on: params.on }); h.switchOutput = !!params.on; return void (cb && cb({ was_on: false }, 0, "")); }
       if (method === "Switch.SetConfig") { h.switchConfig = params.config; return void (cb && cb({ restart_required: false }, 0, "")); }
+      if (method === "Shelly.Reboot") { h.reboots++; return void (cb && cb(null, 0, "")); }
       if (cb) cb(null, -1, "unhandled " + method);
     },
   };
@@ -75,6 +81,8 @@ function createHarness(opts) {
   h.sandbox = sandbox;
   h.derive = sandbox.derive;            // monitor pure fn
   h.pulsesFor = sandbox.pulsesFor;      // controller pure fn
+  h.wdReboot = sandbox.wdReboot;        // watchdog pure fn (both scripts)
+  h.setNet = function (wifiUp, mqttConn) { h.wifiUp = wifiUp; h.mqttConn = mqttConn; };
   h.setInputs = function (c, o, op, cl) { h.inputs[0] = c; h.inputs[1] = o; h.inputs[2] = op; h.inputs[3] = cl; };
   h._repeatCb = function () { const t = h.timers.filter(function (t) { return t.repeat; })[0]; return t && t.cb; };
   h.tick = function (n) { const cb = h._repeatCb(); n = n || 1; for (let i = 0; i < n; i++) { h.clock++; cb(); } };

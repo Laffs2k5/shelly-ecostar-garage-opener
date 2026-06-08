@@ -20,6 +20,12 @@ var DEBOUNCE_TICKS = 2;    // snapshot must be stable this many ticks before we 
 var ALIVE_MS = 30000;      // liveness ping period
 var POST_TIMEOUT = 5;      // seconds; controller POST is fire-and-forget
 
+// Connectivity watchdog (Phase 7): reboot to recover a wedged Wi-Fi/MQTT stack after a prolonged
+// outage. Our devices are STATELESS across reboot (door state is re-derived from live inputs), so boot
+// is always safe — no reset_reason/resume gate needed. Defaults overridable via KVS "wd_cfg"
+// {on:0|1, wifi:<s>, mqtt:<s>}; for the on-device test, set a short threshold then restore.
+var WD = { on: true, wifiMs: 600000, mqttMs: 1800000, mqttEnabled: false, wifiDown: 0, mqttDown: 0 };
+
 // ---- runtime state ----
 var CFG = { hbTopic: "", aliveTopic: "", controllerUrl: "" };
 var STATE = "UNKNOWN";
@@ -46,11 +52,21 @@ function derive(c, o, op, cl, lastDir) {
   return { state: "UNKNOWN", dir: lastDir };                // bootstrap: never moved, no reed
 }
 
+// pure watchdog decision: which outage (if any) warrants a reboot. Tested in the harness.
+function wdReboot(wifiDownMs, mqttDownMs, cfg) {
+  if (!cfg.on) return "";
+  if (wifiDownMs >= cfg.wifiMs) return "wifi";
+  if (mqttDownMs >= cfg.mqttMs) return "mqtt";
+  return "";
+}
+
 // ---- helpers ----
 function readInput(id) {
   var s = Shelly.getComponentStatus("input:" + id);
   return !!(s && s.state === true);
 }
+function wifiUp() { var w = Shelly.getComponentStatus("wifi"); return !!(w && w.status === "got ip"); }
+function mqttUp() { var m = Shelly.getComponentStatus("mqtt"); return !!(m && m.connected === true); }
 function nowTs() {
   var sys = Shelly.getComponentStatus("sys");
   return (sys && sys.unixtime) ? sys.unixtime : 0;
@@ -109,10 +125,27 @@ function evaluate() {
   if (d.state !== STATE) { STATE = d.state; onStateChange(); }
 }
 
+function watchdogTick() {
+  WD.wifiDown = wifiUp() ? 0 : (WD.wifiDown + TICK_MS);
+  WD.mqttDown = (!WD.mqttEnabled || !wifiUp() || mqttUp()) ? 0 : (WD.mqttDown + TICK_MS);
+  var why = wdReboot(WD.wifiDown, WD.mqttDown, WD);
+  if (why !== "") { print("monitor: watchdog reboot —", why, "down too long"); Shelly.call("Shelly.Reboot", {}); }
+}
+
 function tick() {
   ticks++;
   evaluate();
+  watchdogTick();
   if ((ticks % (ALIVE_MS / TICK_MS)) === 0) publishAlive();
+}
+
+function applyWdCfg(str) {
+  if (!str) return;
+  var c = JSON.parse(str);   // undefined on failure (mJS) → keep defaults
+  if (!c) return;
+  if (typeof c.on !== "undefined") WD.on = c.on ? true : false;
+  if (c.wifi) WD.wifiMs = c.wifi * 1000;
+  if (c.mqtt) WD.mqttMs = c.mqtt * 1000;
 }
 
 // ---- HTTP status endpoint: GET /script/<id>/state ----
@@ -147,12 +180,16 @@ function boot() {
       var id = cfg.client_id || "";
       if (prefix !== "") CFG.hbTopic = prefix + "/heartbeat";
       if (id !== "") CFG.aliveTopic = "mon/" + id + "/alive";
+      WD.mqttEnabled = (cfg.enable === true);
     }
     // controller URL lives in KVS so it's not hardcoded; absent until S1 exists (Q-06).
     Shelly.call("KVS.Get", { key: "controller_url" }, function (r) {
       if (r && r.value) CFG.controllerUrl = r.value;
-      registerHttp();
-      startLoop();
+      Shelly.call("KVS.Get", { key: "wd_cfg" }, function (w) {
+        applyWdCfg(w && w.value);
+        registerHttp();
+        startLoop();
+      });
     });
   });
 }

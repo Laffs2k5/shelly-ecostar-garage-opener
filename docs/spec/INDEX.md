@@ -14,6 +14,7 @@ mapping is obvious.
 | [10-i4-device-facts.md](10-i4-device-facts.md) | i4 RPC snapshot: firmware, inputs, capabilities (Phase 1.1) |
 | [11-broker-provisioning.md](11-broker-provisioning.md) | mTLS onboarding: broker facts, identity→topic map, RPC sequence, the "order" |
 | [12-test-rig-and-wiring.md](12-test-rig-and-wiring.md) | Pico input simulator, opto interface, i4 wiring, the closed test loop |
+| [13-device-resilience.md](13-device-resilience.md) | Connectivity watchdog (reboot-to-recover); why no reset_reason gate |
 
 Source hardware design: [../initial-research/hardware-spec.md](../initial-research/hardware-spec.md).
 Reference build lessons: `private/NEW-PROJECT-GUIDE.md` (gitignored).
