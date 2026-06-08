@@ -80,25 +80,25 @@ motor. Q-02 + the Q-03 timing/resume edge are **real-door** items carried into P
   read/write on **both** `devices/garage-monitor/#` + `devices/garage-controller/#` (like `garage-devtool`)
 - [ ] **Cloud** (EMQX) username/password for off-LAN use (broker maintainers); web uses a random client-id
 
-### 4B — Android (Kotlin/Compose, Paho `mqttv3`) — `app/`
-- [ ] Single-activity, main + settings. State in `remember`/`mutableStateOf`
-- [ ] **Two-device UI:** door card (i4 state + duration, the 7 states) + controls (open/close/toggle → S1)
-- [ ] **Connection roaming**, re-evaluated each poll: HTTP-direct (per-device IP) > local broker (mTLS) >
-  cloud (TLS user/pass). Tear down MQTT when HTTP-direct works. Surface active path + event log
-- [ ] **HTTP-direct** path: read i4 `/state`, POST S1 `/command` — must work with the broker down
-- [ ] Settings: 2 device IPs + 2 CNs + broker hosts + cloud creds, **import `.p12` + CA at runtime**
-  (never bundled — NEW-PROJECT-GUIDE §6/D-06)
-- [ ] Lifecycle-aware MQTT (no Doze keepalive churn); optional foreground notification (e.g. "door OPEN N min")
-- [ ] Extract **pure, Android-free functions** (connection decision, topic build, state parse,
-  cert→SSLSocketFactory) for JVM tests
+### 4B — Android (Kotlin/Compose, Paho `mqttv3`) — `app/` — [~] foundation done
+- [x] Build config + manifest + theme; package `no.leiflan.garage`
+- [x] **Pure core + JVM tests** (`api/`): `GarageApi.decide` (HTTP-direct>local>cloud>offline) + cmd/URL
+  helpers + HTTP-direct calls + JSON parse; `DoorModel` (7 states, labels, duration); `ConnectionUi`
+  (labels + capped event log); `MqttTls` (cert→SSLSocketFactory, copied verbatim) + throwaway fixtures
+- [ ] `api/MqttTransport.kt` — Paho: local mTLS + cloud WSS; sub `garage-monitor/heartbeat`, pub
+  `garage-controller/command` (QoS1, non-retained); client-id = CN `garage-app`; auto-reconnect off
+- [ ] `MainActivity.kt` — Compose Settings + Main (door card + Open/Close/Toggle + connection footer);
+  runtime `.p12`/CA import; lifecycle-gated poll loop; tear down MQTT when HTTP-direct works
+- [ ] Optional foreground notification ("door OPEN N min")
 - ⚠️ APK **builds on Windows** (aapt2 x86_64); **test on a physical device** (no Windows-ARM emulator)
 
-### 4C — Web fallback — `web/`
-- [ ] Vanilla HTML/CSS/JS, MQTT over **WSS** to cloud; same controls; creds in `localStorage`, random client-id
-- [ ] Split pure logic into a testable `web/<core>.js`
+### 4C — Web fallback — `web/` — [x] DONE
+- [x] `web/garage-core.js` (pure, **9 Node tests** — `scripts/test-web.sh`) + `web/index.html`:
+  cloud-WSS, door state from `garage-monitor` heartbeat, open/close/toggle to `garage-controller`
+  (non-retained), settings in `localStorage`, random client-id
 
 **Gate:** app + web show correct door state and drive open/close over HTTP-direct **and** broker/cloud;
-HTTP-direct works with the broker down; no identity hardcoded/bundled.
+HTTP-direct works with the broker down; no identity hardcoded/bundled. *(web ✓; app pending transport+UI)*
 
 ---
 
