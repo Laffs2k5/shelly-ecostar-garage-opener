@@ -86,7 +86,7 @@ its identity is fixed (Q-06). Exact order text lives with the project owner to r
 | Device | CN | Date | Result |
 |---|---|---|---|
 | i4 (monitor) | `garage-monitor` | 2026-06-07 | **DONE** — certs uploaded (CA 668 / crt 725 / key 241 B), `Mqtt.SetConfig` applied, `Mqtt.GetStatus → connected:true` ~6 s after reboot |
-| S1 (controller) | `garage-controller` | 2026-06-07 | **cert issued + verified, in `private/`** (chain OK, key match). Upload to the device when it's on the network (Q-06). Default per-CN ACL |
+| S1 (controller) | `garage-controller` | 2026-06-07 | **DONE** — on network at 192.0.2.161; certs uploaded (CA 668 / crt 733 / key 241 B), `Mqtt.SetConfig` applied, `connected:true` ~3 s after reboot, `online true` on broker. Default per-CN ACL |
 | dev tooling | `garage-devtool` | 2026-06-07 | **cert issued + verified, in `private/`**; scoped ACL deployed (SIGHUP reload). **Verified live** via `scripts/mqtt-sub.sh` — observed `garage-monitor` retained heartbeat + `online` LWT |
 
 ### Dev tooling identity (`garage-devtool`)

@@ -29,7 +29,7 @@ gate must pass before the next starts. The **device tier comes first** — app/w
 | 1.2 | Bench-verify optocoupler SW3/SW4 toggling against motor voltage (Q-02) | Clean OPENING/CLOSING signals observed |
 | 1.3 | Bench-confirm the stop-then-reverse model (D-09) + inter-pulse delay + the STOPPED_* resume edge (Q-03) | Command→pulse table in spec 02 confirmed on hardware; delay value chosen |
 | 1.4 | ~~Broker mTLS provisioning~~ — **DONE for i4** (spec 11) | `garage-monitor` connected to broker over mTLS (`connected:true`). S1 pending (Q-06) |
-| 1.5 | Reserve S1 static IP + add to network (Q-06) | S1 reachable, recorded in `private/network-inventory.md` |
+| 1.5 | ~~Reserve S1 static IP + add to network~~ — **DONE** | S1 at `192.0.2.161`, mTLS-provisioned as `garage-controller` (`connected:true`); recorded |
 
 **Gate:** Q-01..Q-03 answered (or workarounds designed); spec 02 table final; broker recipe written.
 

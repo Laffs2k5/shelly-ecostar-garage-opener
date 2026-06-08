@@ -32,7 +32,7 @@
 | Q-03 | ~~Impulse stop/reverse semantics~~ | RESOLVED → D-09. Remaining bench item: the `STOPPED_OPENING`+open / `STOPPED_CLOSING`+close "resume same direction" edge (next start reverses) — confirm pulse count on hardware (spec 02) |
 | Q-04 | ~~Visual confirmation for remote close~~ | RESOLVED → D-11 (not required; possible future) |
 | Q-05 | ~~Monitor door-state alerts~~ | RESOLVED → D-12 (we expose status; HA decides alerts) |
-| Q-06 | S1 static IP reservation (suggest .161) + hostname | Open — not yet on network. Non-blocking: i4 tolerates S1 absence (D-10) |
+| Q-06 | ~~S1 static IP + hostname~~ | RESOLVED: `192.0.2.161` / `shelly1g3-example`; on network + mTLS-provisioned (spec 11) |
 | Q-07 | ~~Repo name~~ | RESOLVED → D-13 (renamed to ecostar) |
 | Q-08 | ~~LICENSE choice~~ | RESOLVED: none for now (private repo); revisit if it goes public |
 | Q-09 | Disable per-input `factory_reset`? (`invert` part resolved → D-16: `invert:false`) | Inputs ship `factory_reset:true` — consider `false` so a stuck/closed contact at boot can't wipe the device (spec 10) |
