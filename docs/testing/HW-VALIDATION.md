@@ -3,6 +3,25 @@
 What was **actually observed on real hardware** (vs. mocked/inferred) — NEW-PROJECT-GUIDE §10. Newest
 first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 
+## 2026-06-08 — On-phone app test (OnePlus CPH2653, Android 16, via adb)
+- **Install:** CI-built debug APK installs via `adb install -r` (Success). **Signing is stable** — the
+  APK's signer SHA-256 (`a9286ff0…d26af1`) **equals** our `DEBUG_KEYSTORE` `androiddebugkey` cert, proving
+  CI uses our fixed key (explicit `signingConfigs.debug.storeFile`, §8) → updates won't wipe data. We did
+  **not** hit the coffee-dev random-key trap.
+- **Settings:** injected via `run-as` into `shared_prefs/garage_settings.xml` (debuggable app) — reliable,
+  no UI tapping needed.
+- **HTTP-direct path WORKS:** app showed live door state and tracked a change — **CLOSED → "Opening…"** —
+  with footer **Wi-Fi · direct**, driven by the Pico, no broker/certs. (Screenshots captured.)
+- **Network finding (not an app bug):** after the watchdog reboots, the phone could **no longer reach
+  .160/.161** (100% loss) despite RSSI −35 and same subnet (192.0.2.104/22), while it **did** reach the
+  broker `.130` and the coffee plug `.159`. WSL reaches .160/.161 fine. → the two devices are on an AP
+  **isolated from the phone's AP** (multi-AP client isolation; ours re-associated after reboot). **Implication:
+  HTTP-direct (phone→Shelly) is unreliable in this house; the broker (mTLS) path is the primary one** — which
+  is exactly what the 3-path roaming is for. Question for the network admin (Q-15): can the phone + Shellys
+  share a non-isolated segment, or is the broker path simply the intended primary here?
+- **Remaining (broker path):** command-button → relay + sustained run need the app on the **local-broker**
+  path — import `ca.crt` + `garage-app.p12` (BW) on the phone (or inject via `run-as`).
+
 ## 2026-06-08 — Resource headroom assessment
 - **RAM:** i4 min-free **115 KB / 251 KB (46%)**; S1 min-free 110 KB / 262 KB (42%). Good margin.
 - **Script heap:** i4 peak **5.1 KB**, S1 peak 6.0 KB — of ~27 KB each (~80% free). Lots of room.
