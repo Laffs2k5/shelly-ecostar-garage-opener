@@ -22,6 +22,7 @@
 | D-16 | i4 inputs are **switch-to-`−`** (active when `SWn` pulled to ground); use **`invert:false`** | Official i4 DC diagram (spec 12); matches hardware-spec. NC reed broken-wire → floats to `+` → reads inactive = fail-safe |
 | D-17 | Test rig = **Pico (MicroPython) → 4× PS2501 optos → i4 inputs**, driven from WSL via `mpremote resume` | Isolated (5 V never hits the Pico), on-hand parts, faithful to the real motor-sense optos (spec 12) |
 | D-18 | Of the 4 rig optos, **2 are permanent** (SW3/SW4 motor-sense — solder, dual-use) and **2 are test-only** (SW1/SW2 reed sims — breadboard, replaced by real reeds at install) | Final install has only 2 optos (D from hardware-spec §3.3/§3.4); the permanent pair's i4 side never changes, only the LED side rewires Pico→motor (spec 12) |
+| D-19 | Controller command→pulse: `toggle`=always 1 pulse; directional commands suppress when already there/going, 1 pulse from the matching end/stop, 2 pulses (stop+reverse) when moving the wrong way, and **1 best-effort pulse when door state is UNKNOWN** | Mirrors the physical button; UNKNOWN (i4 down/boot) still lets remote control work. Implemented in `controller.js`, verified on hardware |
 
 ## Open questions
 

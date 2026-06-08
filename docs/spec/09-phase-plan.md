@@ -62,12 +62,19 @@ heartbeat + `mon/alive` observed on the broker.
 
 **Goal:** command logic that pulses the EcoStar only when useful.
 
-- Build `device/controller.js`: consume i4 state (HTTP) + commands (MQTT/HTTP), apply the spec 02
-  command→pulse table, suppress counterproductive pulses, 0.5s relay pulse.
-- Boot-to-safe + `reset_reason` validation (Q via NEW-PROJECT-GUIDE §4).
+- [x] `device/controller.js` (+min): door-picture endpoint (i4 POST), command via MQTT + local HTTP,
+  spec-02 command→pulse logic with suppression + stop-then-reverse (D-09/D-19), 0.5 s relay pulse,
+  retained heartbeat + `mon/alive`. Boot-to-safe by construction (relay `initial_state:off`, never
+  auto-acts).
+- [x] Node tests (12) — `scripts/test-device.sh` (27 total with monitor).
+- [x] **Deployed + running on S1** (.161); relay config applied (detached/off/auto-off 0.5 s).
+- [x] **End-to-end on hardware (2026-06-07):** Pico→i4→S1 picture→decision — `open` gives 1 pulse from
+  CLOSED, **suppressed** at OPEN/OPENING, **2 pulses** (relay fired twice ~1.2 s apart) when CLOSING.
+  Commands verified over **both local HTTP and MQTT** (`garage-devtool`). i4 `controller_url` set in KVS.
+- [ ] Soak: 24 h+ stable. [ ] Physical button parallel to relay verified at install (works by design, D-04).
 
-**Gate:** open/close from MQTT + local HTTP work; counterproductive pulses suppressed; button still
-works with broker down; 24h+ stable.
+**Gate:** ~~open/close from MQTT + local HTTP~~ ✓; ~~counterproductive pulses suppressed~~ ✓; button
+with broker down (by construction — verify at install); 24 h+ soak (pending).
 
 ---
 

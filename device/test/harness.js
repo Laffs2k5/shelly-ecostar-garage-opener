@@ -1,8 +1,8 @@
-// Node test harness for monitor.js — loads the REAL device script into a vm context with a mocked
-// Shelly runtime, so we can drive inputs and assert on what the script publishes / posts. Black-box:
-// tests read the captured MQTT heartbeats, HTTP posts, and the /state endpoint body, not internals.
+// Node test harness — loads a REAL device script (monitor.js or controller.js) into a vm context with a
+// mocked Shelly runtime, so tests drive inputs/commands and assert on captured output (MQTT, HTTP posts,
+// relay Switch.Set, endpoint bodies). Black-box: tests read captured effects, not internals.
 //
-// (This harness is plain Node — modern JS is fine here. Only device/monitor.js must be mJS/ES5.)
+// (Plain Node — modern JS is fine here. Only the device scripts must be mJS/ES5.)
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
@@ -15,11 +15,15 @@ function createHarness(opts) {
     mqttConnected: opts.mqttConnected !== false,
     mqttConfig: opts.mqttConfig || { topic_prefix: "devices/garage-monitor", client_id: "garage-monitor" },
     kvs: {},
+    switchOutput: false,
+    switchConfig: null,
     published: [],   // {topic, msg, qos, retain}
-    posts: [],       // {url, body}
+    posts: [],       // HTTP.POST {url, body}
+    switchSets: [],  // {id, on}
+    subs: {},        // topic -> cb
     logs: [],
-    timers: [],
-    endpoints: {},
+    timers: [],      // {ms, repeat, cb}
+    endpoints: {},   // name -> cb
   };
   if (opts.controllerUrl) h.kvs.controller_url = opts.controllerUrl;
   if (opts.inputs) {
@@ -28,10 +32,8 @@ function createHarness(opts) {
   }
 
   function compStatus(key) {
-    if (key.indexOf("input:") === 0) {
-      const id = parseInt(key.slice(6), 10);
-      return { id: id, state: !!h.inputs[id] };
-    }
+    if (key.indexOf("input:") === 0) { const id = parseInt(key.slice(6), 10); return { id: id, state: !!h.inputs[id] }; }
+    if (key.indexOf("switch:") === 0) { return { id: 0, output: h.switchOutput }; }
     if (key === "sys") return { unixtime: h.clock };
     return undefined;
   }
@@ -43,45 +45,48 @@ function createHarness(opts) {
       if (method === "KVS.Get") {
         const key = params && params.key;
         if (Object.prototype.hasOwnProperty.call(h.kvs, key)) return void cb({ value: h.kvs[key] }, 0, "");
-        return void cb(null, -105, "no such key");   // real Shelly errors on a missing KVS key
+        return void cb(null, -105, "no such key");
       }
-      if (method === "HTTP.POST") {
-        h.posts.push({ url: params.url, body: params.body });
-        return void cb({ code: 200 }, 0, "");
-      }
+      if (method === "HTTP.POST") { h.posts.push({ url: params.url, body: params.body }); return void cb({ code: 200 }, 0, ""); }
+      if (method === "Switch.Set") { h.switchSets.push({ id: params.id, on: params.on }); h.switchOutput = !!params.on; return void (cb && cb({ was_on: false }, 0, "")); }
+      if (method === "Switch.SetConfig") { h.switchConfig = params.config; return void (cb && cb({ restart_required: false }, 0, "")); }
       if (cb) cb(null, -1, "unhandled " + method);
     },
   };
   const MQTT = {
     isConnected: function () { return h.mqttConnected; },
-    publish: function (topic, msg, qos, retain) {
-      h.published.push({ topic: topic, msg: msg, qos: qos | 0, retain: !!retain });
-    },
+    publish: function (topic, msg, qos, retain) { h.published.push({ topic: topic, msg: msg, qos: qos | 0, retain: !!retain }); },
+    subscribe: function (topic, cb) { h.subs[topic] = cb; },
   };
   const Timer = {
     set: function (ms, repeat, cb) { h.timers.push({ ms: ms, repeat: repeat, cb: cb }); return h.timers.length; },
     clear: function () {},
   };
-  const HTTPServer = {
-    registerEndpoint: function (name, cb) { h.endpoints[name] = cb; },
-  };
+  const HTTPServer = { registerEndpoint: function (name, cb) { h.endpoints[name] = cb; } };
   const sandbox = {
-    Shelly: Shelly, MQTT: MQTT, Timer: Timer, HTTPServer: HTTPServer,
-    JSON: JSON, Date: Date,
+    Shelly: Shelly, MQTT: MQTT, Timer: Timer, HTTPServer: HTTPServer, JSON: JSON, Date: Date,
     print: function () { h.logs.push(Array.prototype.join.call(arguments, " ")); },
   };
-  const src = fs.readFileSync(path.join(__dirname, "..", "monitor.js"), "utf8");
+  const src = fs.readFileSync(path.join(__dirname, "..", opts.script || "monitor.js"), "utf8");
   vm.createContext(sandbox);
-  vm.runInContext(src, sandbox, { filename: "monitor.js" });
+  vm.runInContext(src, sandbox, { filename: opts.script || "monitor.js" });
 
   // ---- controls / observation ----
   h.sandbox = sandbox;
-  h.derive = sandbox.derive;                       // the pure function, for direct unit tests
+  h.derive = sandbox.derive;            // monitor pure fn
+  h.pulsesFor = sandbox.pulsesFor;      // controller pure fn
   h.setInputs = function (c, o, op, cl) { h.inputs[0] = c; h.inputs[1] = o; h.inputs[2] = op; h.inputs[3] = cl; };
-  h._tickCb = function () { const t = h.timers.filter(function (t) { return t.repeat; })[0]; return t && t.cb; };
-  h.tick = function (n) { const cb = h._tickCb(); n = n || 1; for (let i = 0; i < n; i++) { h.clock++; cb(); } };
-  // tick enough for the debounce to accept a freshly-changed snapshot
-  h.settle = function () { h.tick(4); };
+  h._repeatCb = function () { const t = h.timers.filter(function (t) { return t.repeat; })[0]; return t && t.cb; };
+  h.tick = function (n) { const cb = h._repeatCb(); n = n || 1; for (let i = 0; i < n; i++) { h.clock++; cb(); } };
+  h.settle = function () { h.tick(4); };                                  // monitor debounce
+  h.fireOneShots = function () { const os = h.timers.filter(function (t) { return !t.repeat; }); h.timers = h.timers.filter(function (t) { return t.repeat; }); os.forEach(function (t) { t.cb(); }); };
+  h.sendCmd = function (msg) { for (const t in h.subs) h.subs[t](t, msg); };  // simulate an MQTT command
+  h.post = function (name, o) {
+    o = o || {}; const out = { code: 0, body: null };
+    const res = { code: 0, headers: null, body: null, send: function () { out.code = this.code; out.body = this.body; } };
+    h.endpoints[name]({ body: o.body || "", query: o.query || "" }, res);
+    return out;
+  };
   h.heartbeats = function () { return h.published.filter(function (p) { return /\/heartbeat$/.test(p.topic); }); };
   h.lastHeartbeat = function () { const hb = h.heartbeats(); return hb.length ? JSON.parse(hb[hb.length - 1].msg) : null; };
   h.state = function () { const hb = h.lastHeartbeat(); return hb && hb.state; };

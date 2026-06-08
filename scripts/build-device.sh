@@ -12,7 +12,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-SCRIPTS=(monitor)   # add 'controller' here when device/controller.js lands (Phase 3)
+SCRIPTS=(monitor controller)
 
 minify() { # $1 = source file
   awk '
