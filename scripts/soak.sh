@@ -1,55 +1,70 @@
 #!/usr/bin/env bash
-# Soak monitor — sample both device's health periodically so we can prove ≥24 h stability
-# (Phase 3). Detects: script crash (running flips false / errors), watchdog/unexpected reboot
-# (uptime resets), and memory leak (ram_min_free low-water mark collapsing over time).
+# Soak monitor — prove ≥24 h device stability (Phase 3). Detects: script crash (running flips
+# false / errors), watchdog/unexpected reboot (uptime not keeping pace with wall-clock), and memory
+# leak (ram_min_free low-water mark collapsing).
 #
-# Usage:  scripts/soak.sh [interval_sec=600] [duration_hours=24]
-#   logs CSV to logs/soak-<startepoch>.csv ; prints a PASS/FAIL-style summary at the end.
-#   Re-checkable any time:  scripts/soak.sh --summary logs/soak-*.csv
+# The devices track uptime / ram_min_free / reset_reason **persistently**, so a continuous connection
+# is NOT required: take a baseline, leave the devices powered, then re-check once after ≥24 h — even
+# if this computer was offline the whole time, the verdict holds.
+#
+# Usage:
+#   scripts/soak.sh --baseline [csv]        # record a baseline (default logs/soak-baseline.csv)
+#   scripts/soak.sh --check    [csv]        # append a fresh sample to the csv, then print verdict
+#   scripts/soak.sh --summary  <csv>        # just print the verdict for an existing csv
+#   scripts/soak.sh [interval_sec] [hours]  # continuous sampling (only useful while online)
 set -euo pipefail
 cd "$(dirname "$0")/.."
+[ -f .env ] && set -a && . ./.env && set +a || true
+I4="${I4:-${MONITOR_HOST:-192.0.2.160}}"; S1="${S1:-${CONTROLLER_HOST:-192.0.2.161}}"
+DEFAULT_CSV="logs/soak-baseline.csv"
 
-I4="${I4:-192.0.2.160}"; S1="${S1:-192.0.2.161}"
-
-sample_dev() { # ip -> "uptime,ram_free,ram_min_free,fs_free,reset_reason,scr_running,scr_cpu,scr_mem_free,mqtt"
+sample_dev() { # ip -> uptime,ram_free,ram_min_free,fs_free,reset_reason,scr_running,scr_cpu,scr_mem_free,mqtt
   local ip="$1" sys scr mq
   sys=$(curl -s --max-time 6 "http://$ip/rpc/Sys.GetStatus" 2>/dev/null || echo '{}')
   scr=$(curl -s --max-time 6 "http://$ip/rpc/Script.GetStatus?id=1" 2>/dev/null || echo '{}')
   mq=$(curl -s --max-time 6 "http://$ip/rpc/Mqtt.GetStatus" 2>/dev/null || echo '{}')
   jq -rn --argjson s "$sys" --argjson c "$scr" --argjson m "$mq" \
-    '[$s.uptime, $s.ram_free, $s.ram_min_free, $s.fs_free, $s.reset_reason,
-      $c.running, $c.cpu, $c.mem_free, $m.connected] | map(tostring) | join(",")' 2>/dev/null \
+    '[$s.uptime,$s.ram_free,$s.ram_min_free,$s.fs_free,$s.reset_reason,
+      $c.running,$c.cpu,$c.mem_free,$m.connected]|map(tostring)|join(",")' 2>/dev/null \
     || echo "ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR"
 }
+new_log() { mkdir -p "$(dirname "$1")"; echo "ts_iso,dev,uptime,ram_free,ram_min_free,fs_free,reset_reason,scr_running,scr_cpu,scr_mem_free,mqtt" > "$1"; }
+add_sample() { local csv="$1" now; now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  echo "$now,i4,$(sample_dev "$I4")" >> "$csv"; echo "$now,s1,$(sample_dev "$S1")" >> "$csv"; }
 
-if [ "${1:-}" = "--summary" ]; then LOG="$2"; else
-  INTERVAL="${1:-600}"; HOURS="${2:-24}"
-  mkdir -p logs
-  START=$(date +%s); LOG="logs/soak-$START.csv"
-  echo "ts_iso,dev,uptime,ram_free,ram_min_free,fs_free,reset_reason,scr_running,scr_cpu,scr_mem_free,mqtt" > "$LOG"
-  END=$(( START + HOURS*3600 ))
-  echo "soak: logging to $LOG every ${INTERVAL}s for ${HOURS}h (i4=$I4 s1=$S1)"
-  while :; do
-    now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-    echo "$now,i4,$(sample_dev "$I4")" >> "$LOG"
-    echo "$now,s1,$(sample_dev "$S1")" >> "$LOG"
-    [ "$(date +%s)" -ge "$END" ] && break
-    sleep "$INTERVAL"
+summary() { local LOG="$1"
+  echo "=== soak verdict: $LOG ==="
+  local fail=0
+  for dev in i4 s1; do
+    local first last n t0 tL u0 uL wall ugain mmf0 mmfL runbad mqbad rebooted
+    first=$(grep ",$dev," "$LOG" | head -1); last=$(grep ",$dev," "$LOG" | tail -1)
+    [ -z "$first" ] && { echo "$dev: no samples"; continue; }
+    n=$(grep -c ",$dev," "$LOG")
+    t0=$(echo "$first" | cut -d, -f1);  tL=$(echo "$last" | cut -d, -f1)
+    u0=$(echo "$first" | cut -d, -f3);  uL=$(echo "$last" | cut -d, -f3)
+    mmf0=$(echo "$first" | cut -d, -f5); mmfL=$(echo "$last" | cut -d, -f5)
+    runbad=$(grep ",$dev," "$LOG" | awk -F, 'NR>0 && $8!="true"' | wc -l | tr -d ' ')
+    mqbad=$(grep ",$dev," "$LOG" | awk -F, '$11!="true"' | wc -l | tr -d ' ')
+    wall=$(( $(date -d "$tL" +%s) - $(date -d "$t0" +%s) ))
+    ugain=$(( uL - u0 ))
+    # uptime must keep pace with wall-clock (120 s slack); if it lags, a reboot happened in the gap
+    rebooted=no; [ "$wall" -gt 300 ] && [ "$ugain" -lt $(( wall - 120 )) ] && rebooted=YES
+    echo "$dev: $n sample(s) over ${wall}s wall | uptime +${ugain}s | ram_min_free ${mmf0}→${mmfL} B | crashes:$runbad | mqtt-down:$mqbad | rebooted:$rebooted"
+    [ "$runbad" != 0 ] && fail=1; [ "$rebooted" = YES ] && fail=1
   done
-fi
+  echo "----"
+  if [ "$fail" = 0 ]; then echo "PASS (so far). Need wall ≥86400s with rebooted:no, crashes:0, ram_min_free not steadily declining."
+  else echo "⚠ FAIL — investigate the flagged device above (crash and/or unexpected reboot)."; fi
+}
 
-# ---- summary: did anything regress between first and last sample per device? ----
-echo "=== soak summary: $LOG ==="
-for dev in i4 s1; do
-  first=$(grep ",$dev," "$LOG" | head -1); last=$(grep ",$dev," "$LOG" | tail -1)
-  [ -z "$first" ] && { echo "$dev: no samples"; continue; }
-  n=$(grep -c ",$dev," "$LOG")
-  u0=$(echo "$first" | cut -d, -f3);  uL=$(echo "$last" | cut -d, -f3)
-  mmf0=$(echo "$first" | cut -d, -f5); mmfL=$(echo "$last" | cut -d, -f5)
-  run_false=$(grep ",$dev," "$LOG" | awk -F, '$8!="true"' | wc -l)
-  mqtt_false=$(grep ",$dev," "$LOG" | awk -F, '$11!="true"' | wc -l)
-  # uptime should be monotonic; a drop => reboot/watchdog trip
-  reboots=$(grep ",$dev," "$LOG" | cut -d, -f3 | awk 'NR>1 && $1<prev{c++} {prev=$1} END{print c+0}')
-  echo "$dev: $n samples | uptime ${u0}s->${uL}s | ram_min_free ${mmf0}->${mmfL} B | script-not-running:$run_false | mqtt-down:$mqtt_false | uptime-drops(reboots):$reboots"
-done
-echo "PASS criteria: uptime grows by ≥86400s, reboots=0, script-not-running=0, ram_min_free stable (no steady decline)."
+case "${1:-}" in
+  --summary) summary "$2" ;;
+  --baseline) csv="${2:-$DEFAULT_CSV}"; new_log "$csv"; add_sample "$csv"
+    echo "baseline written: $csv (i4=$I4 s1=$S1)"; column -s, -t "$csv" ;;
+  --check) csv="${2:-$DEFAULT_CSV}"; [ -f "$csv" ] || { echo "no $csv — run --baseline first" >&2; exit 1; }
+    add_sample "$csv"; summary "$csv" ;;
+  *) INTERVAL="${1:-600}"; HOURS="${2:-24}"; csv="logs/soak-$(date +%s).csv"; new_log "$csv"
+    END=$(( $(date +%s) + HOURS*3600 )); echo "soak: $csv every ${INTERVAL}s for ${HOURS}h"
+    while :; do add_sample "$csv"; [ "$(date +%s)" -ge "$END" ] && break; sleep "$INTERVAL"; done
+    summary "$csv" ;;
+esac
