@@ -3,6 +3,16 @@
 What was **actually observed on real hardware** (vs. mocked/inferred) — NEW-PROJECT-GUIDE §10. Newest
 first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 
+## 2026-06-08 — Resource headroom assessment
+- **RAM:** i4 min-free **115 KB / 251 KB (46%)**; S1 min-free 110 KB / 262 KB (42%). Good margin.
+- **Script heap:** i4 peak **5.1 KB**, S1 peak 6.0 KB — of ~27 KB each (~80% free). Lots of room.
+- **Flash FS:** i4 **104 KB free (27%)**, S1 416 KB free (46%). Fine — our scripts/KVS/certs are ~static.
+- **Script CPU:** S1 **4%** (1 s tick). i4 **~82–83% steady** — and it **did not change** when the poll
+  was halved (50 ms→100 ms). So the metric looks coarse/baseline (a fast-timer script reads "busy"),
+  not a literal core load; device is stable through all tests. Kept the monitor at **100 ms** (10 Hz is
+  ample for a door; debounce ~200 ms). Open: confirm with the broker/coffee dev what
+  `Script.GetStatus.cpu` represents and whether ~80% is normal for an always-on mJS script.
+
 ## 2026-06-08 — Connectivity watchdog (Phase 7)
 - Both scripts carry the watchdog (spec 13); 31 device tests incl. the reboot path.
 - **i4 hardware:** broker up → `mqttUp()=true`, counter 0, no false reboot. Booted into a dead-broker

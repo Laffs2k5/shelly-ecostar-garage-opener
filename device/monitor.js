@@ -15,8 +15,8 @@
 //   input:2 = SW3 motor OPENING  input:3 = SW4 motor CLOSING
 
 var SCHEMA = 1;            // heartbeat payload version
-var TICK_MS = 50;          // input poll interval
-var DEBOUNCE_TICKS = 2;    // snapshot must be stable this many ticks before we accept it (~100ms)
+var TICK_MS = 100;         // input poll interval (10 Hz — ample for a door; halves CPU vs 50 ms)
+var DEBOUNCE_TICKS = 2;    // snapshot must be stable this many ticks before we accept it (~200ms)
 var ALIVE_MS = 30000;      // liveness ping period
 var POST_TIMEOUT = 5;      // seconds; controller POST is fire-and-forget
 
