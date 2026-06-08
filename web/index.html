@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>EcoStar Garage</title>
+<link rel="icon" href="data:," />
+<style>
+  :root { --bg:#15171a; --card:#1e2227; --line:#2c323a; --fg:#e8eaed; --mut:#8b929c;
+          --accent:#3fa45b; --warn:#c9a227; --danger:#b4452f; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg);
+         min-height:100vh; display:flex; flex-direction:column; align-items:center; }
+  .wrap { width:100%; max-width:460px; padding:16px; }
+  header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  h1 { font-size:18px; margin:0; font-weight:600; }
+  button { font:inherit; color:var(--fg); background:var(--card); border:1px solid var(--line);
+           border-radius:10px; padding:10px 14px; cursor:pointer; }
+  button:active { transform:translateY(1px); }
+  .icon { padding:8px 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; margin-bottom:14px; }
+  .state { font-size:34px; font-weight:700; letter-spacing:.3px; }
+  .state.moving { color:var(--warn); }
+  .state.open { color:var(--accent); }
+  .state.closed { color:var(--mut); }
+  .sub { color:var(--mut); margin-top:6px; font-size:14px; }
+  .controls { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .controls button { padding:16px 0; font-size:16px; font-weight:600; }
+  .controls .open { border-color:#2f6b43; }
+  .controls .close { border-color:#5a3a30; }
+  footer { display:flex; align-items:center; gap:8px; color:var(--mut); font-size:13px; margin-top:4px; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--mut); }
+  .dot.on { background:var(--accent); } .dot.off { background:var(--danger); }
+  .modal { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; padding:16px; }
+  .modal.show { display:flex; }
+  .modal .card { width:100%; max-width:420px; margin:0; }
+  label { display:block; font-size:12px; color:var(--mut); margin:10px 0 4px; }
+  input { width:100%; padding:10px; border-radius:8px; border:1px solid var(--line); background:#13161a; color:var(--fg); font:inherit; }
+  .row { display:flex; gap:10px; } .row > * { flex:1; }
+  .muted { color:var(--mut); font-size:12px; margin-top:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>EcoStar Garage</h1>
+    <button class="icon" id="gear" title="Settings">⚙</button>
+  </header>
+
+  <div class="card">
+    <div class="state closed" id="state">—</div>
+    <div class="sub" id="sub">connecting…</div>
+  </div>
+
+  <div class="card controls">
+    <button class="open"  id="btnOpen">Open</button>
+    <button class="close" id="btnClose">Close</button>
+    <button id="btnToggle">Toggle</button>
+  </div>
+
+  <footer><span class="dot" id="dot"></span><span id="conn">offline</span></footer>
+</div>
+
+<div class="modal" id="settings">
+  <div class="card">
+    <h1>Settings</h1>
+    <label>Cloud broker host (EMQX)</label><input id="s_host" placeholder="xxxx.emqxsl.com" />
+    <div class="row">
+      <div><label>Username</label><input id="s_user" /></div>
+      <div><label>Password</label><input id="s_pass" type="password" /></div>
+    </div>
+    <div class="row">
+      <div><label>Monitor id (i4)</label><input id="s_mon" placeholder="garage-monitor" /></div>
+      <div><label>Controller id (S1)</label><input id="s_ctrl" placeholder="garage-controller" /></div>
+    </div>
+    <p class="muted">Credentials stay in this browser (localStorage). Web control uses the cloud broker;
+      the phone app handles same-Wi-Fi direct + local broker.</p>
+    <div class="row" style="margin-top:14px;">
+      <button id="s_save">Save &amp; reconnect</button>
+      <button id="s_close">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script src="garage-core.js"></script>
+<script>
+(function () {
+  "use strict";
+  var G = window.GarageCore;
+  var LS = window.localStorage;
+  var cfg = {
+    host: LS.getItem("gh_host") || "",
+    user: LS.getItem("gh_user") || "",
+    pass: LS.getItem("gh_pass") || "",
+    mon:  LS.getItem("gh_mon")  || G.DEFAULTS.monitorId,
+    ctrl: LS.getItem("gh_ctrl") || G.DEFAULTS.controllerId,
+  };
+  var client = null, topics = null, door = null, connected = false, lastRx = 0;
+
+  var $ = function (id) { return document.getElementById(id); };
+  function nowSec() { return Math.floor(Date.now() / 1000); }
+
+  function render() {
+    var st = door ? door.state : "—";
+    var el = $("state");
+    el.textContent = G.label(st);
+    el.className = "state " + (G.isMoving(st) ? "moving" : st === "OPEN" ? "open" : "closed");
+    var sub = "";
+    if (door) {
+      var d = G.durationSec(door, nowSec());
+      sub = (G.isMoving(st) ? "" : "for ") + G.fmtDur(d);
+      if (door.dir && G.isStopped(st)) sub += " · last " + door.dir;
+    } else if (connected) { sub = "waiting for device…"; }
+    else { sub = "not connected"; }
+    $("sub").textContent = sub;
+    $("dot").className = "dot " + (connected ? "on" : "off");
+    $("conn").textContent = connected
+      ? ("cloud · updated " + (lastRx ? new Date(lastRx * 1000).toLocaleTimeString() : "—"))
+      : "offline";
+  }
+
+  function send(cmd) {
+    var c = G.buildCommand(cmd);
+    if (!c || !client || !connected) return;
+    client.publish(topics.command, c, { qos: 1 });
+  }
+
+  function connect() {
+    if (client) { try { client.end(true); } catch (e) {} client = null; }
+    connected = false; door = null; render();
+    if (!cfg.host || !cfg.user) { $("sub").textContent = "set cloud credentials (⚙)"; return; }
+    topics = G.topics(cfg.mon, cfg.ctrl);
+    client = mqtt.connect(G.brokerUrl(cfg.host), {
+      username: cfg.user, password: cfg.pass, clean: true,
+      reconnectPeriod: 4000, connectTimeout: 8000, clientId: G.randomClientId(),
+    });
+    client.on("connect", function () { connected = true; client.subscribe(topics.state, { qos: 1 }); render(); });
+    client.on("close", function () { connected = false; render(); });
+    client.on("offline", function () { connected = false; render(); });
+    client.on("message", function (t, payload) {
+      if (t === topics.state) { var d = G.parseDoor(payload.toString()); if (d) { door = d; lastRx = nowSec(); render(); } }
+    });
+  }
+
+  // settings modal
+  function openSettings() {
+    $("s_host").value = cfg.host; $("s_user").value = cfg.user; $("s_pass").value = cfg.pass;
+    $("s_mon").value = cfg.mon; $("s_ctrl").value = cfg.ctrl; $("settings").classList.add("show");
+  }
+  $("gear").onclick = openSettings;
+  $("s_close").onclick = function () { $("settings").classList.remove("show"); };
+  $("s_save").onclick = function () {
+    cfg.host = $("s_host").value.trim(); cfg.user = $("s_user").value.trim(); cfg.pass = $("s_pass").value;
+    cfg.mon = $("s_mon").value.trim() || G.DEFAULTS.monitorId; cfg.ctrl = $("s_ctrl").value.trim() || G.DEFAULTS.controllerId;
+    LS.setItem("gh_host", cfg.host); LS.setItem("gh_user", cfg.user); LS.setItem("gh_pass", cfg.pass);
+    LS.setItem("gh_mon", cfg.mon); LS.setItem("gh_ctrl", cfg.ctrl);
+    $("settings").classList.remove("show"); connect();
+  };
+  $("btnOpen").onclick = function () { send("open"); };
+  $("btnClose").onclick = function () { send("close"); };
+  $("btnToggle").onclick = function () { send("toggle"); };
+
+  setInterval(render, 1000);   // tick the duration display
+  if (!cfg.host || !cfg.user) openSettings(); else connect();
+  render();
+})();
+</script>
+</body>
+</html>

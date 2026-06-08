@@ -121,3 +121,28 @@ Notes from the i4 provisioning:
   `devices/garage-monitor/online` LWT. Heartbeat + `mon/garage-monitor/alive` arrive with the Phase 2
   script. (Don't subscribe from tooling using the `garage-monitor` identity — it would clash with the
   live device; use a separate tooling CN if broker-side inspection is needed.)
+
+## Client identities — Phase 4A (pending)
+
+The phone app + web page need broker access too. **Model (from maintainer, full spec
+`mqtt-leiflan/docs/onboarding-devices.md`): per-app credential, household-flat.**
+
+- **Unit of credential = per app.** The garage app on operator's phone gets its OWN cert + cloud user/pass.
+  Naming `<person>-<app>` → **CN `garage-app`** (durable across phone swaps, readable in logs/ACL).
+- **ACL: one broad block per app**, identical to existing clients:
+  ```
+  user garage-app
+  topic readwrite devices/#
+  ```
+- **Client-id = CN** (`garage-app`). Unique CN per app ⇒ no cross-app client-id collision (the
+  takeover-war class can't happen between apps). Within one app, still never open two connections at once.
+- **Cloud:** each app cert pairs with its own cloud user/pass (matching CN) for per-app revocation.
+- **Retention:** command topic **`retain=false`** (safety) — door **state** may be retained. (Our
+  controller subscribes `devices/garage-controller/command`; web/app publish non-retained.)
+- **Accepted trade-off (deliberate, not a gap):** flat `devices/#` means `garage-app` can also touch the
+  coffee plug / any appliance. Chosen for household simplicity; matches `oneplus-13`/`backend-automations`.
+- **Web page:** cloud-WSS only (browsers can't present a client cert over MQTT-WSS; a Pages https page
+  can't HTTP-direct to a Shelly — mixed content). Uses a **cloud user/pass + random client-id**;
+  HTTP-direct + local-broker mTLS are the **Android app's** paths.
+- **4A order:** issue `garage-app` cert (broad block above) + a cloud user/pass. Family adds
+  `user2-garage` etc. the same way. (`oneplus-13` = the coffee app on operator's phone — left as-is.)
