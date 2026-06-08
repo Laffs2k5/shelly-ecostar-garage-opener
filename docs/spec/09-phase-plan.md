@@ -78,8 +78,8 @@ motor. Q-02 + the Q-03 timing/resume edge are **real-door** items carried into P
 ### 4A — Broker/cloud onboarding for clients — [x] ISSUED
 - [x] **`garage-app`** LAN cert (mTLS-only, CN=username, no password, broad `devices/#`) + cloud
   user/pass — issued; in the Bitwarden vault (spec 11). Web uses cloud user/pass + random client-id.
-- [ ] Import on the phone (`ca.crt` + `garage-app.p12` + p12-password) + enter cloud creds, then the
-  on-device integration test.
+- [x] Imported on the phone (`ca.crt` + `garage-app.p12` + p12-password) + cloud creds entered;
+  on-device broker-path integration test passed (Wi-Fi · broker, live state + commands). 2026-06-08.
 
 ### 4B — Android (Kotlin/Compose, Paho `mqttv3`) — `app/` — [~] foundation done
 - [x] Build config + manifest + theme; package `no.leiflan.garage`
@@ -92,12 +92,14 @@ motor. Q-02 + the Q-03 timing/resume edge are **real-door** items carried into P
   runtime `.p12`/CA import; lifecycle-gated poll loop; tear down MQTT when HTTP-direct works
 - [x] **Compiles + unit tests pass on the Windows toolchain** (driven from WSL via `scripts/win-build.sh`):
   `testDebugUnitTest` **16/16**, `assembleDebug` BUILD SUCCESSFUL (23 MB debug APK). 2026-06-08
-- [ ] Optional foreground notification ("door OPEN N min")
 - [x] **On-phone test (HTTP-direct)** — installed via adb, settings injected; live state tracking
   (CLOSED→OPENING→OPEN, Wi-Fi·direct), **Open→relay pulse**, suppression (Open@OPEN→0). Stable signing
   confirmed (no wipe-on-update). The transient "Offline" was phone sleep (Q-15), not a network issue.
-- [ ] On-phone **broker path** (local-mTLS + cloud, off-LAN) — import `ca.crt`+`garage-app.p12` (BW)
-- [ ] 4A: `garage-app` cert + cloud user/pass, import on device, integration test against the broker
+- [x] **On-phone test (local-broker mTLS)** — forced broker path; **Wi-Fi · broker** as `garage-app`,
+  live state via broker, **Open→relay pulse** over MQTT. Settings restored.
+- [ ] On-phone **cloud (WSS)** path — off-LAN test (phone on cellular), user/later
+- [ ] **UX polish:** show in Settings *which* CA / `.p12` are imported (cert CN / status); optional
+  foreground notification ("door OPEN N min")
 
 ### 4C — Web fallback — `web/` — [x] DONE
 - [x] `web/garage-core.js` (pure, **9 Node tests** — `scripts/test-web.sh`) + `web/index.html`:

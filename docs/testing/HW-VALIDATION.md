@@ -19,8 +19,12 @@ first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
   timeout → Wi-Fi power-save → HTTP polls fail. `svc power stayon true` + wake fixed it; the phone then
   `curl`ed the i4 fine. No isolation/firewall (user-confirmed). On-demand polling stops when backgrounded
   by design (no churn); background/push would need the broker path + a foreground service (future).
-- **Remaining:** broker-path (local-mTLS + cloud) on the phone — import `ca.crt` + `garage-app.p12` (BW),
-  for off-LAN use; HTTP-direct (the on-LAN path) is fully validated.
+- **Broker (mTLS) path WORKS on the phone too:** with the IPs blanked (HTTP-direct off), the app connected
+  **Wi-Fi · broker** as `garage-app` (imported `client.p12`+`ca.crt`); driving CLOSED updated the app live
+  (broker retained heartbeat → phone), and **Open → relay pulse** via MQTT publish (`lastPulses:1`). Settings
+  restored after. So both LAN paths (HTTP-direct + local mTLS) are validated on-device.
+- **Remaining:** **cloud (WSS) path** needs an off-LAN test (phone on cellular) — user, later. UX polish:
+  show in the app *which* CA/`.p12` are imported (user request).
 
 ## 2026-06-08 — Resource headroom assessment
 - **RAM:** i4 min-free **115 KB / 251 KB (46%)**; S1 min-free 110 KB / 262 KB (42%). Good margin.
