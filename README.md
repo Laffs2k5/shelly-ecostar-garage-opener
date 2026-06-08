@@ -1,10 +1,15 @@
 # Shelly EcoStar Garage Opener
 
+[![Build](https://github.com/Laffs2k5/shelly-ecostar-garage-opener/actions/workflows/build.yml/badge.svg)](https://github.com/Laffs2k5/shelly-ecostar-garage-opener/actions/workflows/build.yml)
+
 Smart automation of a **Hörmann EcoStar B** garage door operator using two Shelly devices, with full
 galvanic isolation from the opener's electronics. Remote open/close + full door-state tracking, while
 the physical wall button and RF remotes keep working independently of WiFi.
 
-> Status: **early scaffold.** Design is in `docs/spec/`. No device/app code yet.
+> Status: **device tier + clients built and verified on the bench.** i4 monitor + S1 controller scripts
+> run on hardware (door-state derivation, command logic, MQTT + HTTP); Android app + web page build and
+> unit-test green in CI. Remaining: on-phone functional test, device hardening, and the real garage
+> install. Design in `docs/spec/` (start at `INDEX.md`); plan in `docs/spec/09-phase-plan.md`.
 > Private repo for now (intended to go public once hardened — see `CLAUDE.md`).
 
 ## Two devices, two roles

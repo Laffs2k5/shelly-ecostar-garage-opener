@@ -110,24 +110,24 @@ HTTP-direct works with the broker down; no identity hardcoded/bundled. *(web ✓
   log of what was checked on real hardware vs mocked (observe-don't-infer, NEW-PROJECT-GUIDE §10)
 - [ ] App: JVM unit tests for the pure functions (connection/decision/parse/cert with throwaway CA+`.p12`)
 - [ ] Web: Node tests for `web/<core>.js`
-- [ ] `docs/testing/REGRESSION.md` (manual checklist) + `docs/testing/AI-TEST-GUIDE.md` (agent-runnable)
+- [x] `docs/testing/REGRESSION.md` (manual checklist, 🤖 agent / 🧑 human tagged); [ ] `AI-TEST-GUIDE.md`
 - [ ] `docs/ARCHITECTURE.md` overview consolidating the spec set
 
 **Gate:** one command runs all automated tests green; regression checklist exists and has been walked once.
 
 ---
 
-## Phase 6 — CI/CD (GitHub Actions) — 💻
+## Phase 6 — CI/CD (GitHub Actions) — ✅ GATE PASSED
 
-- [ ] `build.yml` — Node device tests + `scripts/build-device.sh --check` (min artifacts fresh) +
-  debug APK on push to main (artifact)
-- [ ] `release.yml` — on `v*` tag: APK + changelog-from-conventional-commits + GitHub Release
-- [ ] `deploy-pages.yml` — `web/**` → GitHub Pages
-- [ ] 🔴 **Stable debug keystore** passed explicitly to Gradle; prove identical signer with `apksigner`
-  (NEW-PROJECT-GUIDE §8 — avoids `INSTALL_FAILED_UPDATE_INCOMPATIBLE` wiping user data)
-- [ ] Node 24 for JS actions; build status badge in README
+- [x] `build.yml` — **js-tests** job (device 27 + web 9 Node tests + `build-device.sh --check`) +
+  **android** job (`testDebugUnitTest` + `assembleDebug`, APK artifact). Verified green (run `success`).
+- [x] `release.yml` — on `v*` tag: signed APK + changelog-from-conventional-commits + GitHub Release.
+- [x] `deploy-pages.yml` — `web/**` → gh-pages (Pages serving activates when the repo goes public).
+- [x] 🔴→✅ **Stable debug keystore**: `DEBUG_KEYSTORE` secret set + explicit `signingConfigs.debug`
+  (storeFile via `DEBUG_KEYSTORE_FILE`); CI prints the apksigner cert (guide §8).
+- [x] Node 24 for JS actions; build badge in README.
 
-**Gate:** push to main builds + tests; tag cuts a Release with a stable-signed APK.
+**Gate: PASSED** — push to main builds + runs all suites green; release workflow + stable signing in place.
 
 ---
 
