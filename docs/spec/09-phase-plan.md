@@ -110,7 +110,9 @@ HTTP-direct works with the broker down; no identity hardcoded/bundled. *(web ✓
 
 - [x] Device: Node mock-harness green (27); [x] App: JVM unit tests (16); [x] Web: Node tests (9)
 - [x] `docs/testing/REGRESSION.md` (manual checklist, 🤖/🧑) + `docs/testing/AI-TEST-GUIDE.md` (agent-runnable)
-- [ ] running `HW-VALIDATION.md` log (real-hardware observations); [ ] `docs/ARCHITECTURE.md` overview
+- [x] `HW-VALIDATION.md` running log (real-hardware observations) + [x] `docs/ARCHITECTURE.md` overview
+
+**Gate:** ✅ automated suites green (31+9+16); regression checklist + agent guide + architecture overview exist.
 
 **Gate:** one command runs all automated tests green; regression checklist exists and has been walked once.
 

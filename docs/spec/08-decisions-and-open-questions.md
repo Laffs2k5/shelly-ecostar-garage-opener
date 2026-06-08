@@ -37,7 +37,7 @@
 | Q-06 | ~~S1 static IP + hostname~~ | RESOLVED: `192.0.2.161` / `shelly1g3-example`; on network + mTLS-provisioned (spec 11) |
 | Q-07 | ~~Repo name~~ | RESOLVED → D-13 (renamed to ecostar) |
 | Q-08 | ~~LICENSE choice~~ | RESOLVED: none for now (private repo); revisit if it goes public |
-| Q-09 | Disable per-input `factory_reset`? (`invert` part resolved → D-16: `invert:false`) | Inputs ship `factory_reset:true` — consider `false` so a stuck/closed contact at boot can't wipe the device (spec 10) |
+| Q-09 | ~~Disable per-input `factory_reset`?~~ | RESOLVED 2026-06-08: set **`factory_reset:false`** on all 4 i4 inputs via `Input.SetConfig` (a stuck/closed reed at boot can't factory-wipe the device). Device-config (not in script) — re-apply if the i4 is ever factory-reset. `invert:false` per D-16 |
 | Q-10 | Keep or disable Shelly Cloud on the devices? | Cloud `enable:true` now; local-broker arch reaches cloud via the broker bridge, so device-cloud may be redundant/extra surface |
 | Q-11 | ~~MQTT CN/identity convention~~ | RESOLVED → D-15 (`garage-monitor` / `garage-controller`) |
 | Q-12 | Should S1 also subscribe to the i4 heartbeat over MQTT as a fallback when an HTTP push is missed? | Adds resilience but needs a cross-subtree ACL read grant for S1's CN (spec 11). Default: no |

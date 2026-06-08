@@ -16,5 +16,6 @@ mapping is obvious.
 | [12-test-rig-and-wiring.md](12-test-rig-and-wiring.md) | Pico input simulator, opto interface, i4 wiring, the closed test loop |
 | [13-device-resilience.md](13-device-resilience.md) | Connectivity watchdog (reboot-to-recover); why no reset_reason gate |
 
+One-page system overview: [../ARCHITECTURE.md](../ARCHITECTURE.md).
 Source hardware design: [../initial-research/hardware-spec.md](../initial-research/hardware-spec.md).
 Reference build lessons: `private/NEW-PROJECT-GUIDE.md` (gitignored).

@@ -36,4 +36,6 @@ private/             gitignored: real keys/certs/creds + network inventory + les
 
 ## Where to start
 
-`docs/spec/INDEX.md` → `01-architecture.md`, then the phase plan in `09-phase-plan.md`.
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the one-page overview, then
+[`docs/spec/INDEX.md`](docs/spec/INDEX.md) and the phase plan in
+[`docs/spec/09-phase-plan.md`](docs/spec/09-phase-plan.md).
