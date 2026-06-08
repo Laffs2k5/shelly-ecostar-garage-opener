@@ -124,7 +124,8 @@ function handleCommand(raw, src) {
 }
 
 function updateDoor(bodyStr) {
-  var d = JSON.parse(bodyStr);
+  if (!bodyStr) return false;          // empty/missing body: ignore (a stray GET/health-check must
+  var d = JSON.parse(bodyStr);          // not crash the script — JSON.parse("") throws on-device)
   if (!d || !d.state) return false;
   DOOR.state = d.state; DOOR.dir = d.dir || ""; DOOR.since = d.since || 0; DOOR.ts = d.ts || 0;
   DOOR.rx = nowTs();

@@ -57,6 +57,18 @@ test("door_state POST updates the held picture, and it's used for decisions", fu
   assert.equal(h.lastHeartbeat().door.state, "OPEN");
 });
 
+test("door_state with empty/missing body does not crash, returns bad, keeps prior picture", function () {
+  const h = mk();
+  h.post("door_state", { body: JSON.stringify({ state: "OPEN", ts: 9 }) });   // seed a good picture
+  const out = h.post("door_state", { body: "" });                              // stray GET / empty POST
+  assert.equal(out.code, 200);
+  assert.equal(out.body, "bad");                                               // ignored, not crashed
+  // prior picture intact: 'open' is still suppressed (door is OPEN) + heartbeat confirms OPEN
+  h.post("command", { query: "cmd=open" });
+  assert.equal(h.switchSets.length, 0);
+  assert.equal(h.lastHeartbeat().door.state, "OPEN");
+});
+
 // ---------- commands -> pulses ----------
 function setDoor(h, state) { h.post("door_state", { body: JSON.stringify({ state: state, ts: 1 }) }); }
 
