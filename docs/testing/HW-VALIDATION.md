@@ -10,17 +10,17 @@ first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
   **not** hit the coffee-dev random-key trap.
 - **Settings:** injected via `run-as` into `shared_prefs/garage_settings.xml` (debuggable app) — reliable,
   no UI tapping needed.
-- **HTTP-direct path WORKS:** app showed live door state and tracked a change — **CLOSED → "Opening…"** —
-  with footer **Wi-Fi · direct**, driven by the Pico, no broker/certs. (Screenshots captured.)
-- **Network finding (not an app bug):** after the watchdog reboots, the phone could **no longer reach
-  .160/.161** (100% loss) despite RSSI −35 and same subnet (192.0.2.104/22), while it **did** reach the
-  broker `.130` and the coffee plug `.159`. WSL reaches .160/.161 fine. → the two devices are on an AP
-  **isolated from the phone's AP** (multi-AP client isolation; ours re-associated after reboot). **Implication:
-  HTTP-direct (phone→Shelly) is unreliable in this house; the broker (mTLS) path is the primary one** — which
-  is exactly what the 3-path roaming is for. Question for the network admin (Q-15): can the phone + Shellys
-  share a non-isolated segment, or is the broker path simply the intended primary here?
-- **Remaining (broker path):** command-button → relay + sustained run need the app on the **local-broker**
-  path — import `ca.crt` + `garage-app.p12` (BW) on the phone (or inject via `run-as`).
+- **HTTP-direct path WORKS:** app showed live door state and tracked changes — **CLOSED → "Opening…" →
+  "Open"** — footer **Wi-Fi · direct**, driven by the Pico, no broker/certs.
+- **Commands WORK (HTTP-direct):** tapped **Open** while CLOSED → S1 relay pulsed ~0.5 s, heartbeat
+  `lastCmd:open, lastPulses:1`. Tapped **Open** while OPEN → **suppressed**, relay stayed off,
+  `lastPulses:0`. Full app→S1→relay chain + the spec-02 suppression logic verified on the phone.
+- **Transient "Offline" was the PHONE SLEEPING** (not AP isolation — Q-15 corrected): 5-min screen
+  timeout → Wi-Fi power-save → HTTP polls fail. `svc power stayon true` + wake fixed it; the phone then
+  `curl`ed the i4 fine. No isolation/firewall (user-confirmed). On-demand polling stops when backgrounded
+  by design (no churn); background/push would need the broker path + a foreground service (future).
+- **Remaining:** broker-path (local-mTLS + cloud) on the phone — import `ca.crt` + `garage-app.p12` (BW),
+  for off-LAN use; HTTP-direct (the on-LAN path) is fully validated.
 
 ## 2026-06-08 — Resource headroom assessment
 - **RAM:** i4 min-free **115 KB / 251 KB (46%)**; S1 min-free 110 KB / 262 KB (42%). Good margin.

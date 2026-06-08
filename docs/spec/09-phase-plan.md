@@ -93,7 +93,10 @@ motor. Q-02 + the Q-03 timing/resume edge are **real-door** items carried into P
 - [x] **Compiles + unit tests pass on the Windows toolchain** (driven from WSL via `scripts/win-build.sh`):
   `testDebugUnitTest` **16/16**, `assembleDebug` BUILD SUCCESSFUL (23 MB debug APK). 2026-06-08
 - [ ] Optional foreground notification ("door OPEN N min")
-- [ ] **On-phone functional test** (user) — install the APK, verify control over Wi-Fi + cellular
+- [x] **On-phone test (HTTP-direct)** — installed via adb, settings injected; live state tracking
+  (CLOSED→OPENING→OPEN, Wi-Fi·direct), **Open→relay pulse**, suppression (Open@OPEN→0). Stable signing
+  confirmed (no wipe-on-update). The transient "Offline" was phone sleep (Q-15), not a network issue.
+- [ ] On-phone **broker path** (local-mTLS + cloud, off-LAN) — import `ca.crt`+`garage-app.p12` (BW)
 - [ ] 4A: `garage-app` cert + cloud user/pass, import on device, integration test against the broker
 
 ### 4C — Web fallback — `web/` — [x] DONE
@@ -102,7 +105,8 @@ motor. Q-02 + the Q-03 timing/resume edge are **real-door** items carried into P
   (non-retained), settings in `localStorage`, random client-id
 
 **Gate:** app + web show correct door state and drive open/close over HTTP-direct **and** broker/cloud;
-HTTP-direct works with the broker down; no identity hardcoded/bundled. *(web ✓; app pending transport+UI)*
+HTTP-direct works with the broker down; no identity hardcoded/bundled. *(web ✓; app HTTP-direct ✓ on the
+phone; app broker path pending cert import)*
 
 ---
 
@@ -113,8 +117,6 @@ HTTP-direct works with the broker down; no identity hardcoded/bundled. *(web ✓
 - [x] `HW-VALIDATION.md` running log (real-hardware observations) + [x] `docs/ARCHITECTURE.md` overview
 
 **Gate:** ✅ automated suites green (31+9+16); regression checklist + agent guide + architecture overview exist.
-
-**Gate:** one command runs all automated tests green; regression checklist exists and has been walked once.
 
 ---
 
