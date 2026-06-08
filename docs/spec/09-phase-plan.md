@@ -106,12 +106,9 @@ HTTP-direct works with the broker down; no identity hardcoded/bundled. *(web ✓
 
 ## Phase 5 — Testing & quality — 💻
 
-- [ ] Device: keep the Node mock-harness green; add scenarios as logic grows; running `HW-VALIDATION.md`
-  log of what was checked on real hardware vs mocked (observe-don't-infer, NEW-PROJECT-GUIDE §10)
-- [ ] App: JVM unit tests for the pure functions (connection/decision/parse/cert with throwaway CA+`.p12`)
-- [ ] Web: Node tests for `web/<core>.js`
-- [x] `docs/testing/REGRESSION.md` (manual checklist, 🤖 agent / 🧑 human tagged); [ ] `AI-TEST-GUIDE.md`
-- [ ] `docs/ARCHITECTURE.md` overview consolidating the spec set
+- [x] Device: Node mock-harness green (27); [x] App: JVM unit tests (16); [x] Web: Node tests (9)
+- [x] `docs/testing/REGRESSION.md` (manual checklist, 🤖/🧑) + `docs/testing/AI-TEST-GUIDE.md` (agent-runnable)
+- [ ] running `HW-VALIDATION.md` log (real-hardware observations); [ ] `docs/ARCHITECTURE.md` overview
 
 **Gate:** one command runs all automated tests green; regression checklist exists and has been walked once.
 
