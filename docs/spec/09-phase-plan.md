@@ -75,9 +75,11 @@ motor. Q-02 + the Q-03 timing/resume edge are **real-door** items carried into P
 
 **Goal:** a two-device-aware phone app + an HTML fallback to see door state and send open/close/toggle.
 
-### 4A — Broker/cloud onboarding for clients (☁ broker-side "order")
-- [ ] Order the **per-app client cert** `garage-app` (broad `readwrite devices/#`, client-id = CN) +
-  its **cloud user/pass** — per the maintainer's per-app model (spec 11). Web uses cloud user/pass + random client-id.
+### 4A — Broker/cloud onboarding for clients — [x] ISSUED
+- [x] **`garage-app`** LAN cert (mTLS-only, CN=username, no password, broad `devices/#`) + cloud
+  user/pass — issued; in the Bitwarden vault (spec 11). Web uses cloud user/pass + random client-id.
+- [ ] Import on the phone (`ca.crt` + `garage-app.p12` + p12-password) + enter cloud creds, then the
+  on-device integration test.
 
 ### 4B — Android (Kotlin/Compose, Paho `mqttv3`) — `app/` — [~] foundation done
 - [x] Build config + manifest + theme; package `no.leiflan.garage`

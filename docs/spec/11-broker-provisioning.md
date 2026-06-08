@@ -122,7 +122,17 @@ Notes from the i4 provisioning:
   script. (Don't subscribe from tooling using the `garage-monitor` identity — it would clash with the
   live device; use a separate tooling CN if broker-side inspection is needed.)
 
-## Client identities — Phase 4A (pending)
+## Client identities — Phase 4A (ISSUED 2026-06-08)
+
+**`garage-app` is issued and delivered** — credentials live in the **Bitwarden vault**, not the repo:
+- BW item **`mqtt.leiflan - mqtt creds for garage-app`** — attachments `ca.crt`, `garage-app.crt`,
+  `garage-app.key`, `garage-app.p12` + hidden field `p12-password`; fields host `mqtt.leiflan /
+  192.0.2.130`, port `8883`, tls = mTLS client cert (verify server with `ca.crt`), username
+  `garage-app`, **password = none (LAN is cert-only)**, client-id.
+- BW item **`emqx.com - mqtt garage-app`** — cloud user/pass for off-LAN (WSS).
+- **App setup:** import `ca.crt` + `garage-app.p12` (+ p12-password) into the app's cert store; enter the
+  cloud user/pass. Nothing identity-specific is bundled/committed (D-06). *(Device + `garage-devtool`
+  certs stay in `private/`; the app creds stay in BW — the phone imports them.)*
 
 The phone app + web page need broker access too. **Model (from maintainer, full spec
 `mqtt-leiflan/docs/onboarding-devices.md`): per-app credential, household-flat.**
