@@ -16,6 +16,24 @@ android {
         versionName = "0.1"
     }
 
+    signingConfigs {
+        // §8 (NEW-PROJECT-GUIDE): sign debug with a STABLE keystore so app updates don't wipe data.
+        // CI exports DEBUG_KEYSTORE_FILE (decoded from the DEBUG_KEYSTORE secret) and we use it
+        // explicitly here rather than trusting AGP's default-location magic. Local builds leave the env
+        // unset → AGP's normal debug keystore.
+        getByName("debug") {
+            System.getenv("DEBUG_KEYSTORE_FILE")?.let { ks ->
+                val f = file(ks)
+                if (f.exists()) {
+                    storeFile = f
+                    storePassword = "android"
+                    keyAlias = "androiddebugkey"
+                    keyPassword = "android"
+                }
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false

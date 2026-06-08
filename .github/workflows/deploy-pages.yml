@@ -1,0 +1,26 @@
+name: Deploy web to GitHub Pages
+
+# Pushes web/ to the gh-pages branch. NOTE: serving Pages from a PRIVATE repo needs a paid plan —
+# this activates fully when the repo goes public (Phase 9). The branch push is harmless meanwhile.
+on:
+  push:
+    branches: [main]
+    paths: [web/**]
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./web
+          publish_branch: gh-pages

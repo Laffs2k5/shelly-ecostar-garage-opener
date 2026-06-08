@@ -1,0 +1,78 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Opt into Node.js 24 for JS actions ahead of GitHub's default switch.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  js-tests:
+    name: JS tests (device + web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Device logic tests (mocked Shelly runtime)
+        run: node --test 'device/test/*.test.js'
+      - name: Web logic tests
+        run: node --test 'web/test/*.test.js'
+      - name: Minified device artifacts are fresh
+        run: bash scripts/build-device.sh --check
+
+  android:
+    name: Android (unit tests + debug APK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Decode + validate debug keystore (stable signing, NEW-PROJECT-GUIDE §8)
+        env:
+          DEBUG_KEYSTORE: ${{ secrets.DEBUG_KEYSTORE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DEBUG_KEYSTORE:-}" ]; then
+            echo "::warning::DEBUG_KEYSTORE secret not set — the APK will be signed with an auto-generated key that changes per build, so on-device updates can fail with INSTALL_FAILED_UPDATE_INCOMPATIBLE. Set it: base64 -w0 debug.keystore"
+            exit 0
+          fi
+          printf '%s' "$DEBUG_KEYSTORE" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+          keytool -list -keystore "$RUNNER_TEMP/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
+          echo "DEBUG_KEYSTORE_FILE=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
+          echo "debug keystore validated — CI will sign stably"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Generate Gradle wrapper
+        working-directory: app
+        run: gradle wrapper
+
+      - name: Unit tests + assemble debug
+        working-directory: app
+        run: ./gradlew testDebugUnitTest assembleDebug --no-daemon --console=plain
+
+      - name: Print APK signer cert (prove stable signature)
+        if: env.DEBUG_KEYSTORE_FILE != ''
+        run: |
+          APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
+          SIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | head -1)
+          "$SIGNER" verify --print-certs "$APK" | grep -iE 'SHA-256 digest' || true
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: app/build/outputs/apk/debug/*.apk
