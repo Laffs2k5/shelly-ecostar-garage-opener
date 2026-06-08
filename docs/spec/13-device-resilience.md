@@ -41,6 +41,19 @@ Wi-Fi is up and MQTT is enabled; any reconnect resets to 0) and reboots when a t
   thresholds are approximate — acceptable for a recover-a-wedged-stack timer; revisit if exact timing
   ever matters.
 
+## Known: i4 monitor CPU (~83%) — accepted (Q-14)
+
+The i4 monitor polls its inputs every 100 ms, which costs **~83% of the script core** — confirmed real
+(the coffee plug's always-on script, same fw, reads **0%** with a 30 s timer; the S1 controller reads
+**4%** at 1 s). It's **accepted for now**: RAM/heap/FS margins are healthy and the device is stable.
+**Mitigation if it ever matters** (more per-tick work, heat/power, or a second script on the device):
+
+- **Event-driven** inputs — react to the i4's real `input:N` events (D-14) + a slow (1 s) housekeeping
+  timer for alive/watchdog. Best: ~5% CPU and keeps fast/faithful detection (incl. brief STOPPED). Cost:
+  rewrites the validated input path (re-verify via Node tests + bench door-matrix).
+- **Slow the poll to ~1 Hz** — trivial, ~4% CPU, but ~2 s to confirm a state change and a brief mid-travel
+  STOPPED during a 2-pulse reverse may not register.
+
 ## Tuning the threshold on the bench
 ```bash
 # set a short broker-down threshold, restart the script so boot reads it

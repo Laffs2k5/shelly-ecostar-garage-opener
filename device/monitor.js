@@ -15,7 +15,9 @@
 //   input:2 = SW3 motor OPENING  input:3 = SW4 motor CLOSING
 
 var SCHEMA = 1;            // heartbeat payload version
-var TICK_MS = 100;         // input poll interval (10 Hz — ample for a door; halves CPU vs 50 ms)
+var TICK_MS = 100;         // input poll (10 Hz). NOTE: this poll costs ~83% script CPU on the i4 (real,
+                           // confirmed vs coffee plug's 0%); accepted — RAM/heap/FS fine. Mitigation:
+                           // event-driven inputs (D-14) or ~1 Hz poll. See Q-14 / spec 13.
 var DEBOUNCE_TICKS = 2;    // snapshot must be stable this many ticks before we accept it (~200ms)
 var ALIVE_MS = 30000;      // liveness ping period
 var POST_TIMEOUT = 5;      // seconds; controller POST is fire-and-forget

@@ -7,11 +7,15 @@ first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 - **RAM:** i4 min-free **115 KB / 251 KB (46%)**; S1 min-free 110 KB / 262 KB (42%). Good margin.
 - **Script heap:** i4 peak **5.1 KB**, S1 peak 6.0 KB — of ~27 KB each (~80% free). Lots of room.
 - **Flash FS:** i4 **104 KB free (27%)**, S1 416 KB free (46%). Fine — our scripts/KVS/certs are ~static.
-- **Script CPU:** S1 **4%** (1 s tick). i4 **~82–83% steady** — and it **did not change** when the poll
-  was halved (50 ms→100 ms). So the metric looks coarse/baseline (a fast-timer script reads "busy"),
-  not a literal core load; device is stable through all tests. Kept the monitor at **100 ms** (10 Hz is
-  ample for a door; debounce ~200 ms). Open: confirm with the broker/coffee dev what
-  `Script.GetStatus.cpu` represents and whether ~80% is normal for an always-on mJS script.
+- **Script CPU:** S1 **4%** (1 s tick); i4 **~83% steady** (100 ms input poll, converged at 23 min uptime).
+  Cross-checked the **coffee plug** (.159, same fw 1.7.5): its always-on script = **0%** CPU with a 30 s
+  timer (45 h uptime). So the figure is **real and timer-frequency-driven** (30 s→0, 1 s→4, 100 ms→83),
+  not a metric artifact — the i4's fast poll genuinely loads the script core. Halving 50→100 ms didn't
+  move it (curve is flat-high until a much lower frequency). **Decision: accepted as a known issue** —
+  RAM/heap/FS margins are fine and the device is rock-stable. **Mitigation if ever needed (Q-14):**
+  go event-driven on the i4's real input events (D-14) + a slow housekeeping timer, or drop the poll to
+  ~1 Hz (≈4%, at the cost of ~2 s state-confirm latency). (Coffee's own heap is nearly full,
+  `mem_free 2520` — our ~22 KB free is comparatively roomy.)
 
 ## 2026-06-08 — Connectivity watchdog (Phase 7)
 - Both scripts carry the watchdog (spec 13); 31 device tests incl. the reboot path.
