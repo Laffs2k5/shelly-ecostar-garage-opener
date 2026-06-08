@@ -76,21 +76,23 @@ motor. Q-02 + the Q-03 timing/resume edge are **real-door** items carried into P
 **Goal:** a two-device-aware phone app + an HTML fallback to see door state and send open/close/toggle.
 
 ### 4A — Broker/cloud onboarding for clients (☁ broker-side "order")
-- [ ] Order a **client mTLS identity** for the phone (e.g. CN `garage-phone`) — broker ACL needs
-  read/write on **both** `devices/garage-monitor/#` + `devices/garage-controller/#` (like `garage-devtool`)
-- [ ] **Cloud** (EMQX) username/password for off-LAN use (broker maintainers); web uses a random client-id
+- [ ] Order the **per-app client cert** `garage-app` (broad `readwrite devices/#`, client-id = CN) +
+  its **cloud user/pass** — per the maintainer's per-app model (spec 11). Web uses cloud user/pass + random client-id.
 
 ### 4B — Android (Kotlin/Compose, Paho `mqttv3`) — `app/` — [~] foundation done
 - [x] Build config + manifest + theme; package `no.leiflan.garage`
 - [x] **Pure core + JVM tests** (`api/`): `GarageApi.decide` (HTTP-direct>local>cloud>offline) + cmd/URL
   helpers + HTTP-direct calls + JSON parse; `DoorModel` (7 states, labels, duration); `ConnectionUi`
   (labels + capped event log); `MqttTls` (cert→SSLSocketFactory, copied verbatim) + throwaway fixtures
-- [ ] `api/MqttTransport.kt` — Paho: local mTLS + cloud WSS; sub `garage-monitor/heartbeat`, pub
+- [x] `api/MqttTransport.kt` — Paho: local mTLS + cloud WSS; sub `garage-monitor/heartbeat`, pub
   `garage-controller/command` (QoS1, non-retained); client-id = CN `garage-app`; auto-reconnect off
-- [ ] `MainActivity.kt` — Compose Settings + Main (door card + Open/Close/Toggle + connection footer);
+- [x] `MainActivity.kt` — Compose Settings + Main (door card + Open/Close/Toggle + connection footer);
   runtime `.p12`/CA import; lifecycle-gated poll loop; tear down MQTT when HTTP-direct works
+- [x] **Compiles + unit tests pass on the Windows toolchain** (driven from WSL via `scripts/win-build.sh`):
+  `testDebugUnitTest` **16/16**, `assembleDebug` BUILD SUCCESSFUL (23 MB debug APK). 2026-06-08
 - [ ] Optional foreground notification ("door OPEN N min")
-- ⚠️ APK **builds on Windows** (aapt2 x86_64); **test on a physical device** (no Windows-ARM emulator)
+- [ ] **On-phone functional test** (user) — install the APK, verify control over Wi-Fi + cellular
+- [ ] 4A: `garage-app` cert + cloud user/pass, import on device, integration test against the broker
 
 ### 4C — Web fallback — `web/` — [x] DONE
 - [x] `web/garage-core.js` (pure, **9 Node tests** — `scripts/test-web.sh`) + `web/index.html`:

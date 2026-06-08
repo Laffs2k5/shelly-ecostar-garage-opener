@@ -78,8 +78,11 @@ state), and the Pico rig `scripts/pico.sh` (drive inputs). See spec 12.
 ## Development environment
 
 Windows ARM64 + WSL2 (Ubuntu).
-- **APK cannot be built in WSL** (aapt2 is x86_64-only) — build on Windows. **Emulator doesn't work on
-  Windows-ARM** — test on a physical device via `adb.exe` (Windows paths, not `/mnt/c/...`).
+- **The Android build runs on the Windows toolchain, driven from WSL** via `scripts/win-build.sh`
+  (syncs `app/` to a Windows-local dir, runs Android Studio JBR gradle + SDK). **I can compile +
+  JVM-unit-test the app myself headless** (`testDebugUnitTest`, `assembleDebug` both verified). The WSL
+  *Linux* toolchain still can't (aapt2). **Emulator doesn't work here** — only **on-phone functional
+  tests need the user** (physical device via `adb.exe`, Windows paths).
 - **WSL CAN reach the LAN here** (verified 2026-06-07 — `curl http://192.0.2.160/rpc/...` reaches the
   i4). This **differs from the reference repo's environment**; drive the Shellys directly from WSL with
   `curl`. Shelly Plus/Gen2 RPC over `GET http://<ip>/rpc/<Method>?<params>` returns the result object
