@@ -97,9 +97,13 @@ motor. Q-02 + the Q-03 timing/resume edge are **real-door** items carried into P
   confirmed (no wipe-on-update). The transient "Offline" was phone sleep (Q-15), not a network issue.
 - [x] **On-phone test (local-broker mTLS)** — forced broker path; **Wi-Fi · broker** as `garage-app`,
   live state via broker, **Open→relay pulse** over MQTT. Settings restored.
-- [ ] On-phone **cloud (WSS)** path — off-LAN test (phone on cellular), user/later
-- [ ] **UX polish:** show in Settings *which* CA / `.p12` are imported (cert CN / status); optional
-  foreground notification ("door OPEN N min")
+- [x] **On-phone test (cloud WSS)** — forced cloud (blanked LAN options); **Cloud** as `garage-app`,
+  live state via cloud-delivered heartbeat, **Open→relay pulse** (phone→EMQX→bridge→broker→S1,
+  `lastPulses:1`). EMQX is public internet so the WSS path is identical to cellular; only the radio is
+  untested. Settings restored. **All three transports validated on-device.**
+- [ ] **UI/UX polish pass** (low-priority — functionality at install is the priority; do whenever):
+  show in Settings *which* CA / `.p12` are imported (cert CN / status); optional foreground notification
+  ("door OPEN N min"); general visual tidy-up
 
 ### 4C — Web fallback — `web/` — [x] DONE
 - [x] `web/garage-core.js` (pure, **9 Node tests** — `scripts/test-web.sh`) + `web/index.html`:
@@ -145,8 +149,9 @@ phone; app broker path pending cert import)*
   `reset_reason` 1/3 observed, nothing depends on it.
 - [ ] **Tunables via config** (optional): pulse gap (Q-03), debounce — version-gated `…/config` topic so a
   client can change them without reflashing; expose current version in heartbeat
-- [ ] Q-09: set i4 inputs `factory_reset:false` (stuck reed at boot must not wipe the device)
-- [ ] Q-10: decide device Shelly Cloud on/off (local broker already bridges to cloud)
+- [x] Q-09: set i4 inputs `factory_reset:false` (stuck reed at boot must not wipe the device) — done
+- [x] Q-10: device Shelly Cloud — **keep enabled** (default); harmless alongside the broker→cloud bridge
+- [x] Q-12: S1 subscribe to i4 heartbeat as fallback — **no** (HTTP-direct is the link; avoids extra ACL/surface)
 - [ ] `status_ntf`/`rpc_ntf` confirmed `false` on both (done); `docs/spec` watchdog note
 
 **Gate:** a forced Wi-Fi/broker outage self-recovers within the watchdog window without moving the door;

@@ -23,8 +23,15 @@ first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
   **Wi-Fi · broker** as `garage-app` (imported `client.p12`+`ca.crt`); driving CLOSED updated the app live
   (broker retained heartbeat → phone), and **Open → relay pulse** via MQTT publish (`lastPulses:1`). Settings
   restored after. So both LAN paths (HTTP-direct + local mTLS) are validated on-device.
-- **Remaining:** **cloud (WSS) path** needs an off-LAN test (phone on cellular) — user, later. UX polish:
-  show in the app *which* CA/`.p12` are imported (user request).
+- **Cloud (WSS) path WORKS on the phone too:** forced cloud by blanking `i4_ip`/`s1_ip`/`mqtt_local_host`
+  (so roaming falls through to cloud) — phone stayed on Wi-Fi but the EMQX endpoint is public internet, so
+  the WSS transport + cloud creds are exercised identically to a cellular client. App connected **Cloud**
+  (`garage-app`), driving Pico CLOSED updated the app live (**"Closed"** via cloud-delivered heartbeat),
+  and **Open → S1 relay pulse** — controller heartbeat `lastCmd:open, lastPulses:1` (phone → EMQX cloud →
+  bridge → local broker → S1). All three transports now validated on-device. Settings restored after; the
+  only thing a true cellular test would add is proving the radio, not app logic.
+- **Remaining:** UX polish — show in the app *which* CA/`.p12` are imported (user request); a broader
+  UI-polish pass is planned but low-priority (functionality at install time is the priority).
 
 ## 2026-06-08 — Resource headroom assessment
 - **RAM:** i4 min-free **115 KB / 251 KB (46%)**; S1 min-free 110 KB / 262 KB (42%). Good margin.
