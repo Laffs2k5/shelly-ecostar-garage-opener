@@ -3,6 +3,23 @@
 What was **actually observed on real hardware** (vs. mocked/inferred) — NEW-PROJECT-GUIDE §10. Newest
 first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 
+## 2026-06-09 — Real reed bench test (Q-13) — mrsmart MR-00326
+- **First real reed validated end-to-end** (rig had only used opto reed-*sims*). Wired **directly**:
+  one lead → i4 input **I1 (SW1, id0)**, other → **−** rail — no opto, no resistor (passive dry contact,
+  D-16). Pico/SW1-opto removed for an unambiguous single-source test.
+- **Clean wiring:** magnet away → input0 `false` (steady, 3/3 reads), no short/float.
+- **Polarity confirms closed-loop (matches D-16, `invert:false`):** magnet **present → input0 `true`**
+  → i4 derives **CLOSED**; magnet **away → `false`**. (Derived state with magnet off reads
+  `STOPPED_OPENING` — correct: bare reed release with no motor signal just falls back to lastDir.)
+- **Repeatability sweep (~22 s, 0.25 s poll):** **4/4 clean on/off cycles**, each a single edge on
+  **SW1 only** — no contact bounce visible at 250 ms (the monitor's 200 ms debounce would absorb any
+  sub-sample chatter anyway), **no cross-talk** to SW2–SW4.
+- **Soak unaffected:** done *during* the running 24 h soak without power-cycling the i4 — `--check`
+  after showed uptime kept pace, `ram_min_free` unchanged, no reboot/crash. Reed activity is just
+  normal monitor work.
+- **Remaining (Phase 8, real door):** post-mount operating gap on the steel door (free-air ~5 cm,
+  shrinks on ferrous — spacers may be needed), and SW2 "open" reed (same part, not separately waved).
+
 ## 2026-06-08 — On-phone app test (OnePlus CPH2653, Android 16, via adb)
 - **Install:** CI-built debug APK installs via `adb install -r` (Success). **Signing is stable** — the
   APK's signer SHA-256 (`a9286ff0…d26af1`) **equals** our `DEBUG_KEYSTORE` `androiddebugkey` cert, proving
