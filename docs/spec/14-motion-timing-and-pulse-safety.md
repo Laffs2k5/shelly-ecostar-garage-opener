@@ -87,6 +87,22 @@ The pushed picture is `{state, dir, inputs:{c,o,op,cl}, since, ts, v}`
    so it can be tuned at install without reflashing (ties into the existing "tunables via config" plan
    item).
 
+## Problem 3 — no minimum spacing between *separate* commands (pulse coalescing)
+
+We enforce a gap *within* a stop-then-reverse (`PULSE_GAP_MS = 1200`, [controller.js:23](../../device/controller.js#L23)),
+and each pulse is 0.5 s (`auto_off_delay`). But `handleCommand` calls `pulseSeq` **immediately on every
+command** ([controller.js:119-122](../../device/controller.js#L119-L122)) with **no rate-limit between
+separate commands**. Consequences when commands arrive close together (fast double-tap, app+MQTT racing,
+retries):
+- Pulses can land closer than the EcoStar's slow logic can resolve as two distinct impulses.
+- A 2nd `Switch.Set(on)` while the 0.5 s `auto_off` is still pending **extends the closure into one long
+  pulse** → the EcoStar sees a *single* impulse, not two.
+
+**Fix:** a **post-pulse lockout** on the controller — after firing, ignore (or briefly queue) further
+commands for `≥ pulse_len + PULSE_GAP_MS + margin`, so every impulse the opener receives is cleanly
+spaced and atomic. Pure + testable; reuses the same config tunable as `REST_GUARD_MS`. Heartbeat could
+expose a `locked`/`busy` flag so clients don't double-fire.
+
 ## Test strategy (write these FIRST — they should fail against today's code)
 
 **Monitor (`derive` + tick loop):**
@@ -104,6 +120,9 @@ The pushed picture is `{state, dir, inputs:{c,o,op,cl}, since, ts, v}`
 - Guard boundary: command at `settledMs == guard-ε` vs `guard+ε`.
 - The controller test harness already has `tick`/`sendCmd`; extend it to advance simulated time and set
   the door picture (state + inputs + since/ts) independently, so a command can land mid-transition.
+- **Lockout (Problem 3):** two commands within the lockout window ⇒ the 2nd is ignored/queued (assert
+  only one pulse sequence fired); a command after the window ⇒ fires normally. Assert the relay is never
+  re-`Set(on)` while a pulse's `auto_off` is still pending (no coalescing into one long pulse).
 
 ## Regression coverage to evaluate when implementing
 
