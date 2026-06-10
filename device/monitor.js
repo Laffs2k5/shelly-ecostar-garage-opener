@@ -19,6 +19,12 @@ var TICK_MS = 100;         // input poll (10 Hz). NOTE: this poll costs ~83% scr
                            // confirmed vs coffee plug's 0%); accepted — RAM/heap/FS fine. Mitigation:
                            // event-driven inputs (D-14) or ~1 Hz poll. See Q-14 / spec 13.
 var DEBOUNCE_TICKS = 2;    // snapshot must be stable this many ticks before we accept it (~200ms)
+// Motor-direction tiebreaker gate (Q-16 / spec 14, garage observation 2026-06-10). A reed engaged while
+// the motor drives AWAY from it looks identical for a real DEPARTURE (sustained, measured ~510-780ms) and
+// the EcoStar's end-of-travel relief REVERSE kick (brief, measured 140-220ms). Only treat it as departure
+// once the conflict persists this many ticks. 4 ticks (~400ms) clears the 220ms reverse with margin and
+// still fires within the 510ms+ departure overlap. PROVISIONAL/small-sample — should become config-tunable.
+var GATE_TICKS = 4;
 var ALIVE_MS = 30000;      // liveness ping period
 var POST_TIMEOUT = 5;      // seconds; controller POST is fire-and-forget
 
@@ -36,18 +42,22 @@ var SINCE = 0;             // unixtime when STATE last changed
 var ticks = 0;
 var lastSnap = "";         // for debounce
 var stableCount = 0;
+var conflictTicks = 0;     // consecutive ticks of (reed + opposite-motor) — gates departure vs reverse-kick
 var appliedSnap = "";      // last snapshot we actually derived from
 var booted = false;
 
 // ---- pure state derivation (spec 02). Kept dependency-free so the Node tests exercise it directly. ----
 // c,o,op,cl = booleans (closed reed, open reed, motor-opening, motor-closing). lastDir carries memory.
 // returns { state: <STR>, dir: <updated lastDir> }.
-function derive(c, o, op, cl, lastDir) {
-  if (c && o) return { state: "UNKNOWN", dir: lastDir };   // both reeds active = sensor fault
+// gateMet = the motor driving AWAY from an engaged reed has persisted past GATE_TICKS (real departure,
+// not the brief end-of-travel reverse kick). Arrival overlap (reed + SAME-direction motor, e.g. c+cl) is
+// NOT a conflict and the reed still wins immediately. See spec 14 / Q-16.
+function derive(c, o, op, cl, lastDir, gateMet) {
+  if (c && o) return { state: "UNKNOWN", dir: lastDir };    // both reeds active = sensor fault
   if (op && cl) return { state: "UNKNOWN", dir: lastDir };  // motor can't drive both ways = fault
-  if (c) return { state: "CLOSED", dir: lastDir };          // reeds win (ground truth)
-  if (o) return { state: "OPEN", dir: lastDir };
-  if (op) return { state: "OPENING", dir: "opening" };
+  if (c && !(op && gateMet)) return { state: "CLOSED", dir: lastDir };  // at closed unless SUSTAINED opening (departing)
+  if (o && !(cl && gateMet)) return { state: "OPEN", dir: lastDir };    // at open unless SUSTAINED closing (departing)
+  if (op) return { state: "OPENING", dir: "opening" };      // pure opening, or departing-closed past the gate
   if (cl) return { state: "CLOSING", dir: "closing" };
   if (lastDir === "opening") return { state: "STOPPED_OPENING", dir: lastDir };
   if (lastDir === "closing") return { state: "STOPPED_CLOSING", dir: lastDir };
@@ -119,11 +129,17 @@ function onStateChange() {
 function evaluate() {
   var s = snapshot();
   var key = snapKey(s);
+  // conflict = reed engaged while the motor drives AWAY from it (departure OR end-reverse kick).
+  // Count consecutive ticks; gate distinguishes a sustained departure from the brief reverse (spec 14).
+  var conflict = (s.c && s.op) || (s.o && s.cl);
+  conflictTicks = conflict ? (conflictTicks + 1) : 0;
+  var gateMet = conflictTicks >= GATE_TICKS;
   if (key === lastSnap) { stableCount++; } else { stableCount = 0; lastSnap = key; }
   if (stableCount < DEBOUNCE_TICKS) return;        // wait for the snapshot to settle
-  if (key === appliedSnap) return;                 // already derived from this exact snapshot
-  appliedSnap = key;
-  var d = derive(s.c, s.o, s.op, s.cl, LASTDIR);
+  var akey = key + (gateMet ? "G" : "g");          // re-derive when the gate flips, even if inputs are unchanged
+  if (akey === appliedSnap) return;
+  appliedSnap = akey;
+  var d = derive(s.c, s.o, s.op, s.cl, LASTDIR, gateMet);
   LASTDIR = d.dir;
   if (d.state !== STATE) { STATE = d.state; onStateChange(); }
 }

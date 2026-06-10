@@ -61,6 +61,14 @@ All existing arrival tests still pass (their "away" motor signal is off, so the 
 > here (gate, `REST_GUARD_MS`, `PULSE_GAP_MS`, debounce) as **provisional — widen/re-confirm at
 > commissioning**. Prefer conservative margins over tight fits everywhere.
 
+> **✅ IMPLEMENTED 2026-06-10 (monitor, Problem 1 only).** `derive()` takes a `gateMet` arg; the tick
+> loop counts consecutive ticks of the conflict `(c&&op)||(o&&cl)` and sets `gateMet` once it persists
+> `GATE_TICKS`. Chose **`GATE_TICKS = 4` (≈400 ms)** — integer-tick granularity (100 ms), 4 over 3 for
+> margin above the 220 ms reverse; consequence is asymmetric (too-low glitches every close; too-high just
+> leaves a brief stale-CLOSED that self-corrects when the reed releases). Still provisional / should become
+> config-tunable. Unit + tick-loop tests added; **bench-validated** (200 ms kick → stays CLOSED; sustained
+> opening → OPENING). **Problems 2 & 3 below remain TODO.**
+
 ## Problem 2 — pulse-timing race across the two devices (the hard one)
 
 EcoStar impulse semantics (D-09): **a pulse to a *moving* door = STOP; a pulse to a *stopped* door =

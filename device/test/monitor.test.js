@@ -100,6 +100,43 @@ test("reed-then-motor-coast overlap settles to the end state without a glitch", 
   assert.equal(h.heartbeats().length, n, "no extra heartbeat when only the coasting motor drops");
 });
 
+// ---------- departure vs end-of-travel reverse kick (Q-16 / spec 14, garage data 2026-06-10) ----------
+test("derive: brief opposite-motor (gate NOT met) = end-reverse kick -> holds the end state", function () {
+  const { derive } = createHarness();
+  assert.equal(derive(true, false, true, false, "closing", false).state, "CLOSED"); // closed-reed + opening blip
+  assert.equal(derive(false, true, false, true, "opening", false).state, "OPEN");   // open-reed + closing blip
+});
+test("derive: sustained opposite-motor (gate met) = departure -> moving state", function () {
+  const { derive } = createHarness();
+  assert.equal(derive(true, false, true, false, "closing", true).state, "OPENING"); // departing closed
+  assert.equal(derive(false, true, false, true, "opening", true).state, "CLOSING"); // departing open
+});
+test("tick: ~140-220ms reverse kick at close arrival does NOT glitch CLOSED->OPENING", function () {
+  const h = createHarness({ inputs: { c: true } });
+  h.settle();
+  assert.equal(h.state(), "CLOSED");
+  const n = h.heartbeats().length;
+  h.setInputs(true, false, true, false); h.tick(2);   // opening kick ~200ms, closed reed still engaged
+  h.setInputs(true, false, false, false); h.tick(2);  // kick ends
+  assert.equal(h.state(), "CLOSED", "reverse kick absorbed — no spurious OPENING");
+  assert.equal(h.heartbeats().length, n, "no extra heartbeat from the kick");
+});
+test("tick: sustained opening while closed reed engaged (departure) -> OPENING past the gate", function () {
+  const h = createHarness({ inputs: { c: true } });
+  h.settle();
+  h.setInputs(true, false, true, false); h.tick(5);   // >= GATE_TICKS with closed reed still engaged
+  assert.equal(h.state(), "OPENING", "departure detected once opposite motor persists past the gate");
+});
+test("tick: symmetric at open end — brief closing kick stays OPEN, sustained closing departs", function () {
+  const h = createHarness({ inputs: { o: true } });
+  h.settle();
+  assert.equal(h.state(), "OPEN");
+  h.setInputs(false, true, false, true); h.tick(2); h.setInputs(false, true, false, false); h.tick(2);
+  assert.equal(h.state(), "OPEN", "closing kick at open end absorbed");
+  h.setInputs(false, true, false, true); h.tick(5);
+  assert.equal(h.state(), "CLOSING", "sustained closing = departure from open");
+});
+
 // ---------- outputs: HTTP POST to controller (D-10) ----------
 test("controller POST: skipped when no controller_url is set", function () {
   const h = createHarness({ inputs: { c: true } });
