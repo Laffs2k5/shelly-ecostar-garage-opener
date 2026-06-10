@@ -13,21 +13,24 @@ Bits = `SW1 SW2 SW3 SW4` (closed-reed, open-reed, opening-motor, closing-motor).
   travel → closed-reed seats. Full OPEN symmetric. STOPPED mid-travel = **`0000`** (all off) → derives
   `STOPPED_CLOSING`/`_OPENING` via lastDir. **Q-13 + Q-02 confirmed on the real motor** (optos toggle
   cleanly on real ±24 V, no chatter, held for the whole travel).
-- **D-09 alternation confirmed:** stopped-while-closing → next press → **reverses to OPENING** (SW3). Matches
-  the impulse model the controller relies on.
+- **D-09 alternation confirmed BOTH ways:** stopped-while-closing → next press → **OPENING** (SW3);
+  stopped-while-opening → next press → **CLOSING** (SW4). Matches the impulse model the controller relies on.
 - **Departure overlap (Q-16 Problem 1), measured:** reed stays engaged **~0.5–0.8 s** *after* the motor
   starts driving away (open-end 0.51–0.63 s, closed-end 0.78 s). Real and well above the 200 ms debounce.
 - **⚠ End-of-travel reverse is REAL and opto-visible (not mechanical):** at the close seat, after the
-  closed-reed engages and the motor drives in ~1 s, **SW3 (opening) pulses ON for ~140 ms** then off
-  (`1001→1010→1000`). Electrically present on the opto (deliberate relief pulse or relay-release transient).
-  **This is `c=1 & op=1` — identical pattern to a departure, distinguished only by duration (~140 ms vs
-  ~500–780 ms).** Directly reshapes the Q-16 fix (spec 14): the motor-direction tiebreaker must be
-  **time-gated (~300 ms)**, else it would glitch `CLOSED→OPENING` at every arrival. (Open-end reverse not
-  yet captured — assumed symmetric; confirm later.)
-- **Travel times:** close ~17 s, open ~14 s (opening ~1.3 s faster).
-- **WiFi RSSI at the garage: −73 to −82 dBm** (weak; loosely tracks door position — better open ~−74,
-  worse closed ~−82, metal panel affects the path). Held connection throughout, but margin is thin for the
-  watchdog once live — flagged for later (antenna/AP placement).
+  closed-reed engages and the motor drives in ~1 s, **SW3 (opening) pulses ON then off** (`1001→1010→1000`).
+  Caught twice: **~140 ms and ~220 ms (n=2, 57% spread)**. Electrically present on the opto (deliberate
+  relief pulse or relay-release transient). **This is `c=1 & op=1` — identical pattern to a departure,
+  distinguished only by duration (140–220 ms vs ~500–780 ms).** Directly reshapes the Q-16 fix (spec 14):
+  the motor-direction tiebreaker must be **time-gated (~300–350 ms, in the narrowed ~220→510 ms gap, with
+  margin — small sample!)**, else it would glitch `CLOSED→OPENING` at every arrival. Open-end reverse not
+  directly captured (~140 ms blip, sampler missed it) — assumed symmetric; the gate covers both ends.
+- **Travel times:** close ~16–17 s, open ~14–15 s (opening ~1.3 s faster).
+- **WiFi RSSI at the garage: −73 to −85 dBm** (weak; loosely tracks door position — better open ~−74,
+  worse closed ~−82, dipped to −85). Held connection throughout, but margin is thin for the watchdog once
+  live — flagged for later (antenna/AP placement).
+- **Capture caveat:** single-session, small sample (no statistical runs); every timing figure here is
+  **provisional — choose FW thresholds with margin and keep config-tunable; re-confirm at commissioning.**
 
 ## 2026-06-10 — 24 h soak PASS (Phase 3) — both devices
 - **≥24 h stability met, decisively: ~33.4 h observed** (120173 s wall) on both i4 and S1, via the

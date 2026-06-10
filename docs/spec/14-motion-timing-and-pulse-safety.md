@@ -42,21 +42,22 @@ if (cl) return CLOSING;        // o && cl => departing open
 All existing arrival tests still pass (their "away" motor signal is off, so the reed still wins).
 
 > **⚠ Refined by garage observation 2026-06-10 (HW-VALIDATION) — the fix above is INCOMPLETE.** The
-> EcoStar does a **~140 ms reverse motor pulse at each end-of-travel** (relief), which **is opto-visible**:
+> EcoStar does a **~140–220 ms reverse motor pulse at each end-of-travel** (n=2 catches), which **is opto-visible**:
 > at the close seat the sequence is `1001 → 1010 → 1000` — i.e. **`c=1 & op=1` for ~140 ms** at arrival.
 > That's the *same input pattern as a departure*, so the naive `c && !op` rule would glitch
-> `CLOSED → OPENING` for ~140 ms on **every** close. Distinguish them by **duration**: the end-reverse is
-> ~140 ms; a real departure holds the reed engaged **~500–780 ms** (measured). **So the tiebreaker must be
-> time-gated:** only let an opposite-direction motor signal override an engaged reed once it has
-> **persisted ≥ ~300 ms** (clean gap between 140 ms and 500 ms+). Below that, the reed still wins (it's the
+> `CLOSED → OPENING` on **every** close. Distinguish them by **duration**: the end-reverse is
+> **140–220 ms (n=2)**; a real departure holds the reed engaged **~500–780 ms** (measured). **So the
+> tiebreaker must be time-gated:** only let an opposite-direction motor signal override an engaged reed
+> once it has **persisted past the gate** (gap now ~**220 → 510 ms**). Below that, the reed still wins (it's the
 > arrival relief-kick, still at that end). Make the gate a config tunable; unit-test with the 140 ms blip
 > as an explicit case that must NOT flip the state.
 >
-> **Margins — these are small-sample observations, NOT statistics.** n=1 for the reverse (140 ms), n≈3–4
-> for departures (0.51–0.78 s). We have no opportunity for repeated/statistical measurement, so **choose
-> thresholds with safety margin *inside* the 140 → 510 ms gap, not tuned to the measured points** — the
-> reverse could run longer and a departure shorter than what we happened to catch. Pick the gate near the
-> middle with headroom both ways (~300 ms), keep it **config-tunable**, and treat every timing constant
+> **Margins — these are small-sample observations, NOT statistics.** n=2 for the reverse (140 ms, 220 ms —
+> already a 57% spread!), n≈3–4 for departures (0.51–0.78 s). We have no opportunity for repeated/statistical
+> measurement, so **choose thresholds with safety margin *inside* the ~220 → 510 ms gap, not tuned to the
+> measured points** — the reverse could run longer and a departure shorter than what we happened to catch
+> (the 2nd reverse was already 57% longer than the 1st). Pick the gate with headroom both ways (~300–350 ms
+> in the narrowed band), keep it **config-tunable**, and treat every timing constant
 > here (gate, `REST_GUARD_MS`, `PULSE_GAP_MS`, debounce) as **provisional — widen/re-confirm at
 > commissioning**. Prefer conservative margins over tight fits everywhere.
 
