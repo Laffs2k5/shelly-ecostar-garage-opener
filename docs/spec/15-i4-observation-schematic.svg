@@ -1,0 +1,216 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 960" font-family="Consolas, monospace">
+  <style>
+    text { font-size: 13px; fill: #222; }
+    .title { font-size: 18px; font-weight: bold; }
+    .subtitle { font-size: 12px; fill: #666; }
+    .label { font-size: 12px; font-weight: bold; fill: #333; }
+    .signal { font-size: 11px; fill: #0066cc; font-weight: bold; }
+    .note { font-size: 10px; fill: #888; }
+    .wire { stroke: #333; stroke-width: 2; fill: none; }
+    .wire-red { stroke: #cc0000; stroke-width: 2.5; fill: none; }
+    .wire-black { stroke: #111; stroke-width: 2.5; fill: none; }
+    .wire-green { stroke: #228833; stroke-width: 2; fill: none; stroke-dasharray: 6,3; }
+    .wire-gnd { stroke: #555; stroke-width: 2.5; fill: none; }
+    .resistor { stroke: #333; stroke-width: 2; fill: none; }
+    .dot { fill: #333; }
+    .reddot { fill: #cc0000; }
+    .blkdot { fill: #111; }
+    .motor-box { stroke: #cc0000; stroke-width: 2; fill: #ffe8e8; rx: 6; }
+    .shelly-box { stroke: #0066cc; stroke-width: 2; fill: #e8f0ff; rx: 6; }
+    .opto-box { stroke: #333; stroke-width: 2; fill: #fff8e0; rx: 4; }
+    .reed-box { stroke: #333; stroke-width: 1.5; fill: #eef7ee; rx: 4; }
+    .usb-box  { stroke: #333; stroke-width: 1.5; fill: #f0f0f0; rx: 4; }
+    .warn-box { stroke: #cc0000; stroke-width: 2; fill: #fff0f0; rx: 6; stroke-dasharray: 7,4; }
+  </style>
+
+  <!-- Title -->
+  <text x="430" y="30" text-anchor="middle" class="title">In-Garage i4 Observation Harness — signal capture</text>
+  <text x="430" y="48" text-anchor="middle" class="subtitle">i4 monitor wired to real reeds + motor-sense optos; user drives the door — feeds Q-02 / Q-03 / Q-16</text>
+
+  <!-- OBSERVE-ONLY banner -->
+  <rect x="640" y="60" width="320" height="34" class="warn-box"/>
+  <text x="800" y="80" text-anchor="middle" class="label" style="fill:#cc0000;">⚠ OBSERVE ONLY</text>
+  <text x="800" y="89" text-anchor="middle" class="note" style="fill:#cc0000;">i4 only — no S1, no impulse pair, no EcoStar 1+2</text>
+
+  <!-- ===================== Shelly i4 (right) ===================== -->
+  <rect x="775" y="110" width="170" height="640" class="shelly-box"/>
+  <text x="860" y="138" text-anchor="middle" class="label" style="fill:#0066cc; font-size:14px;">Shelly Plus i4 DC</text>
+  <text x="860" y="154" text-anchor="middle" class="note">USB 5 V powered</text>
+
+  <!-- terminals (dots on left edge x=775) -->
+  <circle cx="775" cy="180" r="4" fill="#0066cc"/><text x="788" y="184" class="label" style="font-size:11px;">+ 5V</text>
+  <circle cx="775" cy="225" r="4" fill="#0066cc"/><text x="788" y="229" class="label" style="font-size:11px;">⏚ −  (common)</text>
+  <circle cx="775" cy="305" r="4" fill="#0066cc"/><text x="788" y="309" class="label" style="font-size:11px;">SW1  ← CLOSED reed</text>
+  <circle cx="775" cy="375" r="4" fill="#0066cc"/><text x="788" y="379" class="label" style="font-size:11px;">SW2  ← OPEN reed</text>
+  <circle cx="775" cy="505" r="4" fill="#0066cc"/><text x="788" y="509" class="label" style="font-size:11px;">SW3  ← motor OPENING</text>
+  <circle cx="775" cy="625" r="4" fill="#0066cc"/><text x="788" y="629" class="label" style="font-size:11px;">SW4  ← motor CLOSING</text>
+  <text x="860" y="715" text-anchor="middle" class="note">device terminal order:</text>
+  <text x="860" y="729" text-anchor="middle" class="note">SW4 SW3 SW2 SW1 ⏚ ⏚ +</text>
+
+  <!-- ===================== Common (⏚ −) return bus ===================== -->
+  <line x1="725" y1="168" x2="725" y2="690" class="wire-gnd"/>
+  <line x1="725" y1="225" x2="775" y2="225" class="wire-gnd"/>
+  <text x="700" y="160" text-anchor="middle" class="note">⏚ − common</text>
+
+  <!-- ===================== USB power (top-left) ===================== -->
+  <rect x="40" y="135" width="120" height="55" class="usb-box"/>
+  <text x="100" y="160" text-anchor="middle" class="label">USB charger</text>
+  <text x="100" y="178" text-anchor="middle" class="label">5 V DC</text>
+  <!-- + 5V to i4 + -->
+  <line x1="160" y1="152" x2="768" y2="152" class="wire"/>
+  <line x1="768" y1="152" x2="768" y2="180" class="wire"/>
+  <line x1="768" y1="180" x2="775" y2="180" class="wire"/>
+  <text x="430" y="146" text-anchor="middle" class="note">+5 V (NOT from EcoStar terminal 3)</text>
+  <!-- GND to common bus -->
+  <line x1="160" y1="175" x2="725" y2="175" class="wire-gnd"/>
+  <circle cx="725" cy="175" r="4" class="dot"/>
+
+  <!-- ===================== Reed CLOSED ===================== -->
+  <rect x="45" y="255" width="180" height="60" class="reed-box"/>
+  <text x="135" y="276" text-anchor="middle" class="label">Reed CLOSED (NC)</text>
+  <text x="135" y="290" text-anchor="middle" class="note">at floor — magnet on door panel</text>
+  <!-- switch glyph -->
+  <circle cx="70" cy="305" r="3" class="dot"/><circle cx="120" cy="305" r="3" class="dot"/>
+  <line x1="70" y1="305" x2="115" y2="297" class="wire"/>
+  <text x="150" y="309" class="note">closed = magnet present</text>
+  <!-- signal lead -> SW1 ; return -> bus -->
+  <line x1="225" y1="290" x2="768" y2="290" class="wire"/>
+  <line x1="768" y1="290" x2="768" y2="305" class="wire"/>
+  <line x1="768" y1="305" x2="775" y2="305" class="wire"/>
+  <text x="330" y="285" class="signal">Blue → SW1</text>
+  <line x1="225" y1="305" x2="725" y2="305" class="wire-gnd"/>
+  <circle cx="725" cy="305" r="4" class="dot"/>
+  <text x="330" y="318" class="note">White-Blue → ⏚</text>
+
+  <!-- ===================== Reed OPEN ===================== -->
+  <rect x="45" y="335" width="180" height="60" class="reed-box"/>
+  <text x="135" y="356" text-anchor="middle" class="label">Reed OPEN (NC)</text>
+  <text x="135" y="370" text-anchor="middle" class="note">at top of travel</text>
+  <circle cx="70" cy="385" r="3" class="dot"/><circle cx="120" cy="385" r="3" class="dot"/>
+  <line x1="70" y1="385" x2="115" y2="377" class="wire"/>
+  <!-- signal -> SW2 ; return -> bus -->
+  <line x1="225" y1="360" x2="762" y2="360" class="wire"/>
+  <line x1="762" y1="360" x2="762" y2="375" class="wire"/>
+  <line x1="762" y1="375" x2="775" y2="375" class="wire"/>
+  <text x="330" y="355" class="signal">Brown → SW2</text>
+  <line x1="225" y1="378" x2="725" y2="378" class="wire-gnd"/>
+  <circle cx="725" cy="378" r="4" class="dot"/>
+  <text x="330" y="392" class="note">White-Brown → ⏚</text>
+
+  <!-- ===================== Motor (bottom-left) ===================== -->
+  <rect x="40" y="470" width="140" height="150" class="motor-box"/>
+  <text x="110" y="492" text-anchor="middle" class="label" style="fill:#cc0000;">EcoStar Motor</text>
+  <text x="110" y="508" text-anchor="middle" class="note">Valeo 24 VDC</text>
+  <circle cx="110" cy="555" r="24" stroke="#cc0000" stroke-width="2" fill="#fff0f0"/>
+  <text x="110" y="560" text-anchor="middle" style="font-size:16px; font-weight:bold; fill:#cc0000;">M</text>
+  <text x="110" y="605" text-anchor="middle" class="note">open +19..+24V / close −19..−24V</text>
+  <!-- leads out -->
+  <line x1="180" y1="512" x2="300" y2="512" class="wire-red"/>
+  <line x1="180" y1="585" x2="330" y2="585" class="wire-black"/>
+  <text x="210" y="506" class="label" style="fill:#cc0000;">RED</text>
+  <text x="210" y="600" class="label">BLACK</text>
+
+  <!-- RED rail (x=300) and BLACK rail (x=330) -->
+  <line x1="300" y1="512" x2="300" y2="700" class="wire-red"/>
+  <line x1="330" y1="585" x2="330" y2="645" class="wire-black"/>
+  <circle cx="300" cy="512" r="4" class="reddot"/>
+  <circle cx="330" cy="585" r="4" class="blkdot"/>
+
+  <!-- ===================== Opto board ===================== -->
+  <rect x="360" y="455" width="340" height="300" class="opto-box"/>
+  <text x="530" y="475" text-anchor="middle" class="label">Opto board — 2× PS2501-1 + 2× 10 kΩ (anti-parallel)</text>
+  <text x="530" y="489" text-anchor="middle" class="note">galvanic isolation 5 kV — full internals: motor-sense.svg</text>
+
+  <!-- OPTO 1 : OPENING -->
+  <rect x="470" y="505" width="150" height="90" class="opto-box"/>
+  <text x="545" y="523" text-anchor="middle" class="label" style="font-size:11px;">OPTO 1 — opening</text>
+  <!-- R1 on RED -> LED1 anode -->
+  <circle cx="300" cy="540" r="4" class="reddot"/>
+  <path d="M300,540 l8,-7 l8,14 l8,-14 l8,14 l8,-14 l8,14 l8,-7" class="resistor"/>
+  <text x="332" y="528" text-anchor="middle" class="note">R1 10kΩ</text>
+  <line x1="356" y1="540" x2="470" y2="540" class="wire"/>
+  <!-- LED1 (anode left -> cathode right), current RED->BLACK -->
+  <polygon points="486,528 486,552 508,540" stroke="#333" stroke-width="1.5" fill="#ffcccc"/>
+  <line x1="508" y1="526" x2="508" y2="554" stroke="#333" stroke-width="1.5"/>
+  <line x1="492" y1="524" x2="500" y2="517" stroke="#333" stroke-width="1"/>
+  <line x1="498" y1="528" x2="506" y2="521" stroke="#333" stroke-width="1"/>
+  <!-- LED1 cathode -> down/left to BLACK rail -->
+  <line x1="508" y1="540" x2="525" y2="540" class="wire"/>
+  <line x1="525" y1="540" x2="525" y2="585" class="wire"/>
+  <line x1="525" y1="585" x2="330" y2="585" class="wire"/>
+  <!-- isolation -->
+  <line x1="545" y1="510" x2="545" y2="590" stroke="#999" stroke-width="1" stroke-dasharray="4,3"/>
+  <!-- phototransistor opto1 -->
+  <line x1="575" y1="520" x2="575" y2="535" stroke="#333" stroke-width="1.5"/>
+  <line x1="575" y1="548" x2="575" y2="565" stroke="#333" stroke-width="1.5"/>
+  <polygon points="575,563 570,553 580,553" stroke="#333" stroke-width="1" fill="#333"/>
+  <line x1="565" y1="535" x2="585" y2="535" stroke="#333" stroke-width="1.5"/>
+  <line x1="565" y1="548" x2="585" y2="548" stroke="#333" stroke-width="1.5"/>
+  <line x1="565" y1="535" x2="565" y2="548" stroke="#333" stroke-width="2"/>
+  <!-- C -> SW3 -->
+  <line x1="575" y1="520" x2="575" y2="512" class="wire"/>
+  <line x1="575" y1="512" x2="660" y2="512" class="wire"/>
+  <line x1="660" y1="512" x2="660" y2="505" class="wire-green"/>
+  <line x1="660" y1="505" x2="775" y2="505" class="wire-green"/>
+  <text x="628" y="502" class="signal">C → SW3</text>
+  <!-- E -> common bus -->
+  <line x1="575" y1="565" x2="575" y2="578" class="wire"/>
+  <line x1="575" y1="578" x2="660" y2="578" class="wire-gnd"/>
+  <line x1="660" y1="578" x2="660" y2="560" class="wire-gnd"/>
+  <line x1="660" y1="560" x2="725" y2="560" class="wire-gnd"/>
+  <circle cx="725" cy="560" r="4" class="dot"/>
+  <text x="628" y="575" class="note">E → ⏚</text>
+
+  <!-- OPTO 2 : CLOSING -->
+  <rect x="470" y="640" width="150" height="90" class="opto-box"/>
+  <text x="545" y="658" text-anchor="middle" class="label" style="font-size:11px;">OPTO 2 — closing</text>
+  <!-- LED2 anode from BLACK, cathode -> R2 -> RED ; current BLACK->RED -->
+  <line x1="330" y1="645" x2="330" y2="675" class="wire-black"/>
+  <line x1="330" y1="675" x2="470" y2="675" class="wire"/>
+  <circle cx="330" cy="675" r="4" class="blkdot"/>
+  <!-- LED2 (anode left -> cathode right) -->
+  <polygon points="486,663 486,687 508,675" stroke="#333" stroke-width="1.5" fill="#ccccff"/>
+  <line x1="508" y1="661" x2="508" y2="689" stroke="#333" stroke-width="1.5"/>
+  <line x1="492" y1="659" x2="500" y2="652" stroke="#333" stroke-width="1"/>
+  <line x1="498" y1="663" x2="506" y2="656" stroke="#333" stroke-width="1"/>
+  <!-- LED2 cathode -> R2 -> RED rail (down then left) -->
+  <line x1="508" y1="675" x2="525" y2="675" class="wire"/>
+  <line x1="525" y1="675" x2="525" y2="700" class="wire"/>
+  <path d="M525,700 l-8,-7 l-8,14 l-8,-14 l-8,14 l-8,-14 l-8,14 l-8,-7" class="resistor"/>
+  <text x="470" y="715" text-anchor="middle" class="note">R2 10kΩ</text>
+  <line x1="461" y1="700" x2="300" y2="700" class="wire"/>
+  <circle cx="300" cy="700" r="4" class="reddot"/>
+  <!-- isolation -->
+  <line x1="545" y1="645" x2="545" y2="725" stroke="#999" stroke-width="1" stroke-dasharray="4,3"/>
+  <!-- phototransistor opto2 -->
+  <line x1="575" y1="655" x2="575" y2="670" stroke="#333" stroke-width="1.5"/>
+  <line x1="575" y1="683" x2="575" y2="700" stroke="#333" stroke-width="1.5"/>
+  <polygon points="575,698 570,688 580,688" stroke="#333" stroke-width="1" fill="#333"/>
+  <line x1="565" y1="670" x2="585" y2="670" stroke="#333" stroke-width="1.5"/>
+  <line x1="565" y1="683" x2="585" y2="683" stroke="#333" stroke-width="1.5"/>
+  <line x1="565" y1="670" x2="565" y2="683" stroke="#333" stroke-width="2"/>
+  <!-- C -> SW4 -->
+  <line x1="575" y1="655" x2="575" y2="648" class="wire"/>
+  <line x1="575" y1="648" x2="668" y2="648" class="wire"/>
+  <line x1="668" y1="648" x2="668" y2="625" class="wire-green"/>
+  <line x1="668" y1="625" x2="775" y2="625" class="wire-green"/>
+  <text x="628" y="645" class="signal">C → SW4</text>
+  <!-- E -> common bus -->
+  <line x1="575" y1="700" x2="575" y2="712" class="wire"/>
+  <line x1="575" y1="712" x2="690" y2="712" class="wire-gnd"/>
+  <line x1="690" y1="712" x2="690" y2="690" class="wire-gnd"/>
+  <line x1="690" y1="690" x2="725" y2="690" class="wire-gnd"/>
+  <circle cx="725" cy="690" r="4" class="dot"/>
+  <text x="628" y="709" class="note">E → ⏚</text>
+
+  <!-- ===================== Legend / how it works ===================== -->
+  <rect x="40" y="775" width="905" height="165" rx="6" stroke="#ccc" stroke-width="1" fill="#fafafa"/>
+  <text x="58" y="800" class="label" style="font-size:13px;">This session (i4 only — observe):</text>
+  <text x="58" y="820" class="note" style="font-size:11px;">• Reeds = passive dry contacts: CLOSED → SW1+⏚, OPEN → SW2+⏚. Magnet present → contact closed → input true (D-16, invert:false).</text>
+  <text x="58" y="838" class="note" style="font-size:11px;">• Motor sense: 2× PS2501 anti-parallel on RED/BLACK via 10 kΩ. +V → Opto1 → SW3, −V → Opto2 → SW4, 0 V → both open. 5 kV isolated.</text>
+  <text x="58" y="856" class="note" style="font-size:11px;">• Power: i4 from USB 5 V — NOT EcoStar terminal 3. All returns share the ⏚ (− common) bus → one i4 ⏚ terminal.</text>
+  <text x="58" y="877" class="label" style="font-size:11px; fill:#cc0000;">• OBSERVE ONLY: S1, the orange impulse pair, and EcoStar terminals 1+2 are NOT connected — door driven by</text>
+  <text x="68" y="893" class="label" style="font-size:11px; fill:#cc0000;">the existing wall button / RF remote, so our side cannot move or stop the door.</text>
+  <text x="58" y="914" class="label" style="font-size:11px; fill:#cc0000;">• ⚠ Power the opener OFF while tapping the motor leads, then re-energise to drive cycles.</text>
+  <text x="58" y="932" class="note" style="font-size:10px;">Green dashed = isolated opto output to i4. Grey = ⏚ common return. Capture: scripts/i4-watch.sh (0.1 s) + /script/1/state. See spec 15.</text>
+</svg>

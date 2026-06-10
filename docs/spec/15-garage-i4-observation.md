@@ -21,6 +21,10 @@
 
 ## Wiring (this session)
 
+**Proper electrical schematic:** [15-i4-observation-schematic.svg](15-i4-observation-schematic.svg)
+(reeds + anti-parallel motor-sense optos + USB power + i4 terminal block + ⏚ common bus; opto internals
+in [motor-sense.svg](../initial-research/motor-sense.svg)). Logical view:
+
 ```mermaid
 graph LR
   subgraph door["At the door (already mounted)"]
