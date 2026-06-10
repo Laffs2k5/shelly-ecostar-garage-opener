@@ -3,6 +3,22 @@
 What was **actually observed on real hardware** (vs. mocked/inferred) — NEW-PROJECT-GUIDE §10. Newest
 first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 
+## 2026-06-10 — Q-16 gate: hardware timing verification (Pico timed scenarios)
+The time-gated tiebreaker (Q-16 P1, `GATE_TICKS=4`/~400 ms) verified on the **real i4** by replaying the
+measured real-door timings as **on-Pico timed sequences** (`device/test-rig/main.py`: `close_arrival`,
+`open_arrival`, `depart_closed`, `depart_open` — precise sub-tick timing on-device; the host link is too
+laggy). Verification watches the **heartbeat state-change stream** (a transient glitch would publish an
+extra OPENING/CLOSING), not just the end state.
+
+- `close_arrival(180)` (kick < gate): `… CLOSING → CLOSED` — **no OPENING; 180 ms reverse kick absorbed.** ✅
+- `open_arrival(180)`: `OPENING → OPEN` — **no CLOSING; symmetric.** ✅
+- **Negative control `close_arrival(500)`** (kick > gate): `CLOSING → CLOSED → OPENING → CLOSED` — the
+  500 ms kick **does** flip transiently → **proves the gate is a real ~400 ms threshold, not blanket
+  suppression.** ✅
+- `depart_closed(650)`: `CLOSED → OPENING`; `depart_open(550)`: `OPEN → CLOSING` — **departures detected.** ✅
+- Margin note: observed real kicks were 140–220 ms; the 500 ms control shows the boundary sits between
+  400–500 ms (= gate). Provisional/tunable; re-confirm at commissioning.
+
 ## 2026-06-10 — In-garage i4 observation session (Q-02/Q-03/Q-16 data)
 i4 wired observe-only at the real door (reeds SW1/SW2 + anti-parallel motor optos SW3/SW4, USB power,
 no S1/impulse — spec 15). User drove the door; high-rate `Shelly.GetStatus` capture (inputs + RSSI),

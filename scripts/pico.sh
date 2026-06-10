@@ -26,6 +26,8 @@ ex()  { run "resume exec 'import main; $1'"; }   # state-preserving call
 
 cmd="${1:-state}"; shift || true
 case "$cmd" in
+  deploy)   mkdir -p /mnt/c/temp; cp "$(dirname "$0")/../device/test-rig/main.py" /mnt/c/temp/pico_main.py
+            run "cp C:/temp/pico_main.py :main.py"; run "exec 'import main; main.alloff()'" ;;  # push + fresh import
   init)     run "exec 'import main; main.alloff()'" ;;        # NO resume -> fresh
   state)    ex "main.state()" ;;
   set)      ex "main.sw($1,$2)" ;;

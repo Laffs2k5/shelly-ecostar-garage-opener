@@ -46,5 +46,33 @@ def pulse(n, ms=200):
     """Momentary assert of channel n for ms milliseconds (for transient/edge tests)."""
     _pin[n].value(1); time.sleep_ms(ms); _pin[n].value(0); return state()
 
+# --- timed scenario sequences (run ON the Pico for precise sub-tick timing; the host link is too
+#     laggy). Each step is (pattern, dwell_ms); pattern is the set of channels to hold during the dwell.
+#     Replays the real-door timings measured at the garage 2026-06-10 (spec 15 / HW-VALIDATION), so the
+#     i4's gate logic (Q-16) is exercised with realistic timing. Watch devices/.../heartbeat to assert. ---
+def _seq(steps):
+    for pat, ms in steps:
+        for n in CHAN_GPIO: _pin[n].value(1 if (n in pat) else 0)
+        time.sleep_ms(ms)
+    _blip(); return state()
+
+def close_arrival(kick_ms=180, overlap_ms=850):
+    """Realistic CLOSE arrival ending with the EcoStar relief reverse-kick (brief OPENING blip).
+       Expect i4: ... -> CLOSING -> CLOSED, with NO OPENING when kick_ms < gate (~400ms)."""
+    return _seq([((4,), 400), ((4, 1), overlap_ms), ((1, 3), kick_ms), ((1,), 100)])
+
+def open_arrival(kick_ms=180, overlap_ms=750):
+    """Realistic OPEN arrival ending with the reverse-kick (brief CLOSING blip)."""
+    return _seq([((3,), 400), ((3, 2), overlap_ms), ((2, 4), kick_ms), ((2,), 100)])
+
+def depart_closed(overlap_ms=650):
+    """Leave CLOSED: opening motor starts, closed reed held through the departure overlap, then releases.
+       Expect i4: CLOSED -> OPENING (once opposite motor persists past the gate)."""
+    return _seq([((1,), 300), ((1, 3), overlap_ms), ((3,), 400)])
+
+def depart_open(overlap_ms=550):
+    """Leave OPEN: closing motor starts, open reed held through the overlap, then releases."""
+    return _seq([((2,), 300), ((2, 4), overlap_ms), ((4,), 400)])
+
 print("simrig ready:", {n: g for n, g in CHAN_GPIO.items()}, "(GPIO HIGH = asserted)")
 state()
