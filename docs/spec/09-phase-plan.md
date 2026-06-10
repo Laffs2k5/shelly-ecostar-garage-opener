@@ -103,8 +103,18 @@ button-with-broker-down (verify at install).
   `lastPulses:1`). EMQX is public internet so the WSS path is identical to cellular; only the radio is
   untested. Settings restored. **All three transports validated on-device.**
 - [ ] **UI/UX polish pass** (low-priority — functionality at install is the priority; do whenever):
-  show in Settings *which* CA / `.p12` are imported (cert CN / status); optional foreground notification
-  ("door OPEN N min"); general visual tidy-up
+  show in Settings *which* CA / `.p12` are imported (cert CN / status); general visual tidy-up
+
+### 4D — App v2 overhaul (FUTURE, post-install) — not started
+Larger redesign; do after the door is physically live. Captures user requests 2026-06-10:
+- [ ] **Persistent notification while door is OPEN** — needs a **foreground service** + the broker path
+  (background MQTT), modelled on the coffee app's notification. (Supersedes the polish-pass notification note.)
+- [ ] **Configurable alarm: door open > X minutes** — user-set threshold, fires a notification/alert.
+- [ ] **Configurable alarm: door open at a given time of day** — time-picker; alert if still/again open then.
+- [ ] **Demo mode** — randomly cycle the connection type every ~15 s and simulate state changes on button
+  taps (with a short fake door-travel time). Makes GUI testing far easier with no devices/broker.
+- [ ] **Settings redesign** — move **auth/certs into a sub-menu**; surface **demo mode** + **alerts config**
+  in the main settings area.
 
 ### 4C — Web fallback — `web/` — [x] DONE
 - [x] `web/garage-core.js` (pure, **9 Node tests** — `scripts/test-web.sh`) + `web/index.html`:

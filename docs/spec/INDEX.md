@@ -16,6 +16,7 @@ mapping is obvious.
 | [12-test-rig-and-wiring.md](12-test-rig-and-wiring.md) | Pico input simulator, opto interface, i4 wiring, the closed test loop |
 | [13-device-resilience.md](13-device-resilience.md) | Connectivity watchdog (reboot-to-recover); why no reset_reason gate |
 | [14-motion-timing-and-pulse-safety.md](14-motion-timing-and-pulse-safety.md) | **DEFERRED task:** reed departure asymmetry + cross-device pulse-timing race (Q-16) |
+| [15-garage-i4-observation.md](15-garage-i4-observation.md) | In-garage **i4-only** signal-capture session (observe-only) → input data for Q-02/Q-03/Q-16 |
 
 One-page system overview: [../ARCHITECTURE.md](../ARCHITECTURE.md).
 Source hardware design: [../initial-research/hardware-spec.md](../initial-research/hardware-spec.md).
