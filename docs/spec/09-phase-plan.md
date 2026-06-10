@@ -115,6 +115,8 @@ Larger redesign; do after the door is physically live. Captures user requests 20
   taps (with a short fake door-travel time). Makes GUI testing far easier with no devices/broker.
 - [ ] **Settings redesign** — move **auth/certs into a sub-menu**; surface **demo mode** + **alerts config**
   in the main settings area.
+- [ ] **UI refresh + branding** — visual redesign, app name/branding, icon set (adaptive launcher icon,
+  in-app iconography). User drives the creative direction with external design tools + Claude assist.
 
 ### 4C — Web fallback — `web/` — [x] DONE
 - [x] `web/garage-core.js` (pure, **9 Node tests** — `scripts/test-web.sh`) + `web/index.html`:
