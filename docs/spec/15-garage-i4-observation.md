@@ -65,6 +65,22 @@ graph LR
 **NOT connected:** orange pair / EcoStar terminals 1+2 / S1 / S1 mains. The independent push button may
 stay as-is (it doesn't involve the i4).
 
+### Reusing the two rig optos (anti-parallel — what it means)
+
+Use the **two identical test-rig optos as-is** (each = LED + its own 10 kΩ, resistor on the anode side).
+"Anti-parallel" is **not** about the resistor — an LED and its series resistor pass the same current
+whichever side the resistor sits on, so position is irrelevant. It means the two LED+R strings sit
+across the **same** RED/BLACK pair pointing **opposite** ways:
+- **opening** string: RED → R → LED → BLACK (conducts when RED is +) → SW3
+- **closing** string: BLACK → R → LED → RED (conducts when RED is −) → SW4
+
+Keep **one resistor per opto** (the rig ones already have this): when one LED conducts, the other is
+reverse-biased with ~full motor voltage (~24 V, above the PS2501 LED's ~6 V Vr) — its own series
+resistor limits the reverse-breakdown current to ~2 mA, so it's safe. The transistor/output side is
+unchanged from the rig (`C→SWn`, `E→⏚`). Orientation per hardware-spec (RED + = opening = SW3), but
+since this is observe-only we confirm which opto fires for which direction on the first cycle and relabel
+in software if swapped — no harm either way.
+
 ## Pre-drive checks (opener idle, door closed)
 
 Run `IP=192.0.2.160 scripts/i4-watch.sh` and confirm the **rest** reading:

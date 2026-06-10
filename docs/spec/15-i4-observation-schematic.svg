@@ -119,7 +119,7 @@
   <!-- ===================== Opto board ===================== -->
   <rect x="360" y="455" width="340" height="300" class="opto-box"/>
   <text x="530" y="475" text-anchor="middle" class="label">Opto board — 2× PS2501-1 + 2× 10 kΩ (anti-parallel)</text>
-  <text x="530" y="489" text-anchor="middle" class="note">galvanic isolation 5 kV — full internals: motor-sense.svg</text>
+  <text x="530" y="489" text-anchor="middle" class="note">two IDENTICAL optos (R on anode), flipped across RED/BLACK · 5 kV isolated</text>
 
   <!-- OPTO 1 : OPENING -->
   <rect x="470" y="505" width="150" height="90" class="opto-box"/>
@@ -164,21 +164,22 @@
   <!-- OPTO 2 : CLOSING -->
   <rect x="470" y="640" width="150" height="90" class="opto-box"/>
   <text x="545" y="658" text-anchor="middle" class="label" style="font-size:11px;">OPTO 2 — closing</text>
-  <!-- LED2 anode from BLACK, cathode -> R2 -> RED ; current BLACK->RED -->
+  <!-- LED2: BLACK -> R2 -> anode ; cathode -> RED   (R on anode side, same as Opto1 — identical optos) -->
   <line x1="330" y1="645" x2="330" y2="675" class="wire-black"/>
-  <line x1="330" y1="675" x2="470" y2="675" class="wire"/>
   <circle cx="330" cy="675" r="4" class="blkdot"/>
+  <line x1="330" y1="675" x2="356" y2="675" class="wire-black"/>
+  <path d="M356,675 l8,-7 l8,14 l8,-14 l8,14 l8,-14 l8,14 l8,-7" class="resistor"/>
+  <text x="388" y="663" text-anchor="middle" class="note">R2 10kΩ</text>
+  <line x1="412" y1="675" x2="470" y2="675" class="wire"/>
   <!-- LED2 (anode left -> cathode right) -->
   <polygon points="486,663 486,687 508,675" stroke="#333" stroke-width="1.5" fill="#ccccff"/>
   <line x1="508" y1="661" x2="508" y2="689" stroke="#333" stroke-width="1.5"/>
   <line x1="492" y1="659" x2="500" y2="652" stroke="#333" stroke-width="1"/>
   <line x1="498" y1="663" x2="506" y2="656" stroke="#333" stroke-width="1"/>
-  <!-- LED2 cathode -> R2 -> RED rail (down then left) -->
+  <!-- LED2 cathode -> RED rail (down then left) -->
   <line x1="508" y1="675" x2="525" y2="675" class="wire"/>
   <line x1="525" y1="675" x2="525" y2="700" class="wire"/>
-  <path d="M525,700 l-8,-7 l-8,14 l-8,-14 l-8,14 l-8,-14 l-8,14 l-8,-7" class="resistor"/>
-  <text x="470" y="715" text-anchor="middle" class="note">R2 10kΩ</text>
-  <line x1="461" y1="700" x2="300" y2="700" class="wire"/>
+  <line x1="525" y1="700" x2="300" y2="700" class="wire"/>
   <circle cx="300" cy="700" r="4" class="reddot"/>
   <!-- isolation -->
   <line x1="545" y1="645" x2="545" y2="725" stroke="#999" stroke-width="1" stroke-dasharray="4,3"/>
