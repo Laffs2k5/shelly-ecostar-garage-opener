@@ -115,6 +115,15 @@ I run, for the whole session, a fast timestamped raw-input log plus periodic der
 - **Resume + reverse (Q-03 / D-09):** from STOPPED_*, does the next start go the opposite direction
   (SW3↔SW4 flip)? Latency from button-press to motor-direction signal — informs `PULSE_GAP_MS` and the
   pulse-lockout (Q-16 Problem 3).
+- **End-of-travel brief reverse (observed 2026-06-10):** the motor appears to do a short reverse "kick"
+  as it arrives at an end (pressure-relief / belt de-tension). **Measure it:** at the end of an open, does
+  SW3 (opening) drop and a brief SW4 (closing) blip appear? Symmetric at close. Capture its duration.
+  **Why it matters:** with the Q-16 motor-direction tiebreaker (`c && !op` etc.), a brief opposite-motor
+  blip *at the end* could momentarily flip the derived state (e.g. CLOSED→briefly CLOSING) — so the fix
+  must debounce/ignore an end-of-travel reverse. This is a real input to the Q-16 logic design.
+- **WiFi RSSI per step:** record `wifi.rssi` at every capture step (garage RF is weak — baseline −81 dBm
+  vs strong bench). Builds a picture of link quality at the real location for the watchdog/endurance
+  question.
 
 ## After the session
 

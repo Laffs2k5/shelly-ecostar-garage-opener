@@ -41,6 +41,17 @@ if (cl) return CLOSING;        // o && cl => departing open
 
 All existing arrival tests still pass (their "away" motor signal is off, so the reed still wins).
 
+> **⚠ Refined by garage observation 2026-06-10 (HW-VALIDATION) — the fix above is INCOMPLETE.** The
+> EcoStar does a **~140 ms reverse motor pulse at each end-of-travel** (relief), which **is opto-visible**:
+> at the close seat the sequence is `1001 → 1010 → 1000` — i.e. **`c=1 & op=1` for ~140 ms** at arrival.
+> That's the *same input pattern as a departure*, so the naive `c && !op` rule would glitch
+> `CLOSED → OPENING` for ~140 ms on **every** close. Distinguish them by **duration**: the end-reverse is
+> ~140 ms; a real departure holds the reed engaged **~500–780 ms** (measured). **So the tiebreaker must be
+> time-gated:** only let an opposite-direction motor signal override an engaged reed once it has
+> **persisted ≥ ~300 ms** (clean gap between 140 ms and 500 ms+). Below that, the reed still wins (it's the
+> arrival relief-kick, still at that end). Make the gate a config tunable; unit-test with the 140 ms blip
+> as an explicit case that must NOT flip the state.
+
 ## Problem 2 — pulse-timing race across the two devices (the hard one)
 
 EcoStar impulse semantics (D-09): **a pulse to a *moving* door = STOP; a pulse to a *stopped* door =

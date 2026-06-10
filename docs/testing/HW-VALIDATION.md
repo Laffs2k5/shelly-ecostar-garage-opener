@@ -3,6 +3,32 @@
 What was **actually observed on real hardware** (vs. mocked/inferred) — NEW-PROJECT-GUIDE §10. Newest
 first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 
+## 2026-06-10 — In-garage i4 observation session (Q-02/Q-03/Q-16 data)
+i4 wired observe-only at the real door (reeds SW1/SW2 + anti-parallel motor optos SW3/SW4, USB power,
+no S1/impulse — spec 15). User drove the door; high-rate `Shelly.GetStatus` capture (inputs + RSSI),
+raw log: [data/2026-06-10-i4-observation-capture.log](data/2026-06-10-i4-observation-capture.log).
+Bits = `SW1 SW2 SW3 SW4` (closed-reed, open-reed, opening-motor, closing-motor).
+
+- **Reeds + motor optos all work at the real install.** Full CLOSE: open-reed releases → SW4 held through
+  travel → closed-reed seats. Full OPEN symmetric. STOPPED mid-travel = **`0000`** (all off) → derives
+  `STOPPED_CLOSING`/`_OPENING` via lastDir. **Q-13 + Q-02 confirmed on the real motor** (optos toggle
+  cleanly on real ±24 V, no chatter, held for the whole travel).
+- **D-09 alternation confirmed:** stopped-while-closing → next press → **reverses to OPENING** (SW3). Matches
+  the impulse model the controller relies on.
+- **Departure overlap (Q-16 Problem 1), measured:** reed stays engaged **~0.5–0.8 s** *after* the motor
+  starts driving away (open-end 0.51–0.63 s, closed-end 0.78 s). Real and well above the 200 ms debounce.
+- **⚠ End-of-travel reverse is REAL and opto-visible (not mechanical):** at the close seat, after the
+  closed-reed engages and the motor drives in ~1 s, **SW3 (opening) pulses ON for ~140 ms** then off
+  (`1001→1010→1000`). Electrically present on the opto (deliberate relief pulse or relay-release transient).
+  **This is `c=1 & op=1` — identical pattern to a departure, distinguished only by duration (~140 ms vs
+  ~500–780 ms).** Directly reshapes the Q-16 fix (spec 14): the motor-direction tiebreaker must be
+  **time-gated (~300 ms)**, else it would glitch `CLOSED→OPENING` at every arrival. (Open-end reverse not
+  yet captured — assumed symmetric; confirm later.)
+- **Travel times:** close ~17 s, open ~14 s (opening ~1.3 s faster).
+- **WiFi RSSI at the garage: −73 to −82 dBm** (weak; loosely tracks door position — better open ~−74,
+  worse closed ~−82, metal panel affects the path). Held connection throughout, but margin is thin for the
+  watchdog once live — flagged for later (antenna/AP placement).
+
 ## 2026-06-10 — 24 h soak PASS (Phase 3) — both devices
 - **≥24 h stability met, decisively: ~33.4 h observed** (120173 s wall) on both i4 and S1, via the
   offline-safe baseline+check model (`scripts/soak.sh`; baseline 2026-06-08 20:45). The computer slept /
