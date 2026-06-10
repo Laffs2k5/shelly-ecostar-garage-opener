@@ -133,12 +133,18 @@ test("/state endpoint returns the current door picture", function () {
 });
 
 // ---------- heartbeat payload shape (spec 03 / D-12) ----------
-test("heartbeat carries state, dir, inputs, since and ts for HA", function () {
+test("heartbeat carries state, dir, inputs, since, ts and rssi for HA", function () {
   const h = createHarness({ inputs: { c: true } });
   const hb = h.lastHeartbeat();
-  for (const k of ["state", "dir", "inputs", "since", "ts", "v"]) {
+  for (const k of ["state", "dir", "inputs", "since", "ts", "rssi", "v"]) {
     assert.ok(Object.prototype.hasOwnProperty.call(hb, k), "missing heartbeat field: " + k);
   }
+  assert.equal(hb.rssi, -55, "rssi from wifi status");
+});
+
+test("heartbeat rssi is null when wifi rssi unavailable", function () {
+  const h = createHarness({ inputs: { c: true }, wifiRssi: null });
+  assert.equal(h.lastHeartbeat().rssi, null);
 });
 
 // ---------- watchdog (Phase 7) ----------

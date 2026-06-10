@@ -18,6 +18,7 @@ function createHarness(opts) {
     switchOutput: false,
     switchConfig: null,
     wifiUp: true,
+    wifiRssi: (opts.wifiRssi !== undefined ? opts.wifiRssi : -55),
     mqttConn: opts.mqttConnected !== false,
     reboots: 0,
     published: [],   // {topic, msg, qos, retain}
@@ -37,7 +38,7 @@ function createHarness(opts) {
   function compStatus(key) {
     if (key.indexOf("input:") === 0) { const id = parseInt(key.slice(6), 10); return { id: id, state: !!h.inputs[id] }; }
     if (key.indexOf("switch:") === 0) { return { id: 0, output: h.switchOutput }; }
-    if (key === "wifi") return { status: h.wifiUp ? "got ip" : "disconnected" };
+    if (key === "wifi") return { status: h.wifiUp ? "got ip" : "disconnected", rssi: h.wifiRssi };
     if (key === "mqtt") return { connected: h.mqttConn };
     if (key === "sys") return { unixtime: h.clock };
     return undefined;

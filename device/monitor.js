@@ -68,6 +68,7 @@ function readInput(id) {
   return !!(s && s.state === true);
 }
 function wifiUp() { var w = Shelly.getComponentStatus("wifi"); return !!(w && w.status === "got ip"); }
+function wifiRssi() { var w = Shelly.getComponentStatus("wifi"); return (w && typeof w.rssi === "number") ? w.rssi : null; }
 function mqttUp() { var m = Shelly.getComponentStatus("mqtt"); return !!(m && m.connected === true); }
 function nowTs() {
   var sys = Shelly.getComponentStatus("sys");
@@ -86,7 +87,7 @@ function payload() {
   return {
     state: STATE, dir: LASTDIR,
     inputs: { c: s.c, o: s.o, op: s.op, cl: s.cl },
-    since: SINCE, ts: nowTs(), v: SCHEMA
+    since: SINCE, ts: nowTs(), rssi: wifiRssi(), v: SCHEMA
   };
 }
 

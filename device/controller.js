@@ -101,7 +101,7 @@ function payload() {
   return {
     relay: relayOn(), lastCmd: LASTCMD, lastCmdTs: LASTCMD_TS, lastPulses: LASTPULSES,
     door: { state: DOOR.state, dir: DOOR.dir, ts: DOOR.ts, rx: DOOR.rx },
-    ts: nowTs(), v: SCHEMA
+    ts: nowTs(), rssi: wifiRssi(), v: SCHEMA
   };
 }
 function publishHeartbeat() {
@@ -148,6 +148,7 @@ function registerHttp() {
 }
 
 function wifiUp() { var w = Shelly.getComponentStatus("wifi"); return !!(w && w.status === "got ip"); }
+function wifiRssi() { var w = Shelly.getComponentStatus("wifi"); return (w && typeof w.rssi === "number") ? w.rssi : null; }
 function mqttUp() { var m = Shelly.getComponentStatus("mqtt"); return !!(m && m.connected === true); }
 function watchdogTick() {
   WD.wifiDown = wifiUp() ? 0 : (WD.wifiDown + TICK_MS);

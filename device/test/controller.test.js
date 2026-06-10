@@ -46,6 +46,16 @@ test("boot: relay configured safe (detached, off, 0.5s auto-off) + subscribes + 
   assert.equal(h.switchSets.length, 0, "no pulse on boot (boot-to-safe)");
 });
 
+test("heartbeat carries rssi (our payload, not mon/alive)", function () {
+  const h = mk();
+  const hb = JSON.parse(h.heartbeats()[0].msg);
+  assert.ok(Object.prototype.hasOwnProperty.call(hb, "rssi"), "heartbeat has rssi");
+  assert.equal(hb.rssi, -55);
+  // mon/alive must stay minimal (ts only) — monitor-spec bound, no rssi
+  const alive = JSON.parse(h.alives()[0].msg);
+  assert.ok(!Object.prototype.hasOwnProperty.call(alive, "rssi"), "alive must NOT carry rssi");
+});
+
 // ---------- door picture from the i4 ----------
 test("door_state POST updates the held picture, and it's used for decisions", function () {
   const h = mk();
