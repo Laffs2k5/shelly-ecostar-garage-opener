@@ -93,11 +93,12 @@ test("reed-then-motor-coast overlap settles to the end state without a glitch", 
   // closed reed engages while motor still coasting (both c and cl true) -> reed wins -> CLOSED
   h.setInputs(true, false, false, true); h.settle();
   assert.equal(h.state(), "CLOSED");
-  // motor releases; still CLOSED, no spurious transition
+  // motor releases; still CLOSED, no spurious transition — but we DO push once (moving:false) so the
+  // controller's at-rest guard learns the motor stopped (Q-16 P2). State stays CLOSED (no glitch).
   const n = h.heartbeats().length;
   h.setInputs(true, false, false, false); h.settle();
-  assert.equal(h.state(), "CLOSED");
-  assert.equal(h.heartbeats().length, n, "no extra heartbeat when only the coasting motor drops");
+  assert.equal(h.state(), "CLOSED", "no spurious transition on motor-stop");
+  assert.equal(h.heartbeats().length, n + 1, "one push on motor-stop carrying moving:false");
 });
 
 // ---------- departure vs end-of-travel reverse kick (Q-16 / spec 14, garage data 2026-06-10) ----------

@@ -24,6 +24,14 @@ var PULSE_GAP_MS = 1200;     // gap between the 2 pulses of a stop-then-reverse 
 var ALIVE_MS = 30000;
 var TICK_MS = 1000;
 var STALE_MS = 0;            // (door-picture staleness threshold; 0 = don't flag yet)
+// Pulse safety (Q-16 / spec 14). All provisional / config-tunable via KVS "logic_cfg" — re-confirm at
+// commissioning. PULSE_MS = relay auto-off width. Full-sequence LOCKOUT (user choice): after firing,
+// drop new commands until the whole pulse sequence has played (so rapid taps can't coalesce into one
+// long pulse or land too close for the slow EcoStar). QUEUE = the at-rest guard: if a command lands while
+// the door is at an end-state but still MOVING (arrival overlap), hold it and fire once the motor stops.
+var PULSE_MS = 500;
+var LOCK_MARGIN_MS = 300;
+var QUEUE_TIMEOUT_TICKS = 5;  // drop a queued at-rest command after this many ticks (~5 s at 1 s tick)
 
 // Connectivity watchdog (Phase 7): reboot to recover a wedged Wi-Fi/MQTT stack after a prolonged
 // outage. The controller is boot-safe (relay initial_state:off, never auto-acts) and holds no resumable
@@ -31,8 +39,11 @@ var STALE_MS = 0;            // (door-picture staleness threshold; 0 = don't fla
 var WD = { on: true, wifiMs: 600000, mqttMs: 1800000, mqttEnabled: false, wifiDown: 0, mqttDown: 0 };
 
 var CFG = { hbTopic: "", aliveTopic: "", cmdTopic: "", id: "" };
-var DOOR = { state: "UNKNOWN", dir: "", since: 0, ts: 0, rx: 0 };   // last picture from the i4
+var DOOR = { state: "UNKNOWN", dir: "", since: 0, ts: 0, rx: 0, moving: false };   // last picture from the i4
 var LASTCMD = ""; var LASTCMD_TS = 0; var LASTPULSES = 0;
+var FIRES = 0;                               // monotonic count of pulse sequences actually fired (diagnostic)
+var LOCKED = false;                          // full-sequence pulse lockout (drop commands while set)
+var PENDING = { cmd: "", deadline: 0 };      // at-rest queue: a command waiting for the door to stop moving
 var ticks = 0; var booted = false;
 
 // ---- pure: how many pulses does (cmd, doorState) need? (spec 02 table + D-09) ----
@@ -96,11 +107,40 @@ function pulseSeq(n) {
   firePulse();
   if (n >= 2) Timer.set(PULSE_GAP_MS, false, function () { firePulse(); });  // delayed reverse pulse
 }
+function lockMs(n) {
+  // cover the whole sequence: 1 pulse, or pulse + gap + pulse for a stop-then-reverse, plus margin.
+  return (n >= 2 ? (PULSE_MS + PULSE_GAP_MS + PULSE_MS) : PULSE_MS) + LOCK_MARGIN_MS;
+}
+function atEnd(st) { return st === "CLOSED" || st === "OPEN"; }
+// at-rest guard applies only when the door is AT an end but the motor is still running (arrival overlap):
+// a single "start" pulse there would STOP the door instead of moving it. Mid-travel (OPENING/CLOSING) is
+// handled by pulsesFor (suppress / 2-pulse reverse) and must NOT be deferred.
+function needsRest(cmd) { return atEnd(DOOR.state) && DOOR.moving && pulsesFor(cmd, DOOR.state) > 0; }
+
+function fireCmd(cmd, src) {
+  var n = pulsesFor(cmd, DOOR.state);
+  LASTCMD = cmd; LASTCMD_TS = nowTs(); LASTPULSES = n;
+  print("controller: cmd", cmd, "state", DOOR.state, "->", n, "pulse(s) (" + src + ")");
+  if (n > 0) {
+    FIRES++;
+    pulseSeq(n);
+    LOCKED = true;
+    Timer.set(lockMs(n), false, function () { LOCKED = false; });   // clear the full-sequence lockout
+  }
+  publishHeartbeat();
+}
+function tryPending() {
+  if (PENDING.cmd === "" || LOCKED || DOOR.moving) return;   // wait until truly at rest + not mid-pulse
+  var c = PENDING.cmd; PENDING.cmd = "";
+  print("controller: door at rest — firing queued", c);
+  fireCmd(c, "queued");
+}
 
 function payload() {
   return {
     relay: relayOn(), lastCmd: LASTCMD, lastCmdTs: LASTCMD_TS, lastPulses: LASTPULSES,
-    door: { state: DOOR.state, dir: DOOR.dir, ts: DOOR.ts, rx: DOOR.rx },
+    door: { state: DOOR.state, dir: DOOR.dir, ts: DOOR.ts, rx: DOOR.rx, moving: DOOR.moving },
+    queued: PENDING.cmd, locked: LOCKED, fires: FIRES,
     ts: nowTs(), rssi: wifiRssi(), v: SCHEMA
   };
 }
@@ -116,11 +156,14 @@ function publishAlive() {
 function handleCommand(raw, src) {
   var cmd = parseCmd(raw);
   if (!validCmd(cmd)) { print("controller: ignoring invalid cmd:", raw, "(" + src + ")"); return; }
-  var n = pulsesFor(cmd, DOOR.state);
-  LASTCMD = cmd; LASTCMD_TS = nowTs(); LASTPULSES = n;
-  print("controller: cmd", cmd, "state", DOOR.state, "->", n, "pulse(s) (" + src + ")");
-  pulseSeq(n);
-  publishHeartbeat();
+  if (LOCKED) { print("controller: locked (pulse in progress) — dropping", cmd, "(" + src + ")"); return; }
+  if (needsRest(cmd)) {            // at an end but still moving (arrival overlap) -> queue until at rest
+    PENDING.cmd = cmd; PENDING.deadline = ticks + QUEUE_TIMEOUT_TICKS;
+    print("controller: door moving into", DOOR.state, "— queued", cmd, "(" + src + ")");
+    publishHeartbeat();
+    return;
+  }
+  fireCmd(cmd, src);
 }
 
 function updateDoor(bodyStr) {
@@ -128,7 +171,9 @@ function updateDoor(bodyStr) {
   var d = JSON.parse(bodyStr);          // not crash the script — JSON.parse("") throws on-device)
   if (!d || !d.state) return false;
   DOOR.state = d.state; DOOR.dir = d.dir || ""; DOOR.since = d.since || 0; DOOR.ts = d.ts || 0;
+  DOOR.moving = !!(d.inputs && (d.inputs.op || d.inputs.cl));
   DOOR.rx = nowTs();
+  tryPending();   // a queued at-rest command may now be firable (motor just stopped)
   return true;
 }
 
@@ -164,10 +209,23 @@ function applyWdCfg(str) {
   if (c.wifi) WD.wifiMs = c.wifi * 1000;
   if (c.mqtt) WD.mqttMs = c.mqtt * 1000;
 }
+// pulse-safety tunables (KVS "logic_cfg" {pulseGap,lockMargin,queueTimeout}, all ms except ticks) —
+// lets commissioning tune timing on the real door without reflashing (spec 14, Q-16).
+function applyLogicCfg(str) {
+  if (!str) return;
+  var c = JSON.parse(str);
+  if (!c) return;
+  if (c.pulseGap) PULSE_GAP_MS = c.pulseGap;
+  if (c.lockMargin) LOCK_MARGIN_MS = c.lockMargin;
+  if (c.queueTimeout) QUEUE_TIMEOUT_TICKS = c.queueTimeout;
+}
 
 function tick() {
   ticks++;
   watchdogTick();
+  if (PENDING.cmd !== "" && ticks > PENDING.deadline) {   // at-rest queue timed out -> drop
+    print("controller: queued", PENDING.cmd, "timed out — dropped"); PENDING.cmd = "";
+  }
   if ((ticks % (ALIVE_MS / TICK_MS)) === 0) { publishAlive(); publishHeartbeat(); }
 }
 
@@ -195,8 +253,11 @@ function boot() {
         }
         Shelly.call("KVS.Get", { key: "wd_cfg" }, function (w) {
           applyWdCfg(w && w.value);
-          registerHttp();
-          startLoop();
+          Shelly.call("KVS.Get", { key: "logic_cfg" }, function (lc) {
+            applyLogicCfg(lc && lc.value);
+            registerHttp();
+            startLoop();
+          });
         });
       });
     });

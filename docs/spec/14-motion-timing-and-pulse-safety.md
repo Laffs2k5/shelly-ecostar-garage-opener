@@ -67,7 +67,20 @@ All existing arrival tests still pass (their "away" motor signal is off, so the 
 > margin above the 220 ms reverse; consequence is asymmetric (too-low glitches every close; too-high just
 > leaves a brief stale-CLOSED that self-corrects when the reed releases). Still provisional / should become
 > config-tunable. Unit + tick-loop tests added; **bench-validated** (200 ms kick → stays CLOSED; sustained
-> opening → OPENING). **Problems 2 & 3 below remain TODO.**
+> opening → OPENING).
+>
+> **✅ IMPLEMENTED 2026-06-10 (Problems 2 & 3 — controller + monitor).** Per user decisions:
+> **(P2) at-rest guard = QUEUE** — a directional command landing while the door is at an end but still
+> moving (`atEnd(state) && DOOR.moving`) is held in `PENDING` and fired by `tryPending()` once a
+> `moving:false` picture arrives; dropped after `QUEUE_TIMEOUT_TICKS` (default 5). This required the
+> **monitor to push the picture on `moving`-change too** (not just state-change), so S1 learns the motor
+> stopped during the arrival overlap. **(P3) lockout = FULL SEQUENCE** — after firing, `LOCKED` blocks new
+> commands until a `Timer.set(lockMs(n))` clears it (`lockMs` covers pulse(+gap+pulse)+margin). **Fail-open
+> preserved (D-19):** UNKNOWN / missing-`moving` never queues — best-effort pulse. All timing
+> **config-tunable via KVS `logic_cfg`** `{pulseGap,lockMargin,queueTimeout}`. Heartbeat now exposes
+> `door.moving`, `queued`, `locked`, `fires` (monotonic). 45 tests; **hardware-validated** end-to-end
+> (queue→fire via Pico; lockout drop via the `fires` counter; `logic_cfg` tunability). Final timing values
+> are provisional — tune at commissioning.
 
 ## Problem 2 — pulse-timing race across the two devices (the hard one)
 

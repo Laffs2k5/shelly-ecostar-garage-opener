@@ -3,6 +3,25 @@
 What was **actually observed on real hardware** (vs. mocked/inferred) — NEW-PROJECT-GUIDE §10. Newest
 first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 
+## 2026-06-10 — Q-16 Problems 2 & 3: controller pulse-safety (hardware)
+Controller at-rest guard + full-sequence pulse-lockout + config-tunable timing (KVS `logic_cfg`).
+45 device tests pass. Validated on the real i4+S1 (relay not wired to the EcoStar — pulse count/timing
+only; door reaction is a commissioning check).
+
+- **At-rest guard (Problem 2) — end-to-end via Pico:** drove an arrival overlap (closed-reed + closing
+  motor → i4 derives CLOSED, `moving=true`, POSTs to S1), commanded **open** mid-overlap → S1 **queued**
+  it (`queued:open`, no pulse). Dropped the motor (i4 pushed `moving=false`) → S1 **fired the queued open**
+  (`lastCmd:open, lastPulses:1, queued:""`). Exercises the monitor's new **moving-change push** (state
+  stays CLOSED, but a picture is sent when the motor stops) + the controller queue/fire. ✅
+- **Pulse lockout (Problem 3) — via `fires` counter:** two **open** commands back-to-back (inside the
+  lock) advanced the monotonic `fires` counter by **1, not 2** (2nd dropped); a 3rd after the lock
+  cleared advanced it to **2** (lock releases). ✅
+- **Config tunability (KVS `logic_cfg`):** set `queueTimeout=30` then `lockMargin=4000` via `KVS.Set`,
+  restart → both took effect (longer queue window / ~4.5 s lock), proving timing params tune without
+  reflashing. Cleared back to defaults (lockMargin 300, queueTimeout 5) after. ✅
+- **Fail-open preserved (D-19):** UNKNOWN / missing-`moving` still pulses best-effort (unit-tested).
+- Note: the heartbeat now also carries `door.moving`, `queued`, `locked`, `fires` for observability.
+
 ## 2026-06-10 — Q-16 gate: hardware timing verification (Pico timed scenarios)
 The time-gated tiebreaker (Q-16 P1, `GATE_TICKS=4`/~400 ms) verified on the **real i4** by replaying the
 measured real-door timings as **on-Pico timed sequences** (`device/test-rig/main.py`: `close_arrival`,

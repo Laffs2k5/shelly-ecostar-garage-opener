@@ -39,6 +39,7 @@ var CFG = { hbTopic: "", aliveTopic: "", controllerUrl: "" };
 var STATE = "UNKNOWN";
 var LASTDIR = "";          // "opening" | "closing" | ""
 var SINCE = 0;             // unixtime when STATE last changed
+var LASTMOVING = false;    // last published motor-moving (op||cl) — push on change so S1 sees the motor stop
 var ticks = 0;
 var lastSnap = "";         // for debounce
 var stableCount = 0;
@@ -119,9 +120,8 @@ function postController() {
     });
 }
 
-function onStateChange() {
-  SINCE = nowTs();
-  print("monitor: state ->", STATE, "(dir", LASTDIR + ")");
+function pushPicture() {
+  print("monitor: state", STATE, "moving", (LASTMOVING ? 1 : 0), "(dir", LASTDIR + ")");
   publishHeartbeat();
   postController();
 }
@@ -141,7 +141,12 @@ function evaluate() {
   appliedSnap = akey;
   var d = derive(s.c, s.o, s.op, s.cl, LASTDIR, gateMet);
   LASTDIR = d.dir;
-  if (d.state !== STATE) { STATE = d.state; onStateChange(); }
+  var moving = (s.op || s.cl) ? true : false;
+  if (d.state !== STATE) {                  // state change -> stamp SINCE, push
+    STATE = d.state; SINCE = nowTs(); LASTMOVING = moving; pushPicture();
+  } else if (moving !== LASTMOVING) {        // motor started/stopped within the same state (e.g. arrival
+    LASTMOVING = moving; pushPicture();       // overlap settling) -> push so the controller's at-rest guard sees it
+  }
 }
 
 function watchdogTick() {

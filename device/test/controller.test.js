@@ -81,6 +81,9 @@ test("door_state with empty/missing body does not crash, returns bad, keeps prio
 
 // ---------- commands -> pulses ----------
 function setDoor(h, state) { h.post("door_state", { body: JSON.stringify({ state: state, ts: 1 }) }); }
+function setDoorMoving(h, state, op, cl) {  // picture with motor running (op/cl) -> DOOR.moving=true
+  h.post("door_state", { body: JSON.stringify({ state: state, inputs: { c: false, o: false, op: !!op, cl: !!cl }, ts: 1 }) });
+}
 
 test("HTTP command: open while CLOSED -> exactly one pulse", function () {
   const h = mk(); setDoor(h, "CLOSED");
@@ -110,6 +113,7 @@ test("MQTT command works (plain string and JSON)", function () {
   const h = mk(); setDoor(h, "CLOSED");
   h.sendCmd("open");
   assert.equal(h.switchSets.length, 1);
+  h.fireOneShots();             // clear the pulse lockout (real commands are seconds apart)
   setDoor(h, "OPEN");
   h.sendCmd(JSON.stringify({ cmd: "close" }));
   assert.equal(h.switchSets.length, 2);
@@ -126,6 +130,60 @@ test("UNKNOWN door state -> best-effort single pulse for open/close", function (
   const h = mk(); // no door_state posted yet -> UNKNOWN
   h.post("command", { query: "cmd=open" });
   assert.equal(h.switchSets.length, 1);
+});
+
+// ---------- at-rest guard: don't pulse a door that's still moving into an end (Q-16 Problem 2) ----------
+test("at-rest guard: command while motor still running into an end is queued, not pulsed", function () {
+  const h = mk();
+  setDoorMoving(h, "CLOSED", false, true);          // arrived CLOSED but motor still closing (overlap)
+  h.post("command", { query: "cmd=open" });
+  assert.equal(h.switchSets.length, 0, "no pulse while moving — a pulse would STOP the door near closed");
+  assert.equal(h.lastHeartbeat().queued, "open", "command queued");
+});
+test("at-rest guard: queued command fires once the motor stops", function () {
+  const h = mk();
+  setDoorMoving(h, "CLOSED", false, true);
+  h.post("command", { query: "cmd=open" });
+  assert.equal(h.switchSets.length, 0);
+  setDoorMoving(h, "CLOSED", false, false);         // motor stopped -> at rest -> queued cmd fires
+  assert.equal(h.switchSets.length, 1, "queued open fired at rest");
+  assert.equal(h.lastHeartbeat().queued, "", "queue cleared");
+});
+test("at-rest guard: queued command is dropped after the timeout", function () {
+  const h = mk();
+  setDoorMoving(h, "CLOSED", false, true);
+  h.post("command", { query: "cmd=open" });         // queued
+  h.tick(6);                                         // > QUEUE_TIMEOUT_TICKS -> dropped
+  setDoorMoving(h, "CLOSED", false, false);          // motor stops later
+  assert.equal(h.switchSets.length, 0, "timed-out command does not fire");
+});
+test("at-rest guard does NOT defer a mid-travel reverse (open while CLOSING is still 2 pulses)", function () {
+  const h = mk();
+  setDoorMoving(h, "CLOSING", false, true);          // mid-travel, moving — intentional reverse, not an overlap
+  h.post("command", { query: "cmd=open" });
+  assert.equal(h.switchSets.length, 1, "first reverse pulse immediate (not queued)");
+  assert.equal(h.lastHeartbeat().queued, "", "not queued");
+  h.fireOneShots();
+  assert.equal(h.switchSets.length, 2, "2-pulse stop-then-reverse");
+});
+test("fail-open: UNKNOWN pulses best-effort even if inputs show motion (never block control, D-19)", function () {
+  const h = mk();
+  setDoorMoving(h, "UNKNOWN", true, false);
+  h.post("command", { query: "cmd=open" });
+  assert.equal(h.switchSets.length, 1, "best-effort pulse, not queued");
+});
+
+// ---------- full-sequence pulse lockout (Q-16 Problem 3) ----------
+test("pulse lockout: a 2nd command during the sequence is dropped until it clears", function () {
+  const h = mk(); setDoor(h, "CLOSED");              // at rest (no inputs -> moving false)
+  h.post("command", { query: "cmd=open" });
+  assert.equal(h.switchSets.length, 1, "first pulse fired");
+  h.post("command", { query: "cmd=open" });           // arrives during the lockout
+  assert.equal(h.switchSets.length, 1, "2nd command dropped while locked");
+  h.fireOneShots();                                    // sequence completes -> lockout clears
+  h.post("command", { query: "cmd=open" });
+  assert.equal(h.switchSets.length, 2, "command accepted after the lockout clears");
+  assert.equal(h.lastHeartbeat().fires, 2, "fires counter: only the 2 accepted commands, not the dropped one");
 });
 
 // ---------- heartbeat shape ----------
