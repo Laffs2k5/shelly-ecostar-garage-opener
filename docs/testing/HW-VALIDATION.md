@@ -3,6 +3,18 @@
 What was **actually observed on real hardware** (vs. mocked/inferred) — NEW-PROJECT-GUIDE §10. Newest
 first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 
+## 2026-06-10 — 24 h soak PASS (Phase 3) — both devices
+- **≥24 h stability met, decisively: ~33.4 h observed** (120173 s wall) on both i4 and S1, via the
+  offline-safe baseline+check model (`scripts/soak.sh`; baseline 2026-06-08 20:45). The computer slept /
+  went to work and back across the window — irrelevant, since the verdict reads the devices' own
+  persistent counters.
+- **Zero memory drift:** `ram_min_free` (low-water since boot — the leak canary) **unchanged** the whole
+  time: i4 112068 B, S1 109204 B. No leak.
+- **No reboots / watchdog trips:** uptime kept pace with wall-clock exactly (i4 +120175 s, S1 +120178 s
+  over 120173 s) → `rebooted:no`.
+- **No crashes, MQTT unbroken:** both scripts `running:true` across all samples; `mqtt-down:0`.
+- Verdict reproducible any time: `scripts/soak.sh --summary logs/soak-baseline.csv`.
+
 ## 2026-06-09 — Real reed bench test (Q-13) — mrsmart MR-00326
 - **First real reed validated end-to-end** (rig had only used opto reed-*sims*). Wired **directly**:
   one lead → i4 input **I1 (SW1, id0)**, other → **−** rail — no opto, no resistor (passive dry contact,

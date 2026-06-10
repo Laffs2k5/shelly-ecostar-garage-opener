@@ -52,7 +52,7 @@ motor. Q-02 + the Q-03 timing/resume edge are **real-door** items carried into P
 
 ---
 
-## Phase 3 — S1 controller script — ✅ CORE DONE; soak + at-install checks pending
+## Phase 3 — S1 controller script — ✅ DONE (soak passed); wall-button check at install
 
 **Goal:** command logic that pulses the EcoStar only when useful.
 
@@ -63,11 +63,12 @@ motor. Q-02 + the Q-03 timing/resume edge are **real-door** items carried into P
 - [x] Deployed + running on S1 (.161); relay configured detached/off/auto-off 0.5 s
 - [x] **End-to-end on hardware:** Pico→i4→S1 picture→decision correct; suppression + 2-pulse reverse
   confirmed; commands over **HTTP and MQTT**; i4 `controller_url` persisted in KVS
-- [ ] ☁ Soak ≥ 24 h stable (both scripts)
+- [x] ☁ **Soak ≥ 24 h stable (both scripts)** — PASS 2026-06-10: ~33.4 h, zero `ram_min_free` drift,
+  no reboots/crashes, MQTT unbroken (HW-VALIDATION; `scripts/soak.sh`)
 - [ ] ☁ Physical wall-button (parallel to relay) verified — at install (works by design, D-04)
 
-**Gate:** open/close over MQTT + HTTP ✓; counterproductive pulses suppressed ✓; button-with-broker-down
-(verify at install); 24 h soak (pending).
+**Gate:** open/close over MQTT + HTTP ✓; counterproductive pulses suppressed ✓; 24 h soak ✓;
+button-with-broker-down (verify at install).
 
 ---
 
