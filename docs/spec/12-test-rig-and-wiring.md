@@ -138,8 +138,49 @@ the real reed switches take over. (D-18.)
 Before the mJS exists, the same path bring-ups the **hardware**: `pico.sh closing` should make
 `i4-watch.sh` show `SW4=1`, proving Pico→opto→i4 end to end.
 
+## Timed scenario testing (the Pico's "superpower" — verifying TIME-SENSITIVE logic on hardware)
+
+Some i4 logic is **timing-dependent** and cannot be judged from a settled snapshot — it depends on *how
+long* a condition holds. The prime example is the **Q-16 motor-direction gate** (spec 14): a reed engaged
+while the motor drives away from it means *departure* if sustained (~510–780 ms, measured) but is the
+harmless *end-of-travel reverse kick* if brief (~140–220 ms, measured). The script tells them apart by
+duration (`GATE_TICKS`, ~400 ms). Debounce and the watchdog thresholds are similarly time-based.
+
+**Why the Pico is the right tool:** the host→Pico link (powershell → mpremote, seconds of latency) cannot
+produce precise sub-second input sequences. **MicroPython on the Pico can** — so we put the timing
+*on-device*: timed sequence functions in [`device/test-rig/main.py`](../../device/test-rig/main.py) drive
+the inputs with `time.sleep_ms()` between steps, replaying the **real-door timings measured at the garage**
+(spec 15 / HW-VALIDATION). The host just kicks off the sequence; the Pico runs it to the millisecond.
+
+### WHAT we test this way
+- **Reverse-kick absorption** — a brief opposite-motor blip at an end must NOT flip the derived state.
+- **Departure detection** — a sustained opposite-motor (reed still engaged) MUST flip to the moving state.
+- **Negative control** — a kick *longer* than the gate MUST flip (proves the gate discriminates by
+  duration, not blanket-suppresses). Always include one, or the test proves nothing.
+- (Same approach fits debounce edges and any future timing parameter.)
+
+### HOW TO run one
+Scenarios live in `device/test-rig/main.py` as `_seq([(channels, dwell_ms), …])`. Current set:
+`close_arrival(kick_ms, overlap_ms)`, `open_arrival(…)`, `depart_closed(overlap_ms)`, `depart_open(…)`.
+
+1. **Deploy the scenarios to the Pico** (after editing main.py): `scripts/pico.sh deploy`.
+2. **Run + verify in one command:** [`scripts/i4-scenario.sh`](../../scripts/i4-scenario.sh) — it subscribes
+   to the i4 **heartbeat**, fires the scenario on the Pico, and prints the **sequence of published states**:
+   ```
+   scripts/i4-scenario.sh 'close_arrival(180)'   # -> CLOSING CLOSED          (kick absorbed, no OPENING)
+   scripts/i4-scenario.sh 'close_arrival(500)'   # -> CLOSING CLOSED OPENING CLOSED   (negative control: glitches)
+   scripts/i4-scenario.sh 'depart_closed(650)'   # -> CLOSED OPENING          (departure detected)
+   ```
+3. **Read the result:** the i4 publishes a heartbeat on *every* state change, so a transient glitch appears
+   as an **extra OPENING/CLOSING** between the start and end states. Watching the *stream* (not just the
+   end state via `/state`) is what makes a sub-tick glitch visible — a settled-snapshot read would miss it.
+
+This suite is a permanent regression tool: re-run it on hardware whenever the timing logic changes.
+Results are logged in `docs/testing/HW-VALIDATION.md` (Q-16 gate entry, 2026-06-10).
+
 ## Pure-logic tests (complement, no hardware)
 
 The physical rig is the integration test. Fast unit tests of the state-derivation logic run as a Node
-`node:test` harness mocking the Shelly runtime (coffee-timer pattern) under `device/test/` — added with
-the script in Phase 2.
+`node:test` harness mocking the Shelly runtime (coffee-timer pattern) under `device/test/`. The Node tests
+also replay the timed scenarios in *tick* units (deterministic) — the Pico suite confirms the same on real
+hardware with real opto/relay timing.
