@@ -51,6 +51,14 @@ All existing arrival tests still pass (their "away" motor signal is off, so the 
 > **persisted ≥ ~300 ms** (clean gap between 140 ms and 500 ms+). Below that, the reed still wins (it's the
 > arrival relief-kick, still at that end). Make the gate a config tunable; unit-test with the 140 ms blip
 > as an explicit case that must NOT flip the state.
+>
+> **Margins — these are small-sample observations, NOT statistics.** n=1 for the reverse (140 ms), n≈3–4
+> for departures (0.51–0.78 s). We have no opportunity for repeated/statistical measurement, so **choose
+> thresholds with safety margin *inside* the 140 → 510 ms gap, not tuned to the measured points** — the
+> reverse could run longer and a departure shorter than what we happened to catch. Pick the gate near the
+> middle with headroom both ways (~300 ms), keep it **config-tunable**, and treat every timing constant
+> here (gate, `REST_GUARD_MS`, `PULSE_GAP_MS`, debounce) as **provisional — widen/re-confirm at
+> commissioning**. Prefer conservative margins over tight fits everywhere.
 
 ## Problem 2 — pulse-timing race across the two devices (the hard one)
 
