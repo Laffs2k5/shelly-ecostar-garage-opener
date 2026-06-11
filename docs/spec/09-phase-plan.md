@@ -111,7 +111,7 @@ High level:
 - [ ] **Arch first:** injectable state-source · WorkManager/AlarmManager periodic+exact wake (NOT an
   always-on service — periodic "coffee-plug" model) · Compose Navigation · permissions + notif channels
 - [ ] **Persistent "door open" notification** — 3 modes (always / after ≥X min / off); no action buttons
-- [ ] **Single morphing action button** (Open/Close/**Stop**/Engage; default layout) — FW `stop` ready
+- [ ] **Single morphing action button** (Open/Close/**Stop**/Engage; the *only* layout) — FW `stop` ready
 - [ ] **Alarm: open > X minutes** · **Alarm: open at time-of-day**
 - [ ] **Demo mode** — exercises full UI + on-device notifications/alarms, **zero real comms**
 - [ ] **Settings redesign** (auth/certs → submenu; demo + alarms + layout in main)

@@ -12,8 +12,8 @@ and is themeable/brandable — while staying **light on battery** and never depe
 
 ## Background model — periodic wake, NOT an always-on service ✅
 
-**Decision (2026-06-11):** background awareness uses a **periodic wake** (coffee-plug pattern), not a
-persistent foreground service.
+**Decision (2026-06-11, confirmed):** background awareness uses a **periodic wake** (coffee-plug pattern),
+not a persistent foreground service. The ~15-min staleness tradeoff (below) is **accepted**.
 
 - A scheduled job (**WorkManager periodic**, ~15-min floor) wakes, connects, reads the **retained**
   `devices/garage-monitor/heartbeat` (current state delivered *immediately* on connect — the reason it's
@@ -36,6 +36,44 @@ with D-12: alerting lives in HA, we expose status).
 (HTTP-direct on LAN, else MQTT) — real-time state + the morphing button. The 15-min floor only governs
 background.
 
+## Main screen layout
+
+One scrolling-free screen, three bands top→bottom: **identity**, **state** (the answer to "is my garage
+open?" — dominant), **action** (one tap, thumb-reachable). Connection is ambient at the very bottom.
+
+| Band | Zone | Content | Placement / behaviour |
+|---|---|---|---|
+| 1 | **Top app bar** | brand wordmark/logo (left) · settings gear (right) | gear → Settings screen (nav). Thin. |
+| 1 | **Demo ribbon** | "DEMO MODE — simulated" | appears *only* in demo mode, directly under the app bar, unmistakable accent colour. |
+| 2 | **Door-state hero** (dominant, upper-centre) | door illustration reflecting state · large state label · time-in-state subtext | the visual focus; biggest element. See state-visuals below. |
+| 3 | **Primary action** (lower third, thumb zone) | the morphing button (or the STOPPED two-button pair) | large, centred; colour by intent (below). |
+| — | **Connection footer** (bottom edge) | transport chip · freshness | ambient; see footer below. |
+
+### State visuals (hero + button), per door state
+
+| Door state | Hero illustration | Hero label | Subtext | Action button |
+|---|---|---|---|---|
+| CLOSED | closed door | **Closed** | "Closed since 09:14" | **Open** (primary) |
+| OPEN | open door | **Open** | "Open for 12 min" | **Close** (primary) |
+| OPENING | door + upward motion (animated) | **Opening…** | indeterminate (no position %) | **Stop** (caution colour) |
+| CLOSING | door + downward motion (animated) | **Closing…** | indeterminate | **Stop** (caution colour) |
+| STOPPED_OPENING | partially-open door, halted | **Stopped** | "Stopped while opening" | **Open ｜ Close** pair (V2-3) |
+| STOPPED_CLOSING | partially-open door, halted | **Stopped** | "Stopped while closing" | **Open ｜ Close** pair (V2-3) |
+| UNKNOWN | muted door + "?" | **Unknown** | "No fresh data — as of HH:MM" | **Engage** (muted/secondary) |
+
+Notes:
+- **Motion = indeterminate animation**, never a progress bar — we only have reed + motor signals, no
+  position. The animation conveys *direction*, not how far.
+- **Button colour semantics:** neutral/primary for Open/Close; **caution** (amber/red) for Stop; muted for
+  Engage. The button never shows a suppressed action — it only offers what `pulsesFor` would actually act on.
+- **Freshness drives trust:** the hero subtext + footer make staleness visible (esp. important given the
+  ~15-min background model — but the main screen is foreground/live, so it's usually "live / updated Ns ago").
+
+### Connection footer
+A single slim line at the bottom: a **transport chip** (`Direct` · `Broker` · `Cloud` · `Offline` · `Demo`)
++ a **freshness** note ("live" / "updated 3s ago" / "as of 10:42"). Carries v1's connection-status idea
+forward; tapping it could later expand the event log (v1 had a capped log) — not required for v2.
+
 ## Features
 
 ### Persistent "door open" notification
@@ -44,11 +82,11 @@ background.
 - Driven by the periodic wake reading the retained heartbeat.
 
 ### Single morphing action button
-- **Option that replaces** the three separate buttons. Label+action follows door state:
-  - CLOSED → **Open** · OPEN → **Close** · OPENING/CLOSING → **Stop** · UNKNOWN → **Engage** (best-effort
-    toggle) · STOPPED_OPENING/STOPPED_CLOSING → offer the resume/reverse direction.
-- **Default layout: morphing button** (cleaner single-action UX; safety-stop falls out naturally). Settings
-  toggle reverts to the classic three-button layout.
+**The only layout** (no classic three-button option — less to maintain; decided 2026-06-11). One primary
+button whose label+action follows door state:
+- CLOSED → **Open** · OPEN → **Close** · OPENING/CLOSING → **Stop** · UNKNOWN → **Engage** (best-effort toggle).
+- **STOPPED_OPENING / STOPPED_CLOSING** → a fork (resume vs. reverse) a single label can't express — see
+  open question **V2-3**.
 - **FW ready:** controller accepts `stop` (safety halt, moving-door-only; D-19, [spec 14](14-motion-timing-and-pulse-safety.md)).
 
 ### Alarms
@@ -81,8 +119,7 @@ These aren't user-facing features but everything above leans on them:
 
 ### Settings redesign
 - Auth/certs → a **sub-menu** (rarely touched after first import; show imported CA / `.p12` CN + status).
-- Surface **demo mode** + **alarms config** + **button-layout toggle** + **notification mode** in the main
-  settings area.
+- Surface **demo mode** + **alarms config** + **notification mode** in the main settings area.
 
 ### UI refresh + branding
 - Visual redesign, app name/branding, icon set (adaptive launcher icon + in-app iconography). User drives
@@ -95,13 +132,16 @@ These aren't user-facing features but everything above leans on them:
 3. **Settings redesign** (rides on nav).
 4. **Branding / UI / icons** (parallel; lands last).
 
+## Resolved
+- **V2-1** ~15-min background staleness — **accepted** (2026-06-11).
+- **V2-2** Two layouts? — **No.** Morphing button is the *only* layout; no classic option (2026-06-11).
+
 ## Open questions
 | # | Question | Lean |
 |---|---|---|
-| V2-1 | Is ~15-min background staleness on the open-door notification acceptable? | **Yes** — awareness aid, not an intrusion alarm (confirm) |
-| V2-2 | Morphing button as the default layout? | **Yes**, with a settings toggle to classic |
-| V2-3 | Time-of-day alarm: "still open at T" only, or also "opened/closed since"? | Start with **still-open-at-T** |
-| V2-4 | Home-screen widget / Quick-Settings tile? | **Out of scope** for v2 (conscious cut) |
+| V2-3 | **STOPPED_OPENING / STOPPED_CLOSING button** — a stopped-partway door has two sensible actions (resume vs. reverse) that one label can't hold. Options: (a) split into two compact buttons (Open \| Close) *only* in this state; (b) single button = resume the interrupted direction, reverse offered as a secondary text action; (c) single button = the safe direction (Close). | **(a)** — clearest; the only state that ever shows two buttons, accepted as the principled exception |
+| V2-4 | Time-of-day alarm: "still open at T" only, or also "opened/closed since"? | Start with **still-open-at-T** |
+| V2-5 | Home-screen widget / Quick-Settings tile? | **Out of scope** for v2 (conscious cut) |
 
 ## Out of scope (conscious cuts)
 - Always-on push / instant open-alert (→ HA + FCM future, D-12).
