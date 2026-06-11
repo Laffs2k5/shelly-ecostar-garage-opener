@@ -105,17 +105,24 @@ button-with-broker-down (verify at install).
 - [ ] **UI/UX polish pass** (low-priority — functionality at install is the priority; do whenever):
   show in Settings *which* CA / `.p12` are imported (cert CN / status); general visual tidy-up
 
-### 4D — App v2 overhaul (FUTURE, post-install) — not started
-Larger redesign; do after the door is physically live. **Full scope & design: [spec 16](16-app-v2.md).**
-High level:
-- [ ] **Arch first:** injectable state-source · WorkManager/AlarmManager periodic+exact wake (NOT an
-  always-on service — periodic "coffee-plug" model) · Compose Navigation · permissions + notif channels
+### 4D — App v2 overhaul — IN PROGRESS
+**Full scope & design: [spec 16](16-app-v2.md).** Building headless (compile + JVM unit tests); visual +
+device-coupled bits validate on-phone with the user.
+- [x] **Cyber Garage Control neon theme** (Compose Color/Type/Theme) — dark, cyan/orange, mono readouts
+- [x] **Main screen rebuilt** — three bands: BrandBar · animated DoorSchematic (Canvas) + state word +
+  mono subtext · action band · connection footer with mono history log
+- [x] **Single morphing action button** (Open/Close/**Stop**/Engage; the *only* layout; STOPPED = one wide
+  button split by a divider) — `ActionModel`, pure + unit-tested; `stop` added to `GarageApi.VALID`
+- [x] **Demo mode** — `DemoEngine` (pure, unit-tested) + Settings toggle; drives the whole UI with **zero
+  real comms**
+- [x] **App name "Garage control"** + launcher icon (iconikai pack 2, square PNGs)
 - [ ] **Persistent "door open" notification** — 3 modes (always / after ≥X min / off); no action buttons
-- [ ] **Single morphing action button** (Open/Close/**Stop**/Engage; the *only* layout) — FW `stop` ready
 - [ ] **Alarm: open > X minutes** · **Alarm: open at time-of-day**
-- [ ] **Demo mode** — exercises full UI + on-device notifications/alarms, **zero real comms**
-- [ ] **Settings redesign** (auth/certs → submenu; demo + alarms + layout in main)
-- [ ] **UI refresh + branding** — visual redesign, app name, icon set (user-driven creative; lands last)
+- [ ] **Periodic-wake plumbing** — WorkManager periodic + AlarmManager exact wake; notif channels;
+  POST_NOTIFICATIONS + exact-alarm permissions *(device-coupled → build with phone in hand)*
+- [ ] **Settings redesign** (auth/certs → submenu; alarms + notification mode in main)
+- [ ] **Adaptive/monochrome launcher layers** (designer) + on-phone visual refinement
+- [ ] **Compose Navigation** if/when a second screen lands (settings is currently a toggle-swap)
 
 ### 4C — Web fallback — `web/` — [x] DONE
 - [x] `web/garage-core.js` (pure, **9 Node tests** — `scripts/test-web.sh`) + `web/index.html`:

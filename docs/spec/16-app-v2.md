@@ -1,8 +1,16 @@
 # 16 — Android app v2 (scope & design)
 
-> **Status: SCOPING (2026-06-11). No code yet.** Supersedes the §4D checklist in
-> [09-phase-plan.md](09-phase-plan.md) — that section now links here. v1 (all three transports validated
-> on-device) is the baseline; this is the redesign on top of it.
+> **Status: IN PROGRESS (2026-06-11).** Supersedes the §4D checklist in [09-phase-plan.md](09-phase-plan.md).
+> v1 (all three transports validated on-device) is the baseline; this is the redesign on top of it.
+>
+> **Built (compiles + JVM unit tests pass on the Windows toolchain):** Cyber Garage Control neon theme ·
+> main screen (three bands, animated `DoorSchematic`, morphing button, STOPPED split-divider button,
+> connection footer + mono log) · `ActionModel` (pure, tested) · `stop` command · `DemoEngine` + Settings
+> toggle (pure, tested, zero comms) · app name + launcher icon.
+> **Remaining (device-coupled → build with phone in hand):** the periodic-wake notification (3 modes), the
+> two alarms, WorkManager/AlarmManager plumbing, permissions/channels, settings redesign, and on-phone
+> visual refinement (screenshots → iterate). These need the device to validate (notification display, Doze,
+> permissions), consistent with the project's validate-on-hardware discipline.
 
 ## Goal
 
