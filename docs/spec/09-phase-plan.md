@@ -106,23 +106,16 @@ button-with-broker-down (verify at install).
   show in Settings *which* CA / `.p12` are imported (cert CN / status); general visual tidy-up
 
 ### 4D — App v2 overhaul (FUTURE, post-install) — not started
-Larger redesign; do after the door is physically live. Captures user requests 2026-06-10/06-11:
-- [ ] **Persistent notification while door is OPEN** — needs a **foreground service** + the broker path
-  (background MQTT), modelled on the coffee app's notification. (Supersedes the polish-pass notification note.)
-  **Configurable, 3 modes:** *always show while open* · *only after open ≥ X minutes* · *off (hide/disable)*.
-- [ ] **Single morphing action button** (option to replace the separate buttons) — label/action follows door
-  state: `Open` when CLOSED, `Close` when OPEN, **`Stop` when OPENING/CLOSING**, and `Engage` (best-effort
-  toggle) when UNKNOWN. STOPPED_OPENING/STOPPED_CLOSING → offer the resume/reverse direction. **FW primitive
-  ready:** the controller now accepts a `stop` command (safety halt, moving-door-only; D-19 / spec 14) — the
-  button's `Stop` face maps straight to it.
-- [ ] **Configurable alarm: door open > X minutes** — user-set threshold, fires a notification/alert.
-- [ ] **Configurable alarm: door open at a given time of day** — time-picker; alert if still/again open then.
-- [ ] **Demo mode** — randomly cycle the connection type every ~15 s and simulate state changes on button
-  taps (with a short fake door-travel time). Makes GUI testing far easier with no devices/broker.
-- [ ] **Settings redesign** — move **auth/certs into a sub-menu**; surface **demo mode** + **alerts config**
-  in the main settings area.
-- [ ] **UI refresh + branding** — visual redesign, app name/branding, icon set (adaptive launcher icon,
-  in-app iconography). User drives the creative direction with external design tools + Claude assist.
+Larger redesign; do after the door is physically live. **Full scope & design: [spec 16](16-app-v2.md).**
+High level:
+- [ ] **Arch first:** injectable state-source · WorkManager/AlarmManager periodic+exact wake (NOT an
+  always-on service — periodic "coffee-plug" model) · Compose Navigation · permissions + notif channels
+- [ ] **Persistent "door open" notification** — 3 modes (always / after ≥X min / off); no action buttons
+- [ ] **Single morphing action button** (Open/Close/**Stop**/Engage; default layout) — FW `stop` ready
+- [ ] **Alarm: open > X minutes** · **Alarm: open at time-of-day**
+- [ ] **Demo mode** — exercises full UI + on-device notifications/alarms, **zero real comms**
+- [ ] **Settings redesign** (auth/certs → submenu; demo + alarms + layout in main)
+- [ ] **UI refresh + branding** — visual redesign, app name, icon set (user-driven creative; lands last)
 
 ### 4C — Web fallback — `web/` — [x] DONE
 - [x] `web/garage-core.js` (pure, **9 Node tests** — `scripts/test-web.sh`) + `web/index.html`:
