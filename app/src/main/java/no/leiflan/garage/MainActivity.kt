@@ -21,6 +21,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,6 +45,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import no.leiflan.garage.api.ActionModel
 import no.leiflan.garage.api.ConnectionUi
+import no.leiflan.garage.api.DemoEngine
 import no.leiflan.garage.api.DoorModel
 import no.leiflan.garage.api.DoorModel.DoorStatus
 import no.leiflan.garage.api.GarageApi
@@ -75,7 +77,7 @@ private const val PREFS = "garage_settings"
 data class Settings(
     val i4Ip: String, val s1Ip: String, val monId: String, val ctrlId: String,
     val localHost: String, val cloudHost: String, val cloudUser: String, val cloudPass: String,
-    val p12Pass: String, val clientId: String
+    val p12Pass: String, val clientId: String, val demo: Boolean = false
 )
 
 private fun loadSettings(ctx: Context): Settings {
@@ -85,7 +87,7 @@ private fun loadSettings(ctx: Context): Settings {
     return Settings(
         g("i4_ip"), g("s1_ip"), gd("mon_id", "garage-monitor"), gd("ctrl_id", "garage-controller"),
         g("mqtt_local_host"), g("mqtt_cloud_host"), g("cloud_user"), g("cloud_pass"),
-        g("p12_pass"), g("client_id")
+        g("p12_pass"), g("client_id"), p.getBoolean("demo", false)
     )
 }
 
@@ -96,6 +98,7 @@ private fun saveSettings(ctx: Context, s: Settings) {
         putString("mqtt_local_host", s.localHost); putString("mqtt_cloud_host", s.cloudHost)
         putString("cloud_user", s.cloudUser); putString("cloud_pass", s.cloudPass)
         putString("p12_pass", s.p12Pass); putString("client_id", s.clientId)
+        putBoolean("demo", s.demo)
         apply()
     }
 }
@@ -128,7 +131,7 @@ fun AppRoot() {
     val ctx = LocalContext.current
     var showSettings by remember { mutableStateOf(false) }
     var settings by remember { mutableStateOf(loadSettings(ctx)) }
-    val needsSetup = settings.i4Ip.isBlank() && settings.cloudHost.isBlank()
+    val needsSetup = !settings.demo && settings.i4Ip.isBlank() && settings.cloudHost.isBlank()
 
     if (showSettings || needsSetup) {
         SettingsScreen(settings, onSave = { saveSettings(ctx, it); settings = it; showSettings = false }, onClose = { showSettings = false })
@@ -146,16 +149,30 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
     var log by remember { mutableStateOf(listOf<ConnectionUi.LogEntry>()) }
     var nowSec by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
     var busy by remember { mutableStateOf(false) }
+    val demo = remember { DemoEngine() }   // demo simulation — zero real comms
 
     LaunchedEffect(s) {
-        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+        if (s.demo) {
+            // Fully local simulation: tick the engine, never touch the network.
             while (true) {
-                val res = withContext(Dispatchers.IO) { poll(s) }
-                door = res.status
-                if (res.mode != mode) log = ConnectionUi.pushIfChanged(log, res.mode, hhmm())
-                mode = res.mode
-                nowSec = System.currentTimeMillis() / 1000
-                delay(5000)
+                val now = System.currentTimeMillis()
+                door = demo.door(now)
+                val m = demo.modeAt(now)
+                if (m != mode) log = ConnectionUi.pushIfChanged(log, m, hhmm())
+                mode = m
+                nowSec = now / 1000
+                delay(1000)
+            }
+        } else {
+            lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    val res = withContext(Dispatchers.IO) { poll(s) }
+                    door = res.status
+                    if (res.mode != mode) log = ConnectionUi.pushIfChanged(log, res.mode, hhmm())
+                    mode = res.mode
+                    nowSec = System.currentTimeMillis() / 1000
+                    delay(5000)
+                }
             }
         }
     }
@@ -163,6 +180,7 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
 
     fun send(cmd: String) {
         if (busy) return
+        if (s.demo) { val now = System.currentTimeMillis(); demo.command(cmd, now); door = demo.door(now); return }
         scope.launch { busy = true; withContext(Dispatchers.IO) { sendCmd(s, mode, cmd) }; busy = false }
     }
 
@@ -228,6 +246,7 @@ fun SettingsScreen(initial: Settings, onSave: (Settings) -> Unit, onClose: () ->
     var cloudPass by remember { mutableStateOf(initial.cloudPass) }
     var p12Pass by remember { mutableStateOf(initial.p12Pass) }
     var clientId by remember { mutableStateOf(initial.clientId) }
+    var demo by remember { mutableStateOf(initial.demo) }
     var note by remember { mutableStateOf("") }
 
     val pickP12 = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -239,6 +258,11 @@ fun SettingsScreen(initial: Settings, onSave: (Settings) -> Unit, onClose: () ->
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
         Text("Settings", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column { Text("Demo mode"); Text("Simulated — no devices, no network", style = MaterialTheme.typography.labelSmall) }
+            Switch(checked = demo, onCheckedChange = { demo = it })
+        }
         Spacer(Modifier.height(8.dp))
         field("i4 IP (door state)", i4Ip) { i4Ip = it }
         field("S1 IP (relay)", s1Ip) { s1Ip = it }
@@ -260,7 +284,7 @@ fun SettingsScreen(initial: Settings, onSave: (Settings) -> Unit, onClose: () ->
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(onClick = {
                 onSave(Settings(i4Ip.trim(), s1Ip.trim(), monId.trim().ifBlank { "garage-monitor" }, ctrlId.trim().ifBlank { "garage-controller" },
-                    localHost.trim(), cloudHost.trim(), cloudUser.trim(), cloudPass, p12Pass, clientId.trim()))
+                    localHost.trim(), cloudHost.trim(), cloudUser.trim(), cloudPass, p12Pass, clientId.trim(), demo))
             }) { Text("Save") }
             TextButton(onClick = onClose) { Text("Close") }
         }
