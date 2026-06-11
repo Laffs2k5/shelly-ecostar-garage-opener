@@ -147,6 +147,27 @@ These aren't user-facing features but everything above leans on them:
   creative direction with external design tools + Claude assist. **Lands last**, but can run in parallel
   (design-driven) — don't let feature churn rework finished screens.
 
+## Visual design — locked 2026-06-11
+
+Based on **`docs/visual_design_ideas/`** (Stitch "Cyber Garage Control" mocks + `cyber_garage_control/DESIGN.md`
++ two iconikai icon packs). The DESIGN.md is the source of truth for tokens; it already maps to our
+three-band layout (Identity / State / Action).
+
+- **Theme:** Cyber Garage Control — dark-only Material 3 + neon. Base `#121212`; **primary neon cyan
+  `#00f2ff`** (open/close, connected, safe); **caution orange `#ff9500`** (stop, motion states); neon outer
+  glows (15–30% blur) instead of Material shadows. Roboto Flex (display/headline/body) + JetBrains Mono
+  (technical readouts: state subtext, connection log, timestamps).
+- **Structure:** **single screen + Settings** (gear → Settings; no bottom nav). History lives in the footer.
+- **Bands:** Identity (brand wordmark + gear) · State (door schematic + big state label + mono subtext) ·
+  Action (full-width neon button; **STOPPED = one wide button split by a center divider** into Open ｜ Close,
+  sharp inner / rounded outer corners — *not* two separate buttons; user's call overrides the stopped mock).
+- **Action colours:** cyan for Open/Close/Engage; **orange for Stop** with an active glow during motion.
+- **Connection footer:** transport line (dot + `Wi-Fi · direct live`) + mono history log (newest-first, cap 4).
+- **Launcher icon:** **iconikai pack 2** (neon garage+roof). Square PNGs wired now; proper adaptive
+  foreground/background + monochrome layers later with a designer.
+- **App name:** **"Garage control"** (also the top-bar wordmark).
+- **Iterate later:** install on phone → screenshots → refine together (per user).
+
 ## Design assets & animation (graphic-designer brief)
 
 What to commission, in deliverable terms. **Everything vector/SVG** unless noted — Android consumes vector

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Garage Control - Closed</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&amp;family=Roboto+Flex:wght@400;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                            "on-error-container": "#ffdad6",
+                            "on-tertiary-fixed": "#101d23",
+                            "surface-dim": "#131313",
+                            "surface": "#131313",
+                            "on-surface-variant": "#b9cacb",
+                            "on-primary": "#00363a",
+                            "tertiary": "#eef9ff",
+                            "surface-container-highest": "#353534",
+                            "on-primary-container": "#006a71",
+                            "primary-fixed": "#74f5ff",
+                            "on-secondary-fixed-variant": "#6a3b00",
+                            "surface-container-lowest": "#0e0e0e",
+                            "surface-variant": "#353534",
+                            "tertiary-fixed-dim": "#bbc9d0",
+                            "on-tertiary-container": "#546268",
+                            "primary": "#e1fdff",
+                            "secondary-fixed-dim": "#ffb874",
+                            "on-error": "#690005",
+                            "surface-bright": "#393939",
+                            "inverse-surface": "#e5e2e1",
+                            "surface-container-low": "#1c1b1b",
+                            "surface-container-high": "#2a2a2a",
+                            "on-primary-fixed-variant": "#004f54",
+                            "inverse-primary": "#00696f",
+                            "primary-container": "#00f2ff",
+                            "on-surface": "#e5e2e1",
+                            "primary-fixed-dim": "#00dbe7",
+                            "on-secondary-fixed": "#2d1600",
+                            "tertiary-fixed": "#d7e5ec",
+                            "outline": "#849495",
+                            "inverse-on-surface": "#313030",
+                            "secondary-fixed": "#ffdcbf",
+                            "background": "#131313",
+                            "on-tertiary-fixed-variant": "#3c494f",
+                            "on-background": "#e5e2e1",
+                            "surface-tint": "#00dbe7",
+                            "outline-variant": "#3a494b",
+                            "on-tertiary": "#253238",
+                            "on-secondary-container": "#633700",
+                            "secondary-container": "#fe9400",
+                            "surface-container": "#201f1f",
+                            "error-container": "#93000a",
+                            "on-secondary": "#4b2800",
+                            "tertiary-container": "#cfdde4",
+                            "error": "#ffb4ab",
+                            "on-primary-fixed": "#002022",
+                            "secondary": "#ffbc7c"
+                    },
+                    "borderRadius": {
+                            "DEFAULT": "0.25rem",
+                            "lg": "0.5rem",
+                            "xl": "0.75rem",
+                            "full": "9999px"
+                    },
+                    "spacing": {
+                            "margin-edge": "24px",
+                            "band-padding": "40px",
+                            "stack-tight": "8px",
+                            "gutter-v": "32px",
+                            "stack-loose": "16px"
+                    },
+                    "fontFamily": {
+                            "display-state": [
+                                    "Roboto Flex"
+                            ],
+                            "headline-md": [
+                                    "Roboto Flex"
+                            ],
+                            "display-state-mobile": [
+                                    "Roboto Flex"
+                            ],
+                            "label-mono": [
+                                    "JetBrains Mono"
+                            ],
+                            "body-lg": [
+                                    "Roboto Flex"
+                            ]
+                    },
+                    "fontSize": {
+                            "display-state": [
+                                    "44px",
+                                    {
+                                            "lineHeight": "52px",
+                                            "letterSpacing": "-0.5px",
+                                            "fontWeight": "700"
+                                    }
+                            ],
+                            "headline-md": [
+                                    "24px",
+                                    {
+                                            "lineHeight": "32px",
+                                            "fontWeight": "600"
+                                    }
+                            ],
+                            "display-state-mobile": [
+                                    "36px",
+                                    {
+                                            "lineHeight": "44px",
+                                            "fontWeight": "700"
+                                    }
+                            ],
+                            "label-mono": [
+                                    "12px",
+                                    {
+                                            "lineHeight": "16px",
+                                            "letterSpacing": "0.5px",
+                                            "fontWeight": "500"
+                                    }
+                            ],
+                            "body-lg": [
+                                    "16px",
+                                    {
+                                            "lineHeight": "24px",
+                                            "fontWeight": "400"
+                                    }
+                            ]
+                    }
+            },
+                },
+        }
+    </script>
+<style>
+        .glow-effect {
+            box-shadow: 0 0 24px rgba(0, 242, 255, 0.3); /* primary-container glow */
+        }
+        .glow-effect-orange {
+            box-shadow: 0 0 24px rgba(254, 148, 0, 0.3); /* secondary-container glow */
+        }
+        /* Custom scrollbar for log area */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #353534; /* surface-variant */
+            border-radius: 4px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background h-screen flex flex-col overflow-hidden font-body-lg">
+<!-- Identity Band: TopAppBar -->
+<header class="flex justify-between items-center px-margin-edge h-16 w-full bg-surface shrink-0 z-10">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-fixed" style="font-variation-settings: 'FILL' 1;">grid_view</span>
+<h1 class="font-headline-md text-headline-md font-black tracking-tighter text-on-surface">GARAGE</h1>
+</div>
+<button aria-label="Settings" class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-variant/20 transition-colors text-on-surface-variant focus:outline-none">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">settings</span>
+</button>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col relative">
+<!-- State Band: Center 50% -->
+<section class="flex-1 flex flex-col items-center justify-center p-band-padding min-h-0 relative z-0">
+<!-- Schematic Card -->
+<div class="w-full aspect-square rounded-2xl overflow-hidden"><!-- STITCH_SHADER_START:ANIMATION_9 class="" -->
+<div class="" style="display:block;width:100%;height:100%;min-height:200px;">
+<canvas id="shader-canvas-ANIMATION_9" style="display:block;width:100%;height:100%"></canvas>
+<script>
+(function() {
+  const canvas = document.getElementById('shader-canvas-ANIMATION_9');
+
+  // Sync the WebGL drawing-buffer size with the CSS-driven layout size.
+  // This fires on initial layout and whenever the element is resized.
+  function syncSize() {
+    const w = canvas.clientWidth  || 1280;
+    const h = canvas.clientHeight || 720;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width  = w;
+      canvas.height = h;
+    }
+  }
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(syncSize).observe(canvas);
+  }
+  syncSize();
+
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!gl) return;
+  const vs = `attribute vec2 a_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+  const fs = `precision highp float;
+uniform float u_time;
+uniform vec2 u_resolution;
+varying vec2 v_texCoord;
+
+void main() {
+    vec2 uv = v_texCoord;
+    
+    // Background color (dark gray)
+    vec3 backgroundColor = vec3(0.07, 0.07, 0.07);
+    
+    // Cyan neon accent color (#00f2ff)
+    vec3 neonColor = vec3(0.0, 0.95, 1.0);
+    
+    // Door dimensions
+    float doorWidth = 0.7;
+    float doorHeight = 0.6;
+    vec2 doorCenter = vec2(0.5, 0.5);
+    
+    // Distance to door frame
+    vec2 d = abs(uv - doorCenter) - vec2(doorWidth, doorHeight) * 0.5;
+    float frame = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+    
+    // Frame glow
+    float frameLine = smoothstep(0.01, 0.0, abs(frame));
+    float frameGlow = exp(-20.0 * abs(frame)) * 0.5;
+    
+    // Animated slats (Closing: moving DOWN)
+    float slatCount = 5.0;
+    float speed = -1.5;
+    float slatPos = fract(uv.y * slatCount - u_time * speed);
+    
+    // Mask for slats inside the door frame
+    float doorMask = step(d.x, 0.0) * step(d.y, 0.0);
+    
+    // Slats (horizontal lines moving down)
+    float slatLine = smoothstep(0.1, 0.0, abs(slatPos - 0.5)) * doorMask;
+    float slatGlow = exp(-15.0 * abs(slatPos - 0.5)) * 0.4 * doorMask;
+    
+    // Motion arrows (downward)
+    float arrow = 0.0;
+    for(int i = 0; i < 3; i++) {
+        float f = float(i);
+        vec2 arrowUv = (uv - vec2(0.85, 0.6 - f * 0.15 - fract(u_time * 0.8) * 0.1)) * 20.0;
+        float a = step(abs(arrowUv.x), 1.0 + arrowUv.y) * step(arrowUv.y, 1.0) * step(0.0, arrowUv.y);
+        arrow = max(arrow, a);
+    }
+    
+    vec3 color = backgroundColor;
+    color += (frameLine + frameGlow) * neonColor;
+    color += (slatLine + slatGlow) * neonColor * 0.8;
+    color += arrow * neonColor * 0.6;
+    
+    gl_FragColor = vec4(color, 1.0);
+}`;
+  function cs(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, cs(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, cs(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const pos = gl.getAttribLocation(prog, 'a_position');
+  gl.enableVertexAttribArray(pos);
+  gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+  const uTime = gl.getUniformLocation(prog, 'u_time');
+  const uRes = gl.getUniformLocation(prog, 'u_resolution');
+  const uMouse = gl.getUniformLocation(prog, 'u_mouse');
+
+  // u_mouse is in pixel coordinates matching u_resolution (ShaderToy convention).
+  // Shaders that need normalized coords should use: u_mouse / u_resolution.
+  let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+  window.addEventListener('mousemove', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      const nx = (event.clientX - rect.left) / rect.width;
+      const ny = 1.0 - (event.clientY - rect.top) / rect.height;
+      mouse.x = nx * canvas.width;
+      mouse.y = ny * canvas.height;
+    }
+  });
+
+  function render(t) {
+    if (typeof ResizeObserver === 'undefined') syncSize();
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    if (uTime) gl.uniform1f(uTime, t * 0.001);
+    if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
+    if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+  }
+  render(0);
+})();
+</script>
+</div>
+<!-- STITCH_SHADER_END:ANIMATION_9 --></div>
+<!-- State Text -->
+<div class="text-center flex flex-col gap-2">
+<h2 class="font-display-state text-display-state md:hidden text-on-surface">Closing...</h2>
+<h2 class="font-display-state text-display-state hidden md:block text-on-surface">Closing...</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">In motion</p>
+</div>
+</section>
+<!-- Action Band: Bottom 40% -->
+<section class="shrink-0 p-margin-edge pb-band-padding flex flex-col gap-gutter-v z-10 bg-gradient-to-t from-background via-background to-transparent">
+<!-- Primary Action Button -->
+<button aria-label="Stop Garage Door" class="w-full h-16 bg-secondary-container rounded-full flex items-center justify-center gap-2 hover:bg-secondary-fixed transition-all duration-300 active:scale-95 glow-effect-orange group font-black text-black"><span class="material-symbols-outlined text-[32px]" style="font-variation-settings: 'FILL' 1;">square</span><span class="font-headline-md text-headline-md">Stop</span></button>
+<!-- Technical Logs & Status -->
+<div class="flex flex-col gap-stack-tight px-4 mt-4">
+<!-- Current Status Chip -->
+<div class="flex items-center gap-2 font-label-mono text-label-mono text-on-surface-variant mb-2">
+<span class="w-2 h-2 rounded-full bg-[#00ff00] animate-pulse"></span>
+<span>Wi-Fi · direct live</span>
+</div>
+<!-- Muted Log Rows -->
+<div class="flex flex-col gap-1 max-h-24 overflow-y-auto custom-scrollbar pr-2 mask-image: linear-gradient(to bottom, black 50%, transparent 100%);">
+<div class="font-label-mono text-label-mono text-outline flex gap-3">
+<span class="opacity-70">09:02</span>
+<span>Wi-Fi · direct</span>
+</div>
+<div class="font-label-mono text-label-mono text-outline flex gap-3">
+<span class="opacity-70">08:55</span>
+<span>Wi-Fi · broker</span>
+</div>
+<div class="font-label-mono text-label-mono text-outline flex gap-3">
+<span class="opacity-70">08:12</span>
+<span>Cloud · sync</span>
+</div>
+</div>
+</div>
+</section>
+<!-- BottomNavBar (Hidden on web, visible on mobile as per prompt requirements, though mockup doesn't explicitly show it, keeping it hidden to match exact mockup structure which feels like a dedicated app screen) -->
+<!-- Decided to omit BottomNavBar as it wasn't requested in layout and clutters the technical interface -->
+</main>
+</body></html>

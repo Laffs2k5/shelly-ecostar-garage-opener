@@ -46,7 +46,39 @@ class GarageLogicTest {
     // --- command validation + URL building ---
     @Test fun validCommands() {
         assertTrue(GarageApi.validCmd("open") && GarageApi.validCmd("close") && GarageApi.validCmd("toggle"))
+        assertTrue(GarageApi.validCmd("stop"))   // safety stop (spec 14)
         assertFalse(GarageApi.validCmd("banana"))
+    }
+
+    // --- ActionModel: morphing button + STOPPED split pair (spec 16) ---
+    @Test fun actionClosedOffersOpen() {
+        val a = no.leiflan.garage.api.ActionModel.actionsFor("CLOSED")
+        assertEquals(1, a.size); assertEquals("open", a[0].cmd)
+        assertEquals(no.leiflan.garage.api.ActionModel.Tone.PRIMARY, a[0].tone)
+    }
+    @Test fun actionOpenOffersClose() {
+        val a = no.leiflan.garage.api.ActionModel.actionsFor("OPEN")
+        assertEquals(1, a.size); assertEquals("close", a[0].cmd)
+    }
+    @Test fun actionMovingOffersStopInCaution() {
+        for (s in listOf("OPENING", "CLOSING")) {
+            val a = no.leiflan.garage.api.ActionModel.actionsFor(s)
+            assertEquals(1, a.size); assertEquals("stop", a[0].cmd)
+            assertEquals(no.leiflan.garage.api.ActionModel.Tone.CAUTION, a[0].tone)
+        }
+    }
+    @Test fun actionStoppedIsSplitOpenClose() {
+        for (s in listOf("STOPPED_OPENING", "STOPPED_CLOSING")) {
+            assertTrue(no.leiflan.garage.api.ActionModel.isSplit(s))
+            val a = no.leiflan.garage.api.ActionModel.actionsFor(s)
+            assertEquals(2, a.size)
+            assertEquals(listOf("open", "close"), a.map { it.cmd })
+        }
+    }
+    @Test fun actionUnknownIsBestEffortToggle() {
+        val a = no.leiflan.garage.api.ActionModel.actionsFor(null)
+        assertEquals(1, a.size); assertEquals("toggle", a[0].cmd)
+        assertFalse(no.leiflan.garage.api.ActionModel.isSplit("UNKNOWN"))
     }
 
     @Test fun urls() {

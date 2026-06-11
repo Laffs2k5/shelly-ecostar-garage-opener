@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Garage Control - Closed</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&amp;family=Roboto+Flex:wght@400;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                            "on-error-container": "#ffdad6",
+                            "on-tertiary-fixed": "#101d23",
+                            "surface-dim": "#131313",
+                            "surface": "#131313",
+                            "on-surface-variant": "#b9cacb",
+                            "on-primary": "#00363a",
+                            "tertiary": "#eef9ff",
+                            "surface-container-highest": "#353534",
+                            "on-primary-container": "#006a71",
+                            "primary-fixed": "#74f5ff",
+                            "on-secondary-fixed-variant": "#6a3b00",
+                            "surface-container-lowest": "#0e0e0e",
+                            "surface-variant": "#353534",
+                            "tertiary-fixed-dim": "#bbc9d0",
+                            "on-tertiary-container": "#546268",
+                            "primary": "#e1fdff",
+                            "secondary-fixed-dim": "#ffb874",
+                            "on-error": "#690005",
+                            "surface-bright": "#393939",
+                            "inverse-surface": "#e5e2e1",
+                            "surface-container-low": "#1c1b1b",
+                            "surface-container-high": "#2a2a2a",
+                            "on-primary-fixed-variant": "#004f54",
+                            "inverse-primary": "#00696f",
+                            "primary-container": "#00f2ff",
+                            "on-surface": "#e5e2e1",
+                            "primary-fixed-dim": "#00dbe7",
+                            "on-secondary-fixed": "#2d1600",
+                            "tertiary-fixed": "#d7e5ec",
+                            "outline": "#849495",
+                            "inverse-on-surface": "#313030",
+                            "secondary-fixed": "#ffdcbf",
+                            "background": "#131313",
+                            "on-tertiary-fixed-variant": "#3c494f",
+                            "on-background": "#e5e2e1",
+                            "surface-tint": "#00dbe7",
+                            "outline-variant": "#3a494b",
+                            "on-tertiary": "#253238",
+                            "on-secondary-container": "#633700",
+                            "secondary-container": "#fe9400",
+                            "surface-container": "#201f1f",
+                            "error-container": "#93000a",
+                            "on-secondary": "#4b2800",
+                            "tertiary-container": "#cfdde4",
+                            "error": "#ffb4ab",
+                            "on-primary-fixed": "#002022",
+                            "secondary": "#ffbc7c"
+                    },
+                    "borderRadius": {
+                            "DEFAULT": "0.25rem",
+                            "lg": "0.5rem",
+                            "xl": "0.75rem",
+                            "full": "9999px"
+                    },
+                    "spacing": {
+                            "margin-edge": "24px",
+                            "band-padding": "40px",
+                            "stack-tight": "8px",
+                            "gutter-v": "32px",
+                            "stack-loose": "16px"
+                    },
+                    "fontFamily": {
+                            "display-state": [
+                                    "Roboto Flex"
+                            ],
+                            "headline-md": [
+                                    "Roboto Flex"
+                            ],
+                            "display-state-mobile": [
+                                    "Roboto Flex"
+                            ],
+                            "label-mono": [
+                                    "JetBrains Mono"
+                            ],
+                            "body-lg": [
+                                    "Roboto Flex"
+                            ]
+                    },
+                    "fontSize": {
+                            "display-state": [
+                                    "44px",
+                                    {
+                                            "lineHeight": "52px",
+                                            "letterSpacing": "-0.5px",
+                                            "fontWeight": "700"
+                                    }
+                            ],
+                            "headline-md": [
+                                    "24px",
+                                    {
+                                            "lineHeight": "32px",
+                                            "fontWeight": "600"
+                                    }
+                            ],
+                            "display-state-mobile": [
+                                    "36px",
+                                    {
+                                            "lineHeight": "44px",
+                                            "fontWeight": "700"
+                                    }
+                            ],
+                            "label-mono": [
+                                    "12px",
+                                    {
+                                            "lineHeight": "16px",
+                                            "letterSpacing": "0.5px",
+                                            "fontWeight": "500"
+                                    }
+                            ],
+                            "body-lg": [
+                                    "16px",
+                                    {
+                                            "lineHeight": "24px",
+                                            "fontWeight": "400"
+                                    }
+                            ]
+                    }
+            },
+                },
+        }
+    </script>
+<style>
+        .glow-effect {
+            box-shadow: 0 0 24px rgba(0, 242, 255, 0.3); /* primary-container glow */
+        }
+        .glow-effect-orange {
+            box-shadow: 0 0 24px rgba(254, 148, 0, 0.3); /* secondary-container glow */
+        }
+        /* Custom scrollbar for log area */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #353534; /* surface-variant */
+            border-radius: 4px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background h-screen flex flex-col overflow-hidden font-body-lg">
+<!-- Identity Band: TopAppBar -->
+<header class="flex justify-between items-center px-margin-edge h-16 w-full bg-surface shrink-0 z-10">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-fixed" style="font-variation-settings: 'FILL' 1;">grid_view</span>
+<h1 class="font-headline-md text-headline-md font-black tracking-tighter text-on-surface">GARAGE</h1>
+</div>
+<button aria-label="Settings" class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-variant/20 transition-colors text-on-surface-variant focus:outline-none">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">settings</span>
+</button>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col relative">
+<!-- State Band: Center 50% -->
+<section class="flex-1 flex flex-col items-center justify-center p-band-padding min-h-0 relative z-0">
+<!-- Schematic Card -->
+<div class="w-64 h-64 md:w-80 md:h-80 mb-8 relative overflow-hidden rounded-lg shadow-lg border border-outline-variant">
+<img alt="Garage Door Closed" class="absolute inset-0 w-[200%] h-[200%] object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBN2BKXev7JHGtgDC648tnudh48i33atf5pkTn1uZJxDt-4PCutvMYAHaLYpczCnDq4hiflvhFnBP64W905SJ8ueK3Cb_MuIHxSRqdSscJgHpQlBR77Fkbn35hLXmxghzd-D3EIGa9wtaUn19NSf19bMsMG2QQbWlZvm_AJl3YCouas4ZXveXsd5HibNZ8RDuCusMCdf_goa0iMR8Gba9cb6SXPC0QZ5rugOSM57NXr_QXzztc_X8zfFXTeDhptjn5lygl13vCgo9Q" style="object-position: 0% 0%;"/>
+</div>
+<!-- State Text -->
+<div class="text-center flex flex-col gap-2">
+<h2 class="font-display-state text-display-state md:hidden text-on-surface">Closed</h2>
+<h2 class="font-display-state text-display-state hidden md:block text-on-surface">Closed</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Closed since 09:14</p>
+</div>
+</section>
+<!-- Action Band: Bottom 40% -->
+<section class="shrink-0 p-margin-edge pb-band-padding flex flex-col gap-gutter-v z-10 bg-gradient-to-t from-background via-background to-transparent">
+<!-- Primary Action Button -->
+<button aria-label="Open Garage Door" class="w-full h-16 bg-primary-container rounded-full flex items-center justify-center gap-2 hover:bg-primary-fixed transition-all duration-300 active:scale-95 glow-effect group font-black black text-black">
+<span class="material-symbols-outlined text-[32px] group-hover:-translate-y-1 transition-transform" style="font-variation-settings: 'FILL' 1;">arrow_drop_up</span>
+<span class="font-headline-md text-headline-md">Open</span>
+</button>
+<!-- Technical Logs & Status -->
+<div class="flex flex-col gap-stack-tight px-4 mt-4">
+<!-- Current Status Chip -->
+<div class="flex items-center gap-2 font-label-mono text-label-mono text-on-surface-variant mb-2">
+<span class="w-2 h-2 rounded-full bg-[#00ff00] animate-pulse"></span>
+<span>Wi-Fi · direct live</span>
+</div>
+<!-- Muted Log Rows -->
+<div class="flex flex-col gap-1 max-h-24 overflow-y-auto custom-scrollbar pr-2 mask-image: linear-gradient(to bottom, black 50%, transparent 100%);">
+<div class="font-label-mono text-label-mono text-outline flex gap-3">
+<span class="opacity-70">09:02</span>
+<span>Wi-Fi · direct</span>
+</div>
+<div class="font-label-mono text-label-mono text-outline flex gap-3">
+<span class="opacity-70">08:55</span>
+<span>Wi-Fi · broker</span>
+</div>
+<div class="font-label-mono text-label-mono text-outline flex gap-3">
+<span class="opacity-70">08:12</span>
+<span>Cloud · sync</span>
+</div>
+</div>
+</div>
+</section>
+<!-- BottomNavBar (Hidden on web, visible on mobile as per prompt requirements, though mockup doesn't explicitly show it, keeping it hidden to match exact mockup structure which feels like a dedicated app screen) -->
+<!-- Decided to omit BottomNavBar as it wasn't requested in layout and clutters the technical interface -->
+</main>
+</body></html>

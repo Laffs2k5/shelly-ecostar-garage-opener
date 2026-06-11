@@ -18,13 +18,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,6 +42,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import no.leiflan.garage.api.ActionModel
 import no.leiflan.garage.api.ConnectionUi
 import no.leiflan.garage.api.DoorModel
 import no.leiflan.garage.api.DoorModel.DoorStatus
@@ -51,6 +50,13 @@ import no.leiflan.garage.api.GarageApi
 import no.leiflan.garage.api.GarageApi.ConnectionMode
 import no.leiflan.garage.api.MqttTls
 import no.leiflan.garage.api.MqttTransport
+import no.leiflan.garage.ui.BrandBar
+import no.leiflan.garage.ui.ConnectionFooter
+import no.leiflan.garage.ui.DoorSchematic
+import no.leiflan.garage.ui.NeonActionButton
+import no.leiflan.garage.ui.SplitActionButton
+import no.leiflan.garage.ui.theme.CautionOrange
+import no.leiflan.garage.ui.theme.GarageTheme
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -60,7 +66,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         MqttTransport.init(this)
-        setContent { MaterialTheme(colorScheme = darkColorScheme()) { AppRoot() } }
+        setContent { GarageTheme { AppRoot() } }
     }
 }
 
@@ -161,32 +167,51 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
     }
 
     val state = door?.state
-    Column(Modifier.fillMaxSize().padding(20.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("EcoStar Garage", style = MaterialTheme.typography.titleLarge)
-            TextButton(onClick = onSettings) { Text("Settings") }
+    val actions = ActionModel.actionsFor(state)
+    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp)) {
+        BrandBar(onSettings = onSettings)
+
+        // --- State band (dominant, centred) ---
+        Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            DoorSchematic(state, Modifier.fillMaxWidth().height(260.dp))
+            Spacer(Modifier.height(24.dp))
+            Text(
+                DoorModel.label(state),
+                style = MaterialTheme.typography.displayMedium,
+                color = if (DoorModel.isStopped(state)) CautionOrange else MaterialTheme.colorScheme.onBackground,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(subtext(door, mode, nowSec), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Spacer(Modifier.height(16.dp))
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(20.dp)) {
-                Text(DoorModel.label(state), style = MaterialTheme.typography.headlineMedium)
-                val sub = when {
-                    door == null && mode == ConnectionMode.OFFLINE -> "not connected"
-                    door == null -> "waiting for device…"
-                    else -> (if (DoorModel.isMoving(state)) "" else "for ") + DoorModel.fmtDur(DoorModel.durationSec(door, nowSec))
-                }
-                Text(sub, style = MaterialTheme.typography.bodyMedium)
-            }
+
+        // --- Action band ---
+        if (ActionModel.isSplit(state) && actions.size == 2) {
+            SplitActionButton(actions[0], actions[1], enabled = !busy, onCmd = ::send)
+        } else {
+            NeonActionButton(actions[0], enabled = !busy, onCmd = ::send)
         }
-        Spacer(Modifier.height(16.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = { send("open") }, enabled = !busy, modifier = Modifier.weight(1f)) { Text("Open") }
-            Button(onClick = { send("close") }, enabled = !busy, modifier = Modifier.weight(1f)) { Text("Close") }
-            OutlinedButton(onClick = { send("toggle") }, enabled = !busy, modifier = Modifier.weight(1f)) { Text("Toggle") }
-        }
-        Spacer(Modifier.height(20.dp))
-        Text(ConnectionUi.label(mode), style = MaterialTheme.typography.bodySmall)
-        log.forEach { Text("${it.time}  ${ConnectionUi.label(it.mode)}", style = MaterialTheme.typography.bodySmall) }
+
+        Spacer(Modifier.height(24.dp))
+        val online = mode != ConnectionMode.OFFLINE
+        ConnectionFooter(
+            headerLabel = ConnectionUi.label(mode),
+            online = online,
+            freshness = if (online) "live" else "—",
+            lines = log.map { "${it.time}  ${ConnectionUi.label(it.mode)}" },
+        )
+    }
+}
+
+/** Mono sub-label under the big state word. */
+private fun subtext(door: DoorStatus?, mode: ConnectionMode, nowSec: Long): String {
+    val state = door?.state
+    return when {
+        door == null && mode == ConnectionMode.OFFLINE -> "not connected"
+        door == null -> "waiting for device…"
+        state == "OPENING" || state == "CLOSING" -> "in motion"
+        state == "STOPPED_OPENING" -> "stopped while opening"
+        state == "STOPPED_CLOSING" -> "stopped while closing"
+        else -> "for " + DoorModel.fmtDur(DoorModel.durationSec(door, nowSec))
     }
 }
 

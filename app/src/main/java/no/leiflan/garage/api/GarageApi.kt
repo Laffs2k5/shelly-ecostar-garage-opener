@@ -19,7 +19,7 @@ object GarageApi {
     enum class ConnectionMode { HTTP_DIRECT, LOCAL_BROKER, CLOUD, OFFLINE }
     data class StatusResult(val status: DoorStatus?, val mode: ConnectionMode)
 
-    val VALID = listOf("open", "close", "toggle")
+    val VALID = listOf("open", "close", "toggle", "stop")
     fun validCmd(cmd: String): Boolean = VALID.contains(cmd)
 
     /**
