@@ -1,9 +1,56 @@
-# 14 — Motion timing & pulse safety (DEFERRED design task)
+# 14 — Motion timing & pulse safety
 
-> **Status: NOT YET IMPLEMENTED.** This captures a known correctness gap so we can implement it to
-> bullseye later **without** iterating on the real garage door (hardware testing there is painful).
-> Approach: **write the tests first (they fail against today's code), then fix the code, then evaluate
-> regression coverage.** Tracked as **Q-16** (spec 08) and a Phase-7 task (spec 09).
+> **Status: ✅ IMPLEMENTED & hardware-validated 2026-06-10 (Q-16, all 3 problems).** Timing values are
+> provisional/small-sample and **KVS-tunable** — confirm at commissioning. The design narrative (Problems
+> 1–3, the measured data that drove it) is kept below for the rationale; the **as-built behaviour + timing
+> reference** is the next section.
+
+## As-built behaviour reference (what the firmware does)
+
+Five points where the firmware deliberately **blocks / waits / ignores**. Two on the i4 (state), three
+on the S1 (commands). All timing is **config-tunable** (see *Tunables* below).
+
+| # | Where | Behaviour | Trigger | Duration / when it ends |
+|---|---|---|---|---|
+| 1 | i4 | **Ignore** brief input noise (debounce) | any input edge | accept after stable **200 ms** (`DEBOUNCE_TICKS`=2 × 100 ms) |
+| 2 | i4 | **Hold** the end-state, **ignore** the end-of-travel reverse-kick; **wait** before declaring a departure | reed engaged + motor driving *away* (`(c&&op)\|\|(o&&cl)`) | flips to OPENING/CLOSING only after the conflict persists **400 ms** (`GATE_TICKS`=4); shorter ⇒ stays CLOSED/OPEN |
+| 3 | S1 | **Queue** (wait) a command, don't pulse | command arrives while door at an end **and** still moving (arrival overlap) | fires the instant the i4 pushes `moving:false`; **dropped after 5 s** (`QUEUE_TIMEOUT_TICKS`) if never settles |
+| 4 | S1 | **Ignore** (drop) new commands | just fired a pulse sequence (`LOCKED`) | **800 ms** after a 1-pulse cmd, **2500 ms** after a 2-pulse stop-then-reverse (`lockMs`) |
+| 5 | S1 | **Fail-open override** — never block | door state UNKNOWN or `moving` unknown | always pulses best-effort (D-19); never queues/locks itself out |
+
+**Pulse mechanics:** relay momentary **500 ms** (`auto_off`); a stop-then-reverse = pulse, **1200 ms**
+gap (`PULSE_GAP_MS`), pulse.
+
+### Configured vs. measured (garage 2026-06-10)
+
+| Param | Configured | Measured | Status |
+|---|---|---|---|
+| Debounce | 200 ms | sub-sample bounce | fine |
+| Gate (ignore reverse) | 400 ms | reverse kick **140–220 ms** (n=2) | ~2× above kick — **measured-grounded** |
+| Gate (detect departure) | 400 ms | departure overlap **510–780 ms** | below shortest departure — **measured-grounded** |
+| Queue fire | on motor-stop | motor runs **~0.85 s** past reed-seat + kick | fires ~1 s after press |
+| Queue timeout | 5 s | arrival ~1 s | ~5× margin |
+| Pulse width | 500 ms | *not measured* | engineering default |
+| Pulse gap (2-pulse) | 1200 ms | *not measured* (D-09 "a delay") | **provisional — tune at commissioning (Q-03)** |
+| Lockout 1 / 2-pulse | 800 / 2500 ms | derived from pulse+gap | follows the above |
+
+The **gate** is grounded in real data (sits cleanly in the 220→510 ms gap). The **pulse-width / pulse-gap
+/ lockout** are engineering defaults — the EcoStar's true minimum impulse spacing is the key commissioning
+unknown. Caveat: the kick varied 57 % across two samples; if a real kick ever exceeds ~400 ms it would
+momentarily show OPENING — hence the value stays tunable and is re-checked on the real door.
+
+### Tunables (KVS, no reflash)
+
+- **i4** `wd_cfg` `{on,wifi,mqtt}` (watchdog). *(Gate `GATE_TICKS` is a code constant today — promote to
+  KVS if it needs field tuning.)*
+- **S1** `logic_cfg` `{pulseGap,lockMargin,queueTimeout}` (ms / ticks) — set via `KVS.Set` then restart the
+  script. Used to stretch the lock/queue during hardware tests; clear (`KVS.Delete`) to return to defaults.
+- **Heartbeat observability:** `devices/<id>/heartbeat` now carries `rssi`; the S1 heartbeat also carries
+  `door.moving`, `queued`, `locked`, `fires` (monotonic pulse-sequence count).
+
+---
+
+## Design narrative & rationale (how we got here)
 
 ## Why this exists
 
