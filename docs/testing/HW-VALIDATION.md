@@ -3,6 +3,33 @@
 What was **actually observed on real hardware** (vs. mocked/inferred) — NEW-PROJECT-GUIDE §10. Newest
 first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 
+## 2026-06-11 — Resource re-assessment (after stop + 3-pulse + cfgObj growth)
+
+Re-check vs. the 2026-06-08 baseline, after the controller gained `stop`, the 3-pulse sequencer,
+`resumeSameDir`, and `cfgObj` (and the monitor gained `cfgObj`). **Verdict: still healthy on every axis;
+no storage/RAM/heap concern.** Uptimes: i4 ~16 h, S1 ~3.2 d.
+
+| Metric | i4 (monitor) | S1 (controller) | vs. 06-08 |
+|---|---|---|---|
+| Device RAM min-free | **110 KB / 251 KB (44%)** | **99 KB / 262 KB (38%)** | i4 −5 KB, S1 −11 KB |
+| Script heap peak | 6.0 KB | **8.1 KB** | i4 +0.9, S1 +2.1 (the new code) |
+| Script heap free | 21.9 KB | 19.7 KB | S1 −2.3 KB |
+| Flash FS free | 106 KB (27%) | 422 KB (46%) | flat |
+| Script CPU | **~85%** | 4% | i4 +2 (noise) |
+| Deployed code (min) | 7.0 KB | 9.8 KB | S1 +0.75 KB |
+
+- **RAM:** both still well above headroom — the S1 dip to 99 KB min-free reflects *transient* use during
+  this session's active testing (rolling 3-pulse sequences, config flips, a deliberate crash+recovery),
+  **not** a leak (the 24 h soak proved no steady decline). 38% worst-case free is comfortable.
+- **Script heap (the one to watch):** the controller is now the heavier script — peak **8.1 KB** of ~25 KB
+  VM (~68% free at peak), heap-free 19.7 KB. Roomy, but it's the component to keep an eye on as the app v2
+  features (alarms etc. are app-side, not device) — device-side controller growth from here should be modest.
+- **CPU:** i4 ~85% is the **known, accepted Q-14** (100 ms input poll; coffee plug on same fw = 0% with a
+  30 s timer → frequency-driven, not an artifact). S1 4%. Unchanged posture.
+- **Flash:** untouched (~static scripts/KVS/certs). Plenty free on both.
+
+No action needed. Mitigation levers remain if ever required (Q-14 event-driven poll; trim min build).
+
 ## 2026-06-11 — STOPPED 3-pulse "continue" path + config-tunable model + boot-safety (hardware)
 
 Backend for the app v2 STOPPED split-pair (spec 16 V2-6 / Q-03 / D-19). Bench = i4 + S1 + Pico, not wired

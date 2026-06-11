@@ -70,7 +70,8 @@ momentarily show OPENING — hence the value stays tunable and is re-checked on 
   route through `cfgObj()` which never parses a non-string — a malformed/object KVS entry can't down the
   controller (regression-tested).
 - **Heartbeat observability:** `devices/<id>/heartbeat` now carries `rssi`; the S1 heartbeat also carries
-  `door.moving`, `queued`, `locked`, `fires` (monotonic pulse-sequence count).
+  `door.moving`, `queued`, `locked`, `fires` (monotonic pulse-sequence count), and `resumeSameDir` (active
+  restart model).
 
 ---
 
