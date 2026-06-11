@@ -30,6 +30,7 @@ function createHarness(opts) {
     endpoints: {},   // name -> cb
   };
   if (opts.controllerUrl) h.kvs.controller_url = opts.controllerUrl;
+  if (opts.kvs) Object.assign(h.kvs, opts.kvs);   // seed KVS before boot() reads it (e.g. logic_cfg)
   if (opts.inputs) {
     h.inputs[0] = !!opts.inputs.c; h.inputs[1] = !!opts.inputs.o;
     h.inputs[2] = !!opts.inputs.op; h.inputs[3] = !!opts.inputs.cl;
@@ -88,7 +89,17 @@ function createHarness(opts) {
   h._repeatCb = function () { const t = h.timers.filter(function (t) { return t.repeat; })[0]; return t && t.cb; };
   h.tick = function (n) { const cb = h._repeatCb(); n = n || 1; for (let i = 0; i < n; i++) { h.clock++; cb(); } };
   h.settle = function () { h.tick(4); };                                  // monitor debounce
-  h.fireOneShots = function () { const os = h.timers.filter(function (t) { return !t.repeat; }); h.timers = h.timers.filter(function (t) { return t.repeat; }); os.forEach(function (t) { t.cb(); }); };
+  // Fire pending one-shots, draining repeatedly so a rolling self-rescheduling sequence (the N-pulse
+  // controller sequencer) plays to completion. Capped to avoid an infinite loop on a bug.
+  h.fireOneShots = function () {
+    for (let guard = 0; guard < 50; guard++) {
+      const os = h.timers.filter(function (t) { return !t.repeat; });
+      if (os.length === 0) return;
+      h.timers = h.timers.filter(function (t) { return t.repeat; });
+      os.forEach(function (t) { t.cb(); });
+    }
+  };
+  h.oneShotMs = function () { return h.timers.filter(function (t) { return !t.repeat; }).map(function (t) { return t.ms; }); };
   h.sendCmd = function (msg) { for (const t in h.subs) h.subs[t](t, msg); };  // simulate an MQTT command
   h.post = function (name, o) {
     o = o || {}; const out = { code: 0, body: null };

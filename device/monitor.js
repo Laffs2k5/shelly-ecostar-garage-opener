@@ -163,9 +163,15 @@ function tick() {
   if ((ticks % (ALIVE_MS / TICK_MS)) === 0) publishAlive();
 }
 
+// KVS values may come back as a JSON STRING or an already-parsed OBJECT; JSON.parse(object) throws on-device
+// and would crash boot, so never parse a non-string. Object passes through, JSON text is parsed, else ignore.
+function cfgObj(v) {
+  if (v && typeof v === "object") return v;
+  if (typeof v === "string" && v.indexOf("{") === 0) return JSON.parse(v);
+  return null;
+}
 function applyWdCfg(str) {
-  if (!str) return;
-  var c = JSON.parse(str);   // undefined on failure (mJS) → keep defaults
+  var c = cfgObj(str);
   if (!c) return;
   if (typeof c.on !== "undefined") WD.on = c.on ? true : false;
   if (c.wifi) WD.wifiMs = c.wifi * 1000;

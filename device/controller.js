@@ -32,6 +32,10 @@ var STALE_MS = 0;            // (door-picture staleness threshold; 0 = don't fla
 var PULSE_MS = 500;
 var LOCK_MARGIN_MS = 300;
 var QUEUE_TIMEOUT_TICKS = 5;  // drop a queued at-rest command after this many ticks (~5 s at 1 s tick)
+// EcoStar restart-from-stop model (Q-03): false = ALTERNATES direction each start (D-09, our default);
+// true = RESUMES the same direction. Flips which STOPPED_* command is the cheap 1-pulse reverse vs. the
+// 3-pulse continue. KVS-tunable ("logic_cfg".resumeSameDir) so commissioning can match the real door.
+var RESUME_SAME_DIR = false;
 
 // Connectivity watchdog (Phase 7): reboot to recover a wedged Wi-Fi/MQTT stack after a prolonged
 // outage. The controller is boot-safe (relay initial_state:off, never auto-acts) and holds no resumable
@@ -48,22 +52,30 @@ var ticks = 0; var booted = false;
 
 // ---- pure: how many pulses does (cmd, doorState) need? (spec 02 table + D-09) ----
 // 0 = suppress (already there / already going the right way). Kept dependency-free for the Node tests.
-function pulsesFor(cmd, state) {
+function pulsesFor(cmd, state, resume) {
   if (cmd === "toggle") return 1;                       // toggle = the physical-button equivalent: 1 pulse
   if (cmd === "stop") {                                 // safety stop: halt a MOVING door, else no-op
     return (state === "OPENING" || state === "CLOSING") ? 1 : 0;   // never starts a stopped/UNKNOWN door
   }
+  // STOPPED_* (door halted mid-travel): the next impulse alternates direction (D-09), so one direction is
+  // a 1-pulse REVERSE and the other is the 3-pulse CONTINUE dance (start-reverse -> stop -> start-wanted).
+  // Which is which flips if the opener RESUMES the same direction instead of alternating (Q-03) -> the
+  // `resume` arg (RESUME_SAME_DIR, KVS-tunable) lets commissioning swap it without a reflash.
   if (cmd === "open") {
     if (state === "OPENING" || state === "OPEN") return 0;          // suppress
-    if (state === "CLOSED" || state === "STOPPED_CLOSING") return 1;
-    if (state === "CLOSING") return 2;                              // stop, then reverse
-    return 1;  // STOPPED_OPENING (resume edge, Q-03) / UNKNOWN -> best-effort single pulse
+    if (state === "CLOSED") return 1;                               // start opening
+    if (state === "CLOSING") return 2;                              // stop, then reverse to open
+    if (state === "STOPPED_OPENING") return resume ? 1 : 3;         // continue opening
+    if (state === "STOPPED_CLOSING") return resume ? 3 : 1;         // reverse from closing-stop to open
+    return 1;  // UNKNOWN -> best-effort single pulse
   }
   if (cmd === "close") {
     if (state === "CLOSING" || state === "CLOSED") return 0;        // suppress
-    if (state === "OPEN" || state === "STOPPED_OPENING") return 1;
-    if (state === "OPENING") return 2;                             // stop, then reverse
-    return 1;  // STOPPED_CLOSING (resume edge, Q-03) / UNKNOWN -> best-effort single pulse
+    if (state === "OPEN") return 1;                                 // start closing
+    if (state === "OPENING") return 2;                             // stop, then reverse to close
+    if (state === "STOPPED_CLOSING") return resume ? 1 : 3;         // continue closing
+    if (state === "STOPPED_OPENING") return resume ? 3 : 1;         // reverse from opening-stop to close
+    return 1;  // UNKNOWN -> best-effort single pulse
   }
   return 0;  // unknown command
 }
@@ -105,23 +117,35 @@ function firePulse() {
     if (ec) print("controller: Switch.Set failed:", ec, em);
   });
 }
+// Rolling N-pulse sequencer: fire one pulse, then re-arm a SINGLE one-shot for the next, PULSE_GAP_MS
+// apart, until SEQ_LEFT drains. One rolling timer (mJS timer budget) handles any count (1, 2 reverse, or
+// 3 for the STOPPED continue dance). A new pulseSeq() overwrites SEQ_LEFT, so any new command (or stop)
+// supersedes a leftover in-flight sequence; a stale pending timer then finds SEQ_LEFT<=0 and no-ops.
+var SEQ_LEFT = 0;
+function pulseStep() {
+  if (SEQ_LEFT <= 0) return;
+  firePulse();
+  SEQ_LEFT--;
+  if (SEQ_LEFT > 0) Timer.set(PULSE_GAP_MS, false, pulseStep);
+}
 function pulseSeq(n) {
   if (n <= 0) return;
-  firePulse();
-  if (n >= 2) Timer.set(PULSE_GAP_MS, false, function () { firePulse(); });  // delayed reverse pulse
+  SEQ_LEFT = n;
+  pulseStep();
 }
 function lockMs(n) {
-  // cover the whole sequence: 1 pulse, or pulse + gap + pulse for a stop-then-reverse, plus margin.
-  return (n >= 2 ? (PULSE_MS + PULSE_GAP_MS + PULSE_MS) : PULSE_MS) + LOCK_MARGIN_MS;
+  // cover the whole sequence: pulses are PULSE_MS wide, (PULSE_MS+PULSE_GAP_MS) apart start-to-start, +margin.
+  if (n <= 1) return PULSE_MS + LOCK_MARGIN_MS;
+  return (n - 1) * (PULSE_MS + PULSE_GAP_MS) + PULSE_MS + LOCK_MARGIN_MS;
 }
 function atEnd(st) { return st === "CLOSED" || st === "OPEN"; }
 // at-rest guard applies only when the door is AT an end but the motor is still running (arrival overlap):
 // a single "start" pulse there would STOP the door instead of moving it. Mid-travel (OPENING/CLOSING) is
 // handled by pulsesFor (suppress / 2-pulse reverse) and must NOT be deferred.
-function needsRest(cmd) { return atEnd(DOOR.state) && DOOR.moving && pulsesFor(cmd, DOOR.state) > 0; }
+function needsRest(cmd) { return atEnd(DOOR.state) && DOOR.moving && pulsesFor(cmd, DOOR.state, RESUME_SAME_DIR) > 0; }
 
 function fireCmd(cmd, src) {
-  var n = pulsesFor(cmd, DOOR.state);
+  var n = pulsesFor(cmd, DOOR.state, RESUME_SAME_DIR);
   LASTCMD = cmd; LASTCMD_TS = nowTs(); LASTPULSES = n;
   print("controller: cmd", cmd, "state", DOOR.state, "->", n, "pulse(s) (" + src + ")");
   if (n > 0) {
@@ -143,7 +167,7 @@ function payload() {
   return {
     relay: relayOn(), lastCmd: LASTCMD, lastCmdTs: LASTCMD_TS, lastPulses: LASTPULSES,
     door: { state: DOOR.state, dir: DOOR.dir, ts: DOOR.ts, rx: DOOR.rx, moving: DOOR.moving },
-    queued: PENDING.cmd, locked: LOCKED, fires: FIRES,
+    queued: PENDING.cmd, locked: LOCKED, fires: FIRES, resumeSameDir: RESUME_SAME_DIR,
     ts: nowTs(), rssi: wifiRssi(), v: SCHEMA
   };
 }
@@ -206,9 +230,16 @@ function watchdogTick() {
   var why = wdReboot(WD.wifiDown, WD.mqttDown, WD);
   if (why !== "") { print("controller: watchdog reboot —", why, "down too long"); Shelly.call("Shelly.Reboot", {}); }
 }
+// KVS values can come back either as a JSON STRING or, if they were stored as JSON, as an already-parsed
+// OBJECT. JSON.parse(object) THROWS on-device (SyntaxError) and would crash boot — so never parse a
+// non-string. Boot-safe: object passes through, JSON text is parsed, anything else is ignored.
+function cfgObj(v) {
+  if (v && typeof v === "object") return v;
+  if (typeof v === "string" && v.indexOf("{") === 0) return JSON.parse(v);
+  return null;
+}
 function applyWdCfg(str) {
-  if (!str) return;
-  var c = JSON.parse(str);
+  var c = cfgObj(str);
   if (!c) return;
   if (typeof c.on !== "undefined") WD.on = c.on ? true : false;
   if (c.wifi) WD.wifiMs = c.wifi * 1000;
@@ -217,12 +248,12 @@ function applyWdCfg(str) {
 // pulse-safety tunables (KVS "logic_cfg" {pulseGap,lockMargin,queueTimeout}, all ms except ticks) —
 // lets commissioning tune timing on the real door without reflashing (spec 14, Q-16).
 function applyLogicCfg(str) {
-  if (!str) return;
-  var c = JSON.parse(str);
+  var c = cfgObj(str);
   if (!c) return;
   if (c.pulseGap) PULSE_GAP_MS = c.pulseGap;
   if (c.lockMargin) LOCK_MARGIN_MS = c.lockMargin;
   if (c.queueTimeout) QUEUE_TIMEOUT_TICKS = c.queueTimeout;
+  if (typeof c.resumeSameDir !== "undefined") RESUME_SAME_DIR = c.resumeSameDir ? true : false;
 }
 
 function tick() {

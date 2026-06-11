@@ -18,14 +18,18 @@ on the S1 (commands). All timing is **config-tunable** (see *Tunables* below).
 | 4 | S1 | **Ignore** (drop) new commands | just fired a pulse sequence (`LOCKED`) | **800 ms** after a 1-pulse cmd, **2500 ms** after a 2-pulse stop-then-reverse (`lockMs`). **`stop` is exempt** — see below |
 | 5 | S1 | **Fail-open override** — never block | door state UNKNOWN or `moving` unknown | always pulses best-effort (D-19); never queues/locks itself out |
 
-**Pulse mechanics:** relay momentary **500 ms** (`auto_off`); a stop-then-reverse = pulse, **1200 ms**
-gap (`PULSE_GAP_MS`), pulse.
+**Pulse mechanics:** relay momentary **500 ms** (`auto_off`); multi-pulse sequences are a **rolling
+single-timer** sequencer firing N pulses **1200 ms** apart (`PULSE_GAP_MS`): 1 (normal), 2 (stop-then-reverse
+when moving the wrong way), or **3** (the STOPPED "continue" dance — start-reverse → stop → start-wanted).
+Lockout sizes to the whole sequence: `lockMs(n) = (n-1)·(PULSE_MS+PULSE_GAP_MS) + PULSE_MS + LOCK_MARGIN_MS`
+→ 800 / 2500 / **4200 ms** for 1 / 2 / 3 pulses.
 
 ### Commands → pulses (D-19, with `stop`)
 
 | Command | Behaviour |
 |---|---|
 | `open` / `close` | suppress when already there/going; 1 pulse from the matching end/stop; **2** (stop+reverse) when moving the wrong way; 1 best-effort when UNKNOWN |
+| `open` / `close` from **STOPPED_*** | **reverse direction = 1 pulse** (natural alternation); **continue interrupted direction = 3 pulses** (start-reverse → stop → start-wanted). Which is which depends on the EcoStar restart model (`RESUME_SAME_DIR`, below). Powers the app v2 STOPPED split-pair ([spec 16](16-app-v2.md), V2-6). |
 | `toggle` | always 1 pulse (the physical-button equivalent) |
 | **`stop`** | **safety stop — 1 pulse iff the door is confirmed moving (`OPENING`/`CLOSING`), else a no-op.** Never pulses a stopped/at-end/UNKNOWN door, so it can't *start* the door. **Bypasses the `LOCKED` lockout** (safety must always get through); the state-gate keeps it from firing a bad pulse anyway. |
 
@@ -56,8 +60,15 @@ momentarily show OPENING — hence the value stays tunable and is re-checked on 
 
 - **i4** `wd_cfg` `{on,wifi,mqtt}` (watchdog). *(Gate `GATE_TICKS` is a code constant today — promote to
   KVS if it needs field tuning.)*
-- **S1** `logic_cfg` `{pulseGap,lockMargin,queueTimeout}` (ms / ticks) — set via `KVS.Set` then restart the
-  script. Used to stretch the lock/queue during hardware tests; clear (`KVS.Delete`) to return to defaults.
+- **S1** `logic_cfg` `{pulseGap,lockMargin,queueTimeout,resumeSameDir}` — `pulseGap`/`lockMargin` ms,
+  `queueTimeout` ticks, **`resumeSameDir`** bool (default `false` = the door ALTERNATES direction on restart
+  per D-09; set `true` if the real door RESUMES the same direction — flips the STOPPED continue/reverse pulse
+  counts). Set via `KVS.Set` then restart the script; clear (`KVS.Delete`) for defaults. The active model is
+  echoed on the heartbeat as `resumeSameDir`.
+- **Boot-safety:** KVS values may come back as a JSON *string* or an already-parsed *object*;
+  `JSON.parse(object)` throws on-device and would crash the script at boot. Both `applyWdCfg`/`applyLogicCfg`
+  route through `cfgObj()` which never parses a non-string — a malformed/object KVS entry can't down the
+  controller (regression-tested).
 - **Heartbeat observability:** `devices/<id>/heartbeat` now carries `rssi`; the S1 heartbeat also carries
   `door.moving`, `queued`, `locked`, `fires` (monotonic pulse-sequence count).
 

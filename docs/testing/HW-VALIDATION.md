@@ -3,6 +3,36 @@
 What was **actually observed on real hardware** (vs. mocked/inferred) — NEW-PROJECT-GUIDE §10. Newest
 first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 
+## 2026-06-11 — STOPPED 3-pulse "continue" path + config-tunable model + boot-safety (hardware)
+
+Backend for the app v2 STOPPED split-pair (spec 16 V2-6 / Q-03 / D-19). Bench = i4 + S1 + Pico, not wired
+to the EcoStar — so this validates the **controller's pulse mechanics**, not the door's physical response.
+
+**Method:** drove the S1 door picture directly (`POST /door_state`), sent a command, and **counted real
+relay pulses** by polling `Switch.GetStatus` at ~80 ms and counting rising edges. i4 STOPPED derivation
+driven via `pico.sh`.
+
+| Case | `pulses` reported | relay rising edges |
+|---|---|---|
+| STOPPED_OPENING + open (continue) | 3 | **3** (spaced ~1.2 s) |
+| STOPPED_OPENING + close (reverse) | 1 | **1** |
+| STOPPED_CLOSING + close (continue) | 3 | **3** |
+| STOPPED_CLOSING + open (reverse) | 1 | **1** |
+
+- **i4 derivation (Pico):** opening→motor-off-mid-travel → `STOPPED_OPENING`; closing→motor-off →
+  `STOPPED_CLOSING`; both observed on `GET /script/1/state`. Full chain i4-derive → S1-pulse confirmed.
+- **Config-tunable model:** `KVS.Set logic_cfg {resumeSameDir:true}` + restart → continue/reverse **flipped**
+  (STOPPED_OPENING+open became 1, +close became 3). `KVS.Delete` + restart → back to alternation (continue=3).
+  Active model echoed on the heartbeat (`resumeSameDir`).
+- **🐞 Boot-safety bug found + fixed.** Setting `logic_cfg` via RPC `GET ...&value={...}` made the Shelly
+  store the value as a **JSON object**, so `KVS.Get` returned `value` as an object; `JSON.parse(object)`
+  **threw `SyntaxError` and crashed the controller at boot** (`running:false`, endpoints never registered —
+  same failure class as the 2026-06-08 empty-body crash). Fixed: `applyWdCfg`/`applyLogicCfg` now route
+  through `cfgObj()` which never parses a non-string (object passes through, only JSON text is parsed).
+  Re-verified: object-form `logic_cfg` now boots clean **and** applies. Regression-tested in `controller.test.js`.
+- **Provisional:** the *physical* alternation-vs-resume question (Q-03) still needs the real door; the
+  mechanism + tunability are done. 60/60 device tests pass.
+
 ## 2026-06-10 — Q-16 Problems 2 & 3: controller pulse-safety (hardware)
 Controller at-rest guard + full-sequence pulse-lockout + config-tunable timing (KVS `logic_cfg`).
 45 device tests pass. Validated on the real i4+S1 (relay not wired to the EcoStar — pulse count/timing

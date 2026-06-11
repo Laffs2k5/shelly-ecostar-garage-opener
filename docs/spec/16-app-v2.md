@@ -98,17 +98,17 @@ button whose label+action follows door state:
 split down the middle by a divider** into Open ｜ Close — not two separate buttons. Use directional
 arrow glyphs (▲ open / ▼ close, or emoji ⬆️⬇️) alongside the labels for at-a-glance meaning.
 
-> **⚠ FW dependency for the STOPPED pair (Q-03, unresolved).** From a stopped-partway door the EcoStar
-> restart is **one impulse = start in the *opposite* of the last direction** (D-09). So from
-> **STOPPED_OPENING**, a single pulse starts **closing**; to actually **continue opening** you need the
-> 3-step sequence the user described — **start-close → stop → start-open** (and symmetrically for
-> STOPPED_CLOSING). Whichever direction "continues" the interrupted travel costs **3 pulses**; the reverse
-> costs **1**. **Today `pulsesFor` returns 1 for *both* `open` and `close` from a STOPPED state**
-> ([controller.js:60,64](../../device/controller.js#L60)) — optimistic; one of the two is physically wrong
-> until the EcoStar's restart-from-stop behaviour is confirmed on the real door. **Before the pair ships:**
-> resolve Q-03 at commissioning, then teach the controller a **3-pulse path** for the "continue" direction
-> (current code caps at 2; the lockout/`lockMs` in spec 14 must size for 3). UX caveat (user-accepted): the
-> continue button makes the door visibly jog the wrong way first.
+> **✅ FW IMPLEMENTED & hardware-validated 2026-06-11 (the STOPPED pair's backend).** From a stopped-partway
+> door the EcoStar restart **alternates direction** (one impulse = opposite of last direction, D-09). So the
+> **reverse** direction is a natural **1 pulse**; the **continue** direction is the **3-pulse dance**
+> (start-reverse → stop → start-wanted) the user described. The controller now implements a rolling N-pulse
+> sequencer and `pulsesFor` returns **1 (reverse) / 3 (continue)** per state, with `lockMs` sized to 4200 ms
+> for the 3-pulse case (spec 14). **Bench-verified by relay edge-counting:** STOPPED_OPENING+open = 3 pulses,
+> +close = 1; STOPPED_CLOSING+close = 3, +open = 1; i4 derives both STOPPED states (Pico).
+> **Still pending real-door confirmation (Q-03):** *which* physical direction actually continues — the
+> alternation assumption. If the door turns out to **resume** instead, flip it with **zero reflash** via the
+> KVS `logic_cfg.resumeSameDir` flag (swaps the 1↔3 mapping; the active model is echoed on the heartbeat).
+> UX caveat (user-accepted): the continue button makes the door visibly jog the wrong way first.
 
 ### Alarms
 - **Open > X minutes** — user threshold; fires a notification. Poll model detects within ~15 min slop.
@@ -201,14 +201,16 @@ drawables; the build converts SVG→`VectorDrawable` XML (Android Studio "Vector
 - **V2-1** ~15-min background staleness — **accepted** (2026-06-11).
 - **V2-2** Two layouts? — **No.** Morphing button is the *only* layout; no classic option (2026-06-11).
 - **V2-3** STOPPED button — **the split pair** (one wide button divided into Open ｜ Close), with arrow
-  glyphs (2026-06-11). **Both halves must genuinely act** → carries the Q-03 / 3-pulse FW dependency above.
+  glyphs (2026-06-11). Both halves genuinely act — backed by the 3-pulse FW path below.
+- **V2-6** STOPPED 3-pulse "continue" FW path — **IMPLEMENTED & hardware-validated 2026-06-11** (not
+  deferred). Rolling N-pulse sequencer + `resumeSameDir` KVS flag; relay-edge-counted on the bench. Only the
+  *physical* alternation-vs-resume assumption awaits the real door (Q-03), flippable without reflash.
 
 ## Open questions
 | # | Question | Lean |
 |---|---|---|
 | V2-4 | Time-of-day alarm: "still open at T" only, or also "opened/closed since"? | Start with **still-open-at-T** |
 | V2-5 | Home-screen widget / Quick-Settings tile? | **Out of scope** for v2 (conscious cut) |
-| V2-6 | STOPPED-pair "continue" direction needs a **3-pulse FW path** — implement now or defer until Q-03 is confirmed on the real door? | **Defer** to commissioning (Q-03); the pair UI can ship state-gated once the path lands |
 
 ## Out of scope (conscious cuts)
 - Always-on push / instant open-alert (→ HA + FCM future, D-12).

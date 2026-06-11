@@ -34,6 +34,25 @@ test("pulsesFor: close", function () {
   assert.equal(pulsesFor("close", "UNKNOWN"), 1);
 });
 
+// ---------- STOPPED_* mid-travel: reverse = 1 pulse, continue = 3-pulse dance (D-09 alternation) ----------
+test("pulsesFor: STOPPED reverse is 1 pulse (alternation default)", function () {
+  const { pulsesFor } = mk();
+  assert.equal(pulsesFor("close", "STOPPED_OPENING"), 1);   // was opening, reverse to close = natural 1 pulse
+  assert.equal(pulsesFor("open", "STOPPED_CLOSING"), 1);    // was closing, reverse to open = natural 1 pulse
+});
+test("pulsesFor: STOPPED continue is the 3-pulse dance (alternation default)", function () {
+  const { pulsesFor } = mk();
+  assert.equal(pulsesFor("open", "STOPPED_OPENING"), 3);    // continue opening: close, stop, open
+  assert.equal(pulsesFor("close", "STOPPED_CLOSING"), 3);   // continue closing: open, stop, close
+});
+test("pulsesFor: resumeSameDir=true flips continue/reverse (1 <-> 3)", function () {
+  const { pulsesFor } = mk();
+  assert.equal(pulsesFor("open", "STOPPED_OPENING", true), 1);   // resume: continue is the natural 1 pulse
+  assert.equal(pulsesFor("close", "STOPPED_CLOSING", true), 1);
+  assert.equal(pulsesFor("close", "STOPPED_OPENING", true), 3);  // reverse now needs the 3-pulse dance
+  assert.equal(pulsesFor("open", "STOPPED_CLOSING", true), 3);
+});
+
 test("pulsesFor: stop halts a moving door, no-op otherwise (never starts a stopped door)", function () {
   const { pulsesFor } = mk();
   assert.equal(pulsesFor("stop", "OPENING"), 1);
@@ -216,6 +235,65 @@ test("pulse lockout: a 2nd command during the sequence is dropped until it clear
   h.post("command", { query: "cmd=open" });
   assert.equal(h.switchSets.length, 2, "command accepted after the lockout clears");
   assert.equal(h.lastHeartbeat().fires, 2, "fires counter: only the 2 accepted commands, not the dropped one");
+});
+
+// ---------- STOPPED continue: the 3-pulse sequence on the wire (V2-6 / spec 16) ----------
+test("continue from STOPPED_OPENING fires exactly 3 relay pulses, spaced by the gap", function () {
+  const h = mk(); setDoor(h, "STOPPED_OPENING");
+  h.post("command", { query: "cmd=open" });
+  assert.equal(h.lastHeartbeat().lastPulses, 3, "reports 3 pulses");
+  assert.equal(h.switchSets.length, 1, "first pulse immediate");
+  assert.ok(h.oneShotMs().indexOf(1200) >= 0, "next pulse scheduled at the 1200ms gap");
+  h.fireOneShots();                                   // drain the rolling sequence
+  assert.equal(h.switchSets.length, 3, "all three pulses fired");
+});
+test("continue from STOPPED_CLOSING also fires 3 pulses", function () {
+  const h = mk(); setDoor(h, "STOPPED_CLOSING");
+  h.post("command", { query: "cmd=close" });
+  h.fireOneShots();
+  assert.equal(h.switchSets.length, 3);
+});
+test("STOPPED reverse stays a single pulse (no dance)", function () {
+  const h = mk(); setDoor(h, "STOPPED_OPENING");
+  h.post("command", { query: "cmd=close" });          // reverse
+  h.fireOneShots();
+  assert.equal(h.switchSets.length, 1);
+});
+test("3-pulse sequence sets a lockout sized for the whole dance (4200ms)", function () {
+  const h = mk(); setDoor(h, "STOPPED_OPENING");
+  h.post("command", { query: "cmd=open" });
+  // lockMs(3) = (3-1)*(500+1200) + 500 + 300 = 4200
+  assert.ok(h.oneShotMs().indexOf(4200) >= 0, "lockout timer sized 4200ms");
+  assert.equal(h.lastHeartbeat().locked, true);
+});
+test("a command during the 3-pulse sequence is dropped (lockout)", function () {
+  const h = mk(); setDoor(h, "STOPPED_OPENING");
+  h.post("command", { query: "cmd=open" });           // starts the dance, LOCKED
+  h.post("command", { query: "cmd=open" });           // arrives mid-sequence
+  assert.equal(h.lastHeartbeat().fires, 1, "only one sequence fired; the 2nd command was dropped");
+});
+
+// ---------- boot-time config: resumeSameDir via KVS logic_cfg ----------
+test("logic_cfg.resumeSameDir=true applied at boot flips STOPPED behaviour end-to-end", function () {
+  const h = mk({ kvs: { logic_cfg: JSON.stringify({ resumeSameDir: true }) } });
+  assert.equal(h.lastHeartbeat().resumeSameDir, true, "heartbeat reflects the active model");
+  setDoor(h, "STOPPED_OPENING");
+  h.post("command", { query: "cmd=open" });            // resume mode: continue is the cheap 1 pulse
+  h.fireOneShots();
+  assert.equal(h.switchSets.length, 1, "continue is 1 pulse when the opener resumes same direction");
+});
+test("default model is alternation (resumeSameDir=false) on the heartbeat", function () {
+  const h = mk();
+  assert.equal(h.lastHeartbeat().resumeSameDir, false);
+});
+test("boot-safe: logic_cfg stored as an OBJECT (not string) must not crash boot, still applies", function () {
+  // Reproduces the hardware footgun: KVS.Set via RPC GET stored {...} as an object, so KVS.Get returns an
+  // object; JSON.parse(object) threw on-device and crashed the controller at boot. cfgObj must tolerate it.
+  const h = mk({ kvs: { logic_cfg: { resumeSameDir: true, pulseGap: 1500 } } });   // object, not a string
+  const hb = h.lastHeartbeat();
+  assert.ok(hb, "booted: a heartbeat was published (script did not crash)");
+  assert.ok(h.endpoints["command"], "HTTP endpoints registered (boot chain completed past applyLogicCfg)");
+  assert.equal(hb.resumeSameDir, true, "object-form config still applied");
 });
 
 // ---------- heartbeat shape ----------
