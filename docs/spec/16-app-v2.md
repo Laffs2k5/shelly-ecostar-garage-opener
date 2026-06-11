@@ -69,10 +69,15 @@ Notes:
 - **Freshness drives trust:** the hero subtext + footer make staleness visible (esp. important given the
   ~15-min background model — but the main screen is foreground/live, so it's usually "live / updated Ns ago").
 
-### Connection footer
-A single slim line at the bottom: a **transport chip** (`Direct` · `Broker` · `Cloud` · `Offline` · `Demo`)
-+ a **freshness** note ("live" / "updated 3s ago" / "as of 10:42"). Carries v1's connection-status idea
-forward; tapping it could later expand the event log (v1 had a capped log) — not required for v2.
+### Connection footer + history
+Mirror the **coffee app's connection history** exactly:
+- A current-status line: **transport label** (`Wi-Fi · direct` / `Wi-Fi · broker` / `Cloud` / `Offline`,
+  + `Demo`) and a **freshness** note ("live" / "updated 3s ago" / "as of 10:42").
+- Below it, the **connection event log**: newest-first, **capped at 4**, each row `HH:MM   <label>`, muted
+  styling — a new row is appended *only when the transport actually changes*.
+- **Already implemented in our core:** `ConnectionUi.pushIfChanged` + `LogEntry` ([ConnectionUi.kt](../../app/src/main/java/no/leiflan/garage/api/ConnectionUi.kt))
+  match coffee's `ConnectionUi` 1:1 — v2 just needs to *render* the log in the footer (coffee's
+  `MainActivity` shows it as a max-4 dark-on-black list). No new logic.
 
 ## Features
 
@@ -85,9 +90,25 @@ forward; tapping it could later expand the event log (v1 had a capped log) — n
 **The only layout** (no classic three-button option — less to maintain; decided 2026-06-11). One primary
 button whose label+action follows door state:
 - CLOSED → **Open** · OPEN → **Close** · OPENING/CLOSING → **Stop** · UNKNOWN → **Engage** (best-effort toggle).
-- **STOPPED_OPENING / STOPPED_CLOSING** → a fork (resume vs. reverse) a single label can't express — see
-  open question **V2-3**.
-- **FW ready:** controller accepts `stop` (safety halt, moving-door-only; D-19, [spec 14](14-motion-timing-and-pulse-safety.md)).
+- **STOPPED_OPENING / STOPPED_CLOSING** → the **split pair** (Open ｜ Close), decided 2026-06-11 (V2-3).
+- **FW ready (single-pulse cmds):** controller accepts `stop` (safety halt, moving-door-only; D-19,
+  [spec 14](14-motion-timing-and-pulse-safety.md)).
+
+**Shape:** normally one **wide rectangle, rounded corners**. The STOPPED **pair is the *same* wide button
+split down the middle by a divider** into Open ｜ Close — not two separate buttons. Use directional
+arrow glyphs (▲ open / ▼ close, or emoji ⬆️⬇️) alongside the labels for at-a-glance meaning.
+
+> **⚠ FW dependency for the STOPPED pair (Q-03, unresolved).** From a stopped-partway door the EcoStar
+> restart is **one impulse = start in the *opposite* of the last direction** (D-09). So from
+> **STOPPED_OPENING**, a single pulse starts **closing**; to actually **continue opening** you need the
+> 3-step sequence the user described — **start-close → stop → start-open** (and symmetrically for
+> STOPPED_CLOSING). Whichever direction "continues" the interrupted travel costs **3 pulses**; the reverse
+> costs **1**. **Today `pulsesFor` returns 1 for *both* `open` and `close` from a STOPPED state**
+> ([controller.js:60,64](../../device/controller.js#L60)) — optimistic; one of the two is physically wrong
+> until the EcoStar's restart-from-stop behaviour is confirmed on the real door. **Before the pair ships:**
+> resolve Q-03 at commissioning, then teach the controller a **3-pulse path** for the "continue" direction
+> (current code caps at 2; the lockout/`lockMs` in spec 14 must size for 3). UX caveat (user-accepted): the
+> continue button makes the door visibly jog the wrong way first.
 
 ### Alarms
 - **Open > X minutes** — user threshold; fires a notification. Poll model detects within ~15 min slop.
@@ -126,6 +147,50 @@ These aren't user-facing features but everything above leans on them:
   creative direction with external design tools + Claude assist. **Lands last**, but can run in parallel
   (design-driven) — don't let feature churn rework finished screens.
 
+## Design assets & animation (graphic-designer brief)
+
+What to commission, in deliverable terms. **Everything vector/SVG** unless noted — Android consumes vector
+drawables; the build converts SVG→`VectorDrawable` XML (Android Studio "Vector Asset", or `svg2vectordrawable`).
+
+### UI icons (in-app)
+- **Format:** SVG on a **24×24 dp** canvas (Material baseline grid), ~**2 dp** padding → ~20×20 live area;
+  single-path where possible, **1.5–2 dp** stroke if outlined, **flat single-colour** (we tint in code, so
+  deliver black `#000` on transparent — no baked colours).
+- **Provide each at 24 dp** (code scales). Also a few at **48 dp** if any icon has fine detail that must
+  stay crisp large.
+- **List:** gear/settings, alarm/clock, notification/bell, demo/flask, info, chevron/back, signal/Wi-Fi,
+  cloud, offline, check/imported, plus the **action glyphs** ▲ open / ▼ close / ■ stop / ⏻ engage.
+
+### Launcher icon (adaptive)
+- **Adaptive icon = two layers, each 108×108 dp**, with only the inner **72×72 dp "safe zone"** guaranteed
+  visible (outer 18 dp per side is mask/parallax margin — keep nothing critical there):
+  - **`ic_launcher_foreground`** — the mark, SVG (or 432×432 px PNG @xxxhdpi if raster).
+  - **`ic_launcher_background`** — solid colour or simple shape, same canvas.
+- **`ic_launcher_monochrome`** — **NEW for v2** (Android 13 themed icons): a **single-colour alpha** version
+  of the foreground on the same 108 dp / 72 dp safe-zone canvas. Goes in the `<adaptive-icon>` `<monochrome>`
+  slot. *(Coffee's adaptive-icon has only background+foreground — we add monochrome.)*
+- Studio's Image Asset wizard generates all density buckets from these layers; the designer only delivers
+  the three layer sources.
+
+### Door illustration + animation
+- **Deliver ONE layered door SVG**, not 7 per-state PNGs — separate layers: **frame/opening** (static),
+  **door panel** (the moving slab, ideally segmented), optional **shadow/interior**. Code composes every
+  state (CLOSED/OPEN/partial/UNKNOWN) by positioning the panel, and animates motion by translating/clipping
+  it. One artwork drives all states + the animation; far less to maintain.
+- **How we realise motion (recommended):** **Compose-driven animation of the layered vector** — animate the
+  panel's offset/clip in code. We only have *direction*, not position (reed + motor signals, no encoder), so
+  OPENING/CLOSING is an **indeterminate looping** slide, never a progress bar. No extra dependency, fully
+  testable.
+- **Alternative:** **Lottie** (designer exports After Effects → JSON) if richer motion is wanted — but adds
+  a runtime dependency + AE/Lottie tooling on the designer. Default to the Compose approach unless the door
+  motion needs more than a slide.
+- **Brand/colour:** deliver the palette (light + dark theme) and the door artwork in flat, tintable layers
+  so it can follow the app theme.
+
+### Mock
+- See **[16-app-v2-mock.svg](16-app-v2-mock.svg)** — 4 representative frames (CLOSED · OPENING · OPEN ·
+  STOPPED-pair). Schematic, for layout iteration; not final art.
+
 ## Recommended build order
 1. **Arch:** state-source abstraction → WorkManager/AlarmManager wake → Compose Navigation (+ permissions, channels).
 2. **Features:** persistent notification (3 modes) → morphing button → both alarms → demo mode.
@@ -135,13 +200,15 @@ These aren't user-facing features but everything above leans on them:
 ## Resolved
 - **V2-1** ~15-min background staleness — **accepted** (2026-06-11).
 - **V2-2** Two layouts? — **No.** Morphing button is the *only* layout; no classic option (2026-06-11).
+- **V2-3** STOPPED button — **the split pair** (one wide button divided into Open ｜ Close), with arrow
+  glyphs (2026-06-11). **Both halves must genuinely act** → carries the Q-03 / 3-pulse FW dependency above.
 
 ## Open questions
 | # | Question | Lean |
 |---|---|---|
-| V2-3 | **STOPPED_OPENING / STOPPED_CLOSING button** — a stopped-partway door has two sensible actions (resume vs. reverse) that one label can't hold. Options: (a) split into two compact buttons (Open \| Close) *only* in this state; (b) single button = resume the interrupted direction, reverse offered as a secondary text action; (c) single button = the safe direction (Close). | **(a)** — clearest; the only state that ever shows two buttons, accepted as the principled exception |
 | V2-4 | Time-of-day alarm: "still open at T" only, or also "opened/closed since"? | Start with **still-open-at-T** |
 | V2-5 | Home-screen widget / Quick-Settings tile? | **Out of scope** for v2 (conscious cut) |
+| V2-6 | STOPPED-pair "continue" direction needs a **3-pulse FW path** — implement now or defer until Q-03 is confirmed on the real door? | **Defer** to commissioning (Q-03); the pair UI can ship state-gated once the path lands |
 
 ## Out of scope (conscious cuts)
 - Always-on push / instant open-alert (→ HA + FCM future, D-12).

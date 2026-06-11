@@ -31,7 +31,7 @@
 |---|---|---|
 | Q-01 | ~~i4 firmware + Input event model~~ | RESOLVED → D-14. fw 1.7.5; inputs type `switch`, `{id,state:bool}`, `input:N` toggle events (spec 10) |
 | Q-02 | Confirm motor-voltage / optocoupler behaviour on the bench | hardware-spec measured ±19–24V; verify SW3/SW4 actually toggle cleanly |
-| Q-03 | ~~Impulse stop/reverse semantics~~ | RESOLVED → D-09. Remaining bench item: the `STOPPED_OPENING`+open / `STOPPED_CLOSING`+close "resume same direction" edge (next start reverses) — confirm pulse count on hardware (spec 02) |
+| Q-03 | ~~Impulse stop/reverse semantics~~ | RESOLVED → D-09. Remaining bench item: the `STOPPED_OPENING`+open / `STOPPED_CLOSING`+close "resume same direction" edge (next start reverses) — confirm pulse count on hardware (spec 02). **Now also gates app v2's STOPPED split-pair button** ([spec 16](16-app-v2.md), V2-6): `pulsesFor` returns **1 for both `open` and `close` from a STOPPED state** ([controller.js:60,64](../../device/controller.js#L60)) — physically only one direction works on a single pulse. The "continue interrupted direction" button needs a **3-pulse path** (start-reverse → stop → start), which the controller doesn't implement (caps at 2) and `lockMs` must size for. **Resolve on the real door, then add the 3-pulse path before the pair ships.** |
 | Q-04 | ~~Visual confirmation for remote close~~ | RESOLVED → D-11 (not required; possible future) |
 | Q-05 | ~~Monitor door-state alerts~~ | RESOLVED → D-12 (we expose status; HA decides alerts) |
 | Q-06 | ~~S1 static IP + hostname~~ | RESOLVED: `192.0.2.161` / `shelly1g3-example`; on network + mTLS-provisioned (spec 11) |
