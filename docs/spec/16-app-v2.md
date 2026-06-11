@@ -3,14 +3,17 @@
 > **Status: IN PROGRESS (2026-06-11).** Supersedes the §4D checklist in [09-phase-plan.md](09-phase-plan.md).
 > v1 (all three transports validated on-device) is the baseline; this is the redesign on top of it.
 >
-> **Built (compiles + JVM unit tests pass on the Windows toolchain):** Cyber Garage Control neon theme ·
-> main screen (three bands, animated `DoorSchematic`, morphing button, STOPPED split-divider button,
-> connection footer + mono log) · `ActionModel` (pure, tested) · `stop` command · `DemoEngine` + Settings
-> toggle (pure, tested, zero comms) · app name + launcher icon.
-> **Remaining (device-coupled → build with phone in hand):** the periodic-wake notification (3 modes), the
-> two alarms, WorkManager/AlarmManager plumbing, permissions/channels, settings redesign, and on-phone
-> visual refinement (screenshots → iterate). These need the device to validate (notification display, Doze,
-> permissions), consistent with the project's validate-on-hardware discipline.
+> **All functionality is built (compiles + JVM unit tests pass on the Windows toolchain).** Cyber Garage
+> Control neon theme · main screen (three bands, animated `DoorSchematic`, morphing button, STOPPED
+> split-divider button, connection footer + mono log) · `ActionModel` · `stop` command · `DemoEngine` +
+> Settings toggle (zero comms) · **notifications (3 modes) + both alarms** (`NotifyRules` pure+tested,
+> `Notifier` channels, `NotifyController` latches) · **periodic-wake** (`DoorCheckWorker` WorkManager +
+> `TimeAlarm` AlarmManager exact + `Scheduler`) · permissions/channels · Settings UI for it all · app name
+> + launcher icon. **Demo mode drives the real on-device notifications/alarms** from simulated state.
+> **Remaining = on-phone validation + polish:** notification display / alarm fire / Doze behaviour /
+> exact-alarm prompt (drive via demo), settings-redesign polish, adaptive+monochrome icon layers, and the
+> visual pass (screenshots → iterate). The runtime device-coupled behaviour can only be confirmed on-phone,
+> per the project's validate-on-hardware discipline.
 
 ## Goal
 

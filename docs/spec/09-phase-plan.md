@@ -116,13 +116,20 @@ device-coupled bits validate on-phone with the user.
 - [x] **Demo mode** — `DemoEngine` (pure, unit-tested) + Settings toggle; drives the whole UI with **zero
   real comms**
 - [x] **App name "Garage control"** + launcher icon (iconikai pack 2, square PNGs)
-- [ ] **Persistent "door open" notification** — 3 modes (always / after ≥X min / off); no action buttons
-- [ ] **Alarm: open > X minutes** · **Alarm: open at time-of-day**
-- [ ] **Periodic-wake plumbing** — WorkManager periodic + AlarmManager exact wake; notif channels;
-  POST_NOTIFICATIONS + exact-alarm permissions *(device-coupled → build with phone in hand)*
-- [ ] **Settings redesign** (auth/certs → submenu; alarms + notification mode in main)
-- [ ] **Adaptive/monochrome launcher layers** (designer) + on-phone visual refinement
+- [x] **Persistent "door open" notification** — 3 modes (always / after ≥X min / off), no action buttons
+  (`NotifyRules` pure + tested; `Notifier` status channel) — *display validates on-phone*
+- [x] **Alarm: open > X minutes** · **Alarm: open at time-of-day** (rules tested; alarm channel)
+- [x] **Periodic-wake plumbing** — `DoorCheckWorker` (WorkManager ~15min) + `TimeAlarm` (AlarmManager exact)
+  + `Scheduler`; notif channels; POST_NOTIFICATIONS + exact-alarm permissions *(Doze/exact-fire → on-phone)*
+- [x] **Demo drives the real notifications/alarms** from simulated state — notif path testable with no devices
+- [x] **Settings: notification mode + both alarms** added & persisted
+- [ ] **Settings redesign polish** (auth/certs → submenu; group the new controls visually)
+- [ ] **Adaptive/monochrome launcher layers** (designer) + on-phone visual refinement (screenshots → iterate)
 - [ ] **Compose Navigation** if/when a second screen lands (settings is currently a toggle-swap)
+
+**On-phone validation checklist (next session):** notification appears/clears per mode; open-too-long +
+time-of-day alarms fire (drive via demo: set mode=always / threshold=1 min / time=now); periodic worker runs
+through Doze; exact-alarm permission prompt; visual pass on the neon screens.
 
 ### 4C — Web fallback — `web/` — [x] DONE
 - [x] `web/garage-core.js` (pure, **9 Node tests** — `scripts/test-web.sh`) + `web/index.html`:
