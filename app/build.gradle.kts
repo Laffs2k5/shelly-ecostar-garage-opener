@@ -67,6 +67,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.navigation:navigation-compose:2.8.5")
+    // Background periodic-wake (spec 16): WorkManager periodic check + AlarmManager exact alarm.
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     // Remote path: plain Paho mqttv3 (not the deprecated paho-android-service); WSS built in.
     implementation("org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5")

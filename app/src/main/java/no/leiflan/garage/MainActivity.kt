@@ -1,5 +1,6 @@
 package no.leiflan.garage
 
+import android.Manifest
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
@@ -52,6 +53,9 @@ import no.leiflan.garage.api.GarageApi
 import no.leiflan.garage.api.GarageApi.ConnectionMode
 import no.leiflan.garage.api.MqttTls
 import no.leiflan.garage.api.MqttTransport
+import no.leiflan.garage.notification.NotifyController
+import no.leiflan.garage.notification.Notifier
+import no.leiflan.garage.notification.Scheduler
 import no.leiflan.garage.ui.BrandBar
 import no.leiflan.garage.ui.ConnectionFooter
 import no.leiflan.garage.ui.DoorSchematic
@@ -68,6 +72,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         MqttTransport.init(this)
+        Notifier.createChannels(this)
+        Scheduler.apply(this, loadSettings(this))
         setContent { GarageTheme { AppRoot() } }
     }
 }
@@ -77,21 +83,29 @@ private const val PREFS = "garage_settings"
 data class Settings(
     val i4Ip: String, val s1Ip: String, val monId: String, val ctrlId: String,
     val localHost: String, val cloudHost: String, val cloudUser: String, val cloudPass: String,
-    val p12Pass: String, val clientId: String, val demo: Boolean = false
+    val p12Pass: String, val clientId: String, val demo: Boolean = false,
+    // v2 notifications + alarms (spec 16)
+    val notifyMode: String = "off",       // "always" | "after" | "off"
+    val notifyAfterMin: Int = 5,
+    val openAlarmEnabled: Boolean = false, val openAlarmMin: Int = 10,
+    val timeAlarmEnabled: Boolean = false, val timeAlarm: String = "22:00",
 )
 
-private fun loadSettings(ctx: Context): Settings {
+fun loadSettings(ctx: Context): Settings {
     val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     fun g(k: String) = p.getString(k, "") ?: ""
     fun gd(k: String, d: String) = g(k).ifBlank { d }
     return Settings(
         g("i4_ip"), g("s1_ip"), gd("mon_id", "garage-monitor"), gd("ctrl_id", "garage-controller"),
         g("mqtt_local_host"), g("mqtt_cloud_host"), g("cloud_user"), g("cloud_pass"),
-        g("p12_pass"), g("client_id"), p.getBoolean("demo", false)
+        g("p12_pass"), g("client_id"), p.getBoolean("demo", false),
+        gd("notify_mode", "off"), p.getInt("notify_after_min", 5),
+        p.getBoolean("open_alarm_en", false), p.getInt("open_alarm_min", 10),
+        p.getBoolean("time_alarm_en", false), gd("time_alarm", "22:00"),
     )
 }
 
-private fun saveSettings(ctx: Context, s: Settings) {
+fun saveSettings(ctx: Context, s: Settings) {
     ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {
         putString("i4_ip", s.i4Ip); putString("s1_ip", s.s1Ip)
         putString("mon_id", s.monId); putString("ctrl_id", s.ctrlId)
@@ -99,6 +113,9 @@ private fun saveSettings(ctx: Context, s: Settings) {
         putString("cloud_user", s.cloudUser); putString("cloud_pass", s.cloudPass)
         putString("p12_pass", s.p12Pass); putString("client_id", s.clientId)
         putBoolean("demo", s.demo)
+        putString("notify_mode", s.notifyMode); putInt("notify_after_min", s.notifyAfterMin)
+        putBoolean("open_alarm_en", s.openAlarmEnabled); putInt("open_alarm_min", s.openAlarmMin)
+        putBoolean("time_alarm_en", s.timeAlarmEnabled); putString("time_alarm", s.timeAlarm)
         apply()
     }
 }
@@ -133,8 +150,12 @@ fun AppRoot() {
     var settings by remember { mutableStateOf(loadSettings(ctx)) }
     val needsSetup = !settings.demo && settings.i4Ip.isBlank() && settings.cloudHost.isBlank()
 
+    // Ask for notification permission once (Android 13+); harmless if already granted.
+    val notifPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    LaunchedEffect(Unit) { notifPerm.launch(Manifest.permission.POST_NOTIFICATIONS) }
+
     if (showSettings || needsSetup) {
-        SettingsScreen(settings, onSave = { saveSettings(ctx, it); settings = it; showSettings = false }, onClose = { showSettings = false })
+        SettingsScreen(settings, onSave = { saveSettings(ctx, it); Scheduler.apply(ctx, it); settings = it; showSettings = false }, onClose = { showSettings = false })
     } else {
         MainScreen(settings, onSettings = { showSettings = true })
     }
@@ -142,6 +163,7 @@ fun AppRoot() {
 
 @Composable
 fun MainScreen(s: Settings, onSettings: () -> Unit) {
+    val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
     var door by remember { mutableStateOf<DoorStatus?>(null) }
@@ -153,14 +175,19 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
 
     LaunchedEffect(s) {
         if (s.demo) {
-            // Fully local simulation: tick the engine, never touch the network.
+            // Fully local simulation: tick the engine, never touch the network — but DO drive the real
+            // on-device notifications/alarms from the simulated state (so the notif path is testable).
             while (true) {
                 val now = System.currentTimeMillis()
-                door = demo.door(now)
+                val d = demo.door(now)
+                door = d
                 val m = demo.modeAt(now)
                 if (m != mode) log = ConnectionUi.pushIfChanged(log, m, hhmm())
                 mode = m
                 nowSec = now / 1000
+                val openSec = if (d.since in 1L until nowSec) nowSec - d.since else 0L
+                val cal = java.util.Calendar.getInstance()
+                NotifyController.apply(ctx, s, d.state, openSec, cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE), cal.get(java.util.Calendar.DAY_OF_YEAR))
                 delay(1000)
             }
         } else {
@@ -247,6 +274,12 @@ fun SettingsScreen(initial: Settings, onSave: (Settings) -> Unit, onClose: () ->
     var p12Pass by remember { mutableStateOf(initial.p12Pass) }
     var clientId by remember { mutableStateOf(initial.clientId) }
     var demo by remember { mutableStateOf(initial.demo) }
+    var notifyMode by remember { mutableStateOf(initial.notifyMode) }
+    var notifyAfterMin by remember { mutableStateOf(initial.notifyAfterMin.toString()) }
+    var openAlarmEnabled by remember { mutableStateOf(initial.openAlarmEnabled) }
+    var openAlarmMin by remember { mutableStateOf(initial.openAlarmMin.toString()) }
+    var timeAlarmEnabled by remember { mutableStateOf(initial.timeAlarmEnabled) }
+    var timeAlarm by remember { mutableStateOf(initial.timeAlarm) }
     var note by remember { mutableStateOf("") }
 
     val pickP12 = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -263,7 +296,30 @@ fun SettingsScreen(initial: Settings, onSave: (Settings) -> Unit, onClose: () ->
             Column { Text("Demo mode"); Text("Simulated — no devices, no network", style = MaterialTheme.typography.labelSmall) }
             Switch(checked = demo, onCheckedChange = { demo = it })
         }
+        Spacer(Modifier.height(12.dp))
+
+        // --- Notifications & alarms (spec 16) ---
+        Text("Open-door notification", style = MaterialTheme.typography.bodyLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("always" to "Always", "after" to "After min", "off" to "Off").forEach { (v, lbl) ->
+                if (notifyMode == v) Button(onClick = { notifyMode = v }) { Text(lbl) }
+                else OutlinedButton(onClick = { notifyMode = v }) { Text(lbl) }
+            }
+        }
+        if (notifyMode == "after") field("Notify after (minutes)", notifyAfterMin) { notifyAfterMin = it }
         Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Alarm: open too long")
+            Switch(checked = openAlarmEnabled, onCheckedChange = { openAlarmEnabled = it })
+        }
+        if (openAlarmEnabled) field("Open longer than (minutes)", openAlarmMin) { openAlarmMin = it }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Alarm: open at time of day")
+            Switch(checked = timeAlarmEnabled, onCheckedChange = { timeAlarmEnabled = it })
+        }
+        if (timeAlarmEnabled) field("Time (HH:MM)", timeAlarm) { timeAlarm = it }
+        Spacer(Modifier.height(12.dp))
+
         field("i4 IP (door state)", i4Ip) { i4Ip = it }
         field("S1 IP (relay)", s1Ip) { s1Ip = it }
         field("Monitor id", monId) { monId = it }
@@ -284,7 +340,10 @@ fun SettingsScreen(initial: Settings, onSave: (Settings) -> Unit, onClose: () ->
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(onClick = {
                 onSave(Settings(i4Ip.trim(), s1Ip.trim(), monId.trim().ifBlank { "garage-monitor" }, ctrlId.trim().ifBlank { "garage-controller" },
-                    localHost.trim(), cloudHost.trim(), cloudUser.trim(), cloudPass, p12Pass, clientId.trim(), demo))
+                    localHost.trim(), cloudHost.trim(), cloudUser.trim(), cloudPass, p12Pass, clientId.trim(), demo,
+                    notifyMode, notifyAfterMin.toIntOrNull() ?: 5,
+                    openAlarmEnabled, openAlarmMin.toIntOrNull() ?: 10,
+                    timeAlarmEnabled, timeAlarm.trim()))
             }) { Text("Save") }
             TextButton(onClick = onClose) { Text("Close") }
         }
