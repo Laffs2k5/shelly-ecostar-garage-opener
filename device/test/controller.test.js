@@ -34,6 +34,17 @@ test("pulsesFor: close", function () {
   assert.equal(pulsesFor("close", "UNKNOWN"), 1);
 });
 
+test("pulsesFor: stop halts a moving door, no-op otherwise (never starts a stopped door)", function () {
+  const { pulsesFor } = mk();
+  assert.equal(pulsesFor("stop", "OPENING"), 1);
+  assert.equal(pulsesFor("stop", "CLOSING"), 1);
+  assert.equal(pulsesFor("stop", "OPEN"), 0);
+  assert.equal(pulsesFor("stop", "CLOSED"), 0);
+  assert.equal(pulsesFor("stop", "STOPPED_OPENING"), 0);
+  assert.equal(pulsesFor("stop", "STOPPED_CLOSING"), 0);
+  assert.equal(pulsesFor("stop", "UNKNOWN"), 0);        // crucially: don't risk starting an unknown door
+});
+
 // ---------- boot ----------
 test("boot: relay configured safe (detached, off, 0.5s auto-off) + subscribes + heartbeat", function () {
   const h = mk();
@@ -171,6 +182,27 @@ test("fail-open: UNKNOWN pulses best-effort even if inputs show motion (never bl
   setDoorMoving(h, "UNKNOWN", true, false);
   h.post("command", { query: "cmd=open" });
   assert.equal(h.switchSets.length, 1, "best-effort pulse, not queued");
+});
+
+// ---------- safety stop ----------
+test("stop while OPENING -> one pulse (halts the door)", function () {
+  const h = mk(); setDoor(h, "OPENING");
+  h.post("command", { query: "cmd=stop" });
+  assert.equal(h.switchSets.length, 1, "one pulse stops the moving door");
+  assert.equal(h.lastHeartbeat().lastCmd, "stop");
+});
+test("stop while at rest is a no-op (never starts the door)", function () {
+  const h = mk(); setDoor(h, "CLOSED");
+  h.post("command", { query: "cmd=stop" });
+  assert.equal(h.switchSets.length, 0, "no pulse — a stopped door must not be started by stop");
+});
+test("stop bypasses the pulse lockout (safety always gets through)", function () {
+  const h = mk(); setDoor(h, "CLOSED");
+  h.post("command", { query: "cmd=open" });             // fires + sets the lockout
+  assert.equal(h.switchSets.length, 1);
+  setDoor(h, "OPENING");                                 // i4 reports the door now moving
+  h.post("command", { query: "cmd=stop" });              // arrives during the lockout
+  assert.equal(h.switchSets.length, 2, "stop fired despite the lockout");
 });
 
 // ---------- full-sequence pulse lockout (Q-16 Problem 3) ----------

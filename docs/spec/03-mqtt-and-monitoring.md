@@ -10,7 +10,7 @@ Do **not** collapse them.
 | `devices/<id>/heartbeat` | **YES** | app / web | Application status: door state, last direction, config version, ts. Retained so a client gets the current picture immediately on connect. |
 | `mon/<id>/alive` | **NO** | layer-3 monitor | Pure infra liveness. Payload irrelevant. LAN-only, staleness-based (`expire_after`). |
 | `devices/<id>/online` | YES (LWT) | both | Firmware-published last-will connect/disconnect. |
-| `devices/<controller-id>/command` | NO | controller (S1) | open / close / toggle from the outside world. |
+| `devices/<controller-id>/command` | NO | controller (S1) | open / close / toggle / stop from the outside world (`stop` = safety halt, only acts on a moving door). |
 | `devices/<controller-id>/config` | YES | controller (S1) | Version-gated config (rejects `v <= current`). |
 
 `<id>` is the per-device id (the i4 publishes door state + its own alive; S1 publishes command-status +

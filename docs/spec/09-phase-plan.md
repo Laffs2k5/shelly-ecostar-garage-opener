@@ -106,9 +106,15 @@ button-with-broker-down (verify at install).
   show in Settings *which* CA / `.p12` are imported (cert CN / status); general visual tidy-up
 
 ### 4D — App v2 overhaul (FUTURE, post-install) — not started
-Larger redesign; do after the door is physically live. Captures user requests 2026-06-10:
+Larger redesign; do after the door is physically live. Captures user requests 2026-06-10/06-11:
 - [ ] **Persistent notification while door is OPEN** — needs a **foreground service** + the broker path
   (background MQTT), modelled on the coffee app's notification. (Supersedes the polish-pass notification note.)
+  **Configurable, 3 modes:** *always show while open* · *only after open ≥ X minutes* · *off (hide/disable)*.
+- [ ] **Single morphing action button** (option to replace the separate buttons) — label/action follows door
+  state: `Open` when CLOSED, `Close` when OPEN, **`Stop` when OPENING/CLOSING**, and `Engage` (best-effort
+  toggle) when UNKNOWN. STOPPED_OPENING/STOPPED_CLOSING → offer the resume/reverse direction. **FW primitive
+  ready:** the controller now accepts a `stop` command (safety halt, moving-door-only; D-19 / spec 14) — the
+  button's `Stop` face maps straight to it.
 - [ ] **Configurable alarm: door open > X minutes** — user-set threshold, fires a notification/alert.
 - [ ] **Configurable alarm: door open at a given time of day** — time-picker; alert if still/again open then.
 - [ ] **Demo mode** — randomly cycle the connection type every ~15 s and simulate state changes on button

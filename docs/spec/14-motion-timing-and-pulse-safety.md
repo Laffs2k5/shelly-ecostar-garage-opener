@@ -15,11 +15,24 @@ on the S1 (commands). All timing is **config-tunable** (see *Tunables* below).
 | 1 | i4 | **Ignore** brief input noise (debounce) | any input edge | accept after stable **200 ms** (`DEBOUNCE_TICKS`=2 × 100 ms) |
 | 2 | i4 | **Hold** the end-state, **ignore** the end-of-travel reverse-kick; **wait** before declaring a departure | reed engaged + motor driving *away* (`(c&&op)\|\|(o&&cl)`) | flips to OPENING/CLOSING only after the conflict persists **400 ms** (`GATE_TICKS`=4); shorter ⇒ stays CLOSED/OPEN |
 | 3 | S1 | **Queue** (wait) a command, don't pulse | command arrives while door at an end **and** still moving (arrival overlap) | fires the instant the i4 pushes `moving:false`; **dropped after 5 s** (`QUEUE_TIMEOUT_TICKS`) if never settles |
-| 4 | S1 | **Ignore** (drop) new commands | just fired a pulse sequence (`LOCKED`) | **800 ms** after a 1-pulse cmd, **2500 ms** after a 2-pulse stop-then-reverse (`lockMs`) |
+| 4 | S1 | **Ignore** (drop) new commands | just fired a pulse sequence (`LOCKED`) | **800 ms** after a 1-pulse cmd, **2500 ms** after a 2-pulse stop-then-reverse (`lockMs`). **`stop` is exempt** — see below |
 | 5 | S1 | **Fail-open override** — never block | door state UNKNOWN or `moving` unknown | always pulses best-effort (D-19); never queues/locks itself out |
 
 **Pulse mechanics:** relay momentary **500 ms** (`auto_off`); a stop-then-reverse = pulse, **1200 ms**
 gap (`PULSE_GAP_MS`), pulse.
+
+### Commands → pulses (D-19, with `stop`)
+
+| Command | Behaviour |
+|---|---|
+| `open` / `close` | suppress when already there/going; 1 pulse from the matching end/stop; **2** (stop+reverse) when moving the wrong way; 1 best-effort when UNKNOWN |
+| `toggle` | always 1 pulse (the physical-button equivalent) |
+| **`stop`** | **safety stop — 1 pulse iff the door is confirmed moving (`OPENING`/`CLOSING`), else a no-op.** Never pulses a stopped/at-end/UNKNOWN door, so it can't *start* the door. **Bypasses the `LOCKED` lockout** (safety must always get through); the state-gate keeps it from firing a bad pulse anyway. |
+
+> **Stop — known sub-3 s edge:** because `stop` bypasses the lockout, a `stop` arriving *mid-way through a
+> 2-pulse stop-then-reverse* (within `PULSE_GAP_MS`) can fire its pulse while the scheduled reverse pulse is
+> still pending, so the reverse could still land. Rare (requires reverse-then-stop inside ~1.2 s) and not a
+> safety regression (worst case the door reverses instead of halting). Revisit only if observed at commissioning.
 
 ### Configured vs. measured (garage 2026-06-10)
 

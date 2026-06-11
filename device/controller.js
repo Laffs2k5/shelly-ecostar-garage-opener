@@ -6,8 +6,8 @@
 //
 // Inputs to this script:
 //   - HTTP POST  /script/<id>/door_state   <- i4 pushes {state,dir,inputs,since,ts,v} (low latency, D-03)
-//   - MQTT       devices/garage-controller/command   <- "open"|"close"|"toggle" (or {"cmd":...})
-//   - HTTP GET   /script/<id>/command?cmd=open|close|toggle   <- local control
+//   - MQTT       devices/garage-controller/command   <- "open"|"close"|"toggle"|"stop" (or {"cmd":...})
+//   - HTTP GET   /script/<id>/command?cmd=open|close|toggle|stop   <- local control
 // Outputs: relay pulse (Switch.Set, auto-off 0.5 s); retained heartbeat + mon/<id>/alive.
 //
 // Safety / boot-to-safe: the relay is configured initial_state=off and the script never auto-acts on
@@ -50,6 +50,9 @@ var ticks = 0; var booted = false;
 // 0 = suppress (already there / already going the right way). Kept dependency-free for the Node tests.
 function pulsesFor(cmd, state) {
   if (cmd === "toggle") return 1;                       // toggle = the physical-button equivalent: 1 pulse
+  if (cmd === "stop") {                                 // safety stop: halt a MOVING door, else no-op
+    return (state === "OPENING" || state === "CLOSING") ? 1 : 0;   // never starts a stopped/UNKNOWN door
+  }
   if (cmd === "open") {
     if (state === "OPENING" || state === "OPEN") return 0;          // suppress
     if (state === "CLOSED" || state === "STOPPED_CLOSING") return 1;
@@ -80,7 +83,7 @@ function parseCmd(msg) {
   if (msg.indexOf("{") >= 0) { var o = JSON.parse(msg); return (o && o.cmd) ? ("" + o.cmd) : ""; }
   return msg;
 }
-function validCmd(c) { return c === "open" || c === "close" || c === "toggle"; }
+function validCmd(c) { return c === "open" || c === "close" || c === "toggle" || c === "stop"; }
 
 function qparam(q, key) {
   if (!q) return "";
@@ -156,7 +159,9 @@ function publishAlive() {
 function handleCommand(raw, src) {
   var cmd = parseCmd(raw);
   if (!validCmd(cmd)) { print("controller: ignoring invalid cmd:", raw, "(" + src + ")"); return; }
-  if (LOCKED) { print("controller: locked (pulse in progress) — dropping", cmd, "(" + src + ")"); return; }
+  // safety stop always gets through the pulse-lockout; its state-gate (pulsesFor) keeps it from firing a
+  // bad pulse anyway — if the door isn't confirmed moving, stop is a no-op.
+  if (cmd !== "stop" && LOCKED) { print("controller: locked (pulse in progress) — dropping", cmd, "(" + src + ")"); return; }
   if (needsRest(cmd)) {            // at an end but still moving (arrival overlap) -> queue until at rest
     PENDING.cmd = cmd; PENDING.deadline = ticks + QUEUE_TIMEOUT_TICKS;
     print("controller: door moving into", DOOR.state, "— queued", cmd, "(" + src + ")");
