@@ -1,10 +1,11 @@
-# 17 — Wear OS companion (OnePlus Watch 2R) — exploration
+# 17 — Wear OS companion (OnePlus Watch 2R)
 
-> **Status: EXPLORATION / planning only (2026-06-12). No implementation.** Researched with the
-> deep-research harness (18 primary/secondary sources, 24/25 claims verified ≥2/3). Sources listed at the
-> end; key claims cite inline. Goal: a watch experience that **leans on the existing phone app**
+> **Status: IMPLEMENTED (Phase 2a + 2b) — on-device validated 2026-06-12, incl. the background relay.**
+> The `wear/` module ships a tethered watch app that **leans on the existing phone app**
 > (`no.leiflan.garage`, which holds all MQTT/mTLS/HTTP + door state) rather than re-implementing comms on
-> the watch, with a **hard no-Google-Play-publish constraint**.
+> the watch, with a **hard no-Google-Play-publish constraint** (sideloaded). The research that led here is
+> kept below for the record (deep-research harness, 18 sources, 24/25 claims verified ≥2/3); key claims
+> cite inline.
 
 ## Decisions (locked 2026-06-12)
 
@@ -32,16 +33,19 @@ notifications — they stay as-is) and **not** Phase 3 (standalone). Watch requi
   - Commands: watch → `MessageClient` → phone. **Foreground demo** is handled by the Activity; **REAL**
     commands run through `GarageWearService` (`WearableListenerService`) so they work **even when the phone
     app is backgrounded/closed**, via the shared `GarageNet` path; the watch sends `refresh` on launch to
-    wake the service and pull current state. *(Background real-command execution compiles but needs on-device
-    validation at commissioning — devices unavailable now.)*
+    wake the service and pull current state. **Background relay validated on-device 2026-06-12** over both
+    the local broker and cloud (HW-VALIDATION): after fixing two issues — the service now *follows* the door
+    (`BackgroundFollow`) and `WearLink` never publishes a null reading as "Unknown" — the watch tracks the
+    door to its settled state with the phone app killed. A watch-side **action lock** (6 s backstop) was
+    also added to match the phone.
   - **Signing unified:** one **committed debug keystore** (`app/debug.keystore` = `wear/debug.keystore`,
     non-sensitive, password `android`) signs phone + watch, local + CI → Data Layer always pairs; the old
     `DEBUG_KEYSTORE` secret is retired.
   - **CI added:** `build.yml` builds + signs both APKs, verifies they share the signing cert, uploads both;
     `release.yml` attaches both on a `v*` tag; a `check-wear-sync.sh` guard keeps the wear copies of the
     shared pure logic byte-identical to the phone app (no shared Gradle module yet).
-- **Remaining:** on-device validation of the **background** relay (real command while phone app closed) at
-  commissioning; optionally extract a **shared Gradle module** to remove the duplicated pure logic.
+- **Remaining:** optionally extract a **shared Gradle module** to remove the duplicated pure logic (the
+  `check-wear-sync.sh` guard covers the duplication for now).
 
 ## TL;DR / recommendation
 

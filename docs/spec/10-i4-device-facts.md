@@ -3,6 +3,11 @@
 Live `Shelly.*` RPC pull from the monitoring unit, **2026-06-07**, driven directly from WSL with `curl`
 (see note below). Device: `shellyplusi4-example` @ 192.0.2.160.
 
+> **Snapshot — the live config has since moved on.** This is a 2026-06-07 capture from before provisioning.
+> Since then: all 4 inputs set **`factory_reset:false`** (Q-09, D-16); the i4 is MQTT-provisioned as
+> `garage-monitor` (`connected:true`, `rpc_ntf`/`status_ntf` = false — spec 11); and it's been validated on
+> real reeds + the real motor (HW-VALIDATION). Treat the raw values below as historical, not current.
+
 ## Identity & firmware
 
 | Field | Value |

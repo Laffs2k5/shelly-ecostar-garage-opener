@@ -178,9 +178,34 @@ Scenarios live in `device/test-rig/main.py` as `_seq([(channels, dwell_ms), …]
 This suite is a permanent regression tool: re-run it on hardware whenever the timing logic changes.
 Results are logged in `docs/testing/HW-VALIDATION.md` (Q-16 gate entry, 2026-06-10).
 
+## `door_sim.py` — autonomous "virtual EcoStar" (full closed-loop, end-to-end)
+
+`main.py` is host-driven (you set each input). `door_sim.py` is the opposite: it **senses the S1 relay
+impulse and drives the i4 inputs itself**, mimicking a real door, so the entire stack runs without a door:
+
+```
+phone / watch → S1 (relay impulse) → [Pico door_sim] → i4 inputs → i4 derive → back to phone / watch
+```
+
+It implements the real EcoStar impulse model (D-09: one impulse stops a moving door; one impulse to a
+stopped door starts it in the *opposite* of the last direction), plus the departure overlap and the
+end-of-travel reverse-kick — so the controller's 1 / 2 / 3-pulse sequences and the i4's Q-16 gate are all
+exercised. `TRAVEL_MS=8000` (fast, like the app's demo, but longer than the cloud round-trip so the laggy
+cloud path doesn't render bunched transitions).
+
+**Sense wiring (bench only — no real door connected):** the S1 relay is a dry contact between terminals
+**`O`** and **`I`** (closes ~0.5 s per impulse). Wire `Pico 3V3 → S1 'O'` and `S1 'I' → Pico GP15` (input,
+internal pull-down): at rest GP15 is LOW; the relay closure loops 3V3 back = HIGH = one impulse. (`O`/`I`
+are interchangeable; they are **not** COM/NO.) SW1–SW4 = GP2–GP5 as in `main.py`. At the real install
+`O`/`I` go to EcoStar terminals 1+2, not the Pico — this sim is bench-only.
+
+Run: `mpremote connect COM5 run device/test-rig/door_sim.py` (streams `DOOR …` transitions), or deploy as
+`main.py` to auto-run at boot. This rig is the basis of the 2026-06-12 transport-matrix validation
+(HW-VALIDATION). Host unit test of its state machine: `python3 device/test-rig/test_door_sim.py` (CI-run).
+
 ## Pure-logic tests (complement, no hardware)
 
 The physical rig is the integration test. Fast unit tests of the state-derivation logic run as a Node
-`node:test` harness mocking the Shelly runtime (coffee-timer pattern) under `device/test/`. The Node tests
-also replay the timed scenarios in *tick* units (deterministic) — the Pico suite confirms the same on real
-hardware with real opto/relay timing.
+`node:test` harness mocking the Shelly runtime (coffee-timer pattern) under `device/test/` (60 tests). The
+Node tests also replay the timed scenarios in *tick* units (deterministic) — the Pico suite confirms the
+same on real hardware with real opto/relay timing.

@@ -55,21 +55,25 @@ active at once:
 `CLOSED`, and likewise SW2 ⇒ `OPEN` over a lingering SW3. The point is an **implementation** one, called
 out so the i4 script handles it deliberately rather than glitching through a spurious state:
 
-> ⚠️ **Caveat — this holds only when *arriving*, not *departing*.** With the real MR-00326 reed's wide
-> ~5 cm window, "reed active + motor driving *away* from that end" (e.g. SW1 still active + SW3 opening,
-> just after leaving closed) is a *departure* — there the reed reading is stale and the motor direction
-> is the truth. Today's `derive()` mis-reports the old end-state through that window. **Deferred fix in
-> [14-motion-timing-and-pulse-safety.md](14-motion-timing-and-pulse-safety.md) (Q-16).**
+> ⚠️ **Arrival vs departure.** With the real MR-00326 reed's wide ~5 cm window, "reed active + motor
+> driving *away* from that end" (e.g. SW1 still active + SW3 opening, just after leaving closed) is a
+> *departure* — there the reed reading is stale and the motor direction is the truth. **Fixed (Q-16):**
+> `derive()` uses a **time-gated motor-direction tiebreaker** (`GATE_TICKS`, ~400 ms — a brief reverse-kick
+> is absorbed, a sustained departure flips the state). See
+> [14-motion-timing-and-pulse-safety.md](14-motion-timing-and-pulse-safety.md). Hardware-validated
+> 2026-06-10; the exact gate is provisional/tunable pending commissioning.
 
 - Evaluate state from the **full input snapshot** with reed precedence, not from "whichever edge fired
   last" — otherwise a CLOSED→(SW4 still on) read could momentarily emit `CLOSING` right after arrival.
 - **Debounce** reed and optocoupler edges (short settle, e.g. tens of ms — tune on the Pico rig), and
   prefer a brief settle before publishing a state change, so coast/bounce doesn't produce a flurry of
   MQTT/HTTP updates.
-- The Pico rig (Phase 2) should **replay these overlaps on purpose** (reed asserts while motor signal is
-  still on; motor flicker on release) as test cases.
+- The Pico rig **replays these overlaps on purpose** (reed asserts while motor signal is still on; motor
+  flicker on release) as test cases — done on-device (`main.py` timed scenarios + `door_sim.py`).
 
-(Tracked as a Phase-2 implementation detail; see Q-02 in [08-decisions-and-open-questions.md](08-decisions-and-open-questions.md).)
+(Debounce + the gated overlap handling are implemented and hardware-validated 2026-06-10; see
+[08-decisions-and-open-questions.md](08-decisions-and-open-questions.md) Q-16. Final confidence on the
+real motor is the Q-02 commissioning item.)
 
 ## Transitions
 
@@ -114,29 +118,35 @@ The EcoStar has no "open"/"close" notion. Each impulse just advances a fixed cyc
 
 So S1 maps `command + current door state` to a pulse sequence:
 
+As-built in `controller.js` (`pulsesFor`), default `resumeSameDir:false`:
+
 | Command | Door state | Pulse sequence | Result |
 |---|---|---|---|
 | open | CLOSED | 1 pulse | OPENING |
 | open | STOPPED_CLOSING | 1 pulse | OPENING (reverse of last move) |
-| open | CLOSING | pulse · **delay** · pulse | stop → OPENING |
+| open | CLOSING | pulse · **delay** · pulse (2) | stop → OPENING |
 | open | OPENING, OPEN | none — **suppress** | already going / there |
-| open | STOPPED_OPENING | **bench-TBD** | next start reverses to CLOSING; "resume opening" isn't a single pulse — see note |
+| open | STOPPED_OPENING | **3 pulses** (reverse→stop→start) | resume OPENING (1 if `resumeSameDir`) |
 | close | OPEN | 1 pulse | CLOSING |
 | close | STOPPED_OPENING | 1 pulse | CLOSING (reverse of last move) |
-| close | OPENING | pulse · **delay** · pulse | stop → CLOSING |
+| close | OPENING | pulse · **delay** · pulse (2) | stop → CLOSING |
 | close | CLOSING, CLOSED | none — **suppress** | already going / there |
-| close | STOPPED_CLOSING | **bench-TBD** | next start reverses to OPENING; "resume closing" isn't a single pulse — see note |
+| close | STOPPED_CLOSING | **3 pulses** (reverse→stop→start) | resume CLOSING (1 if `resumeSameDir`) |
+| stop | OPENING, CLOSING | 1 pulse | STOPPED_* |
+| stop | not moving | none — **suppress** | nothing to stop |
+| toggle | any | 1 pulse (best-effort) | advance the cycle |
+| open/close | UNKNOWN | 1 pulse (best-effort, **fail-open** D-19) | act rather than freeze |
 
-### Multi-pulse execution
+### Multi-pulse execution (as-built)
 
-For the two-pulse cases, the robust pattern is **closed-loop**: pulse → wait for the i4 to report the
-intermediate `STOPPED_*` state → pulse again. Because the i4 may be offline (D-10), S1 also needs a
-**timed-delay fallback** (blind second pulse after the bench-tuned delay). Decide the primary path in
-Phase 3; both are bounded by the same minimum inter-pulse delay.
+The implemented path is a **timed rolling sequencer** (`pulseSeq`/`pulseStep`, fixed `PULSE_GAP_MS`): for
+the 2- and 3-pulse cases it fires the pulses blind at the bench-tuned gap, because the i4 may be offline
+(D-10). A full sequence is **pulse-locked** (no new command interrupts it). See spec 14 for the timings.
 
-### Remaining edge (bench item, Q-03)
+### STOPPED-resume (Q-03 — mechanism done, physical model is a real-door item)
 
-The `STOPPED_OPENING` + `open` and `STOPPED_CLOSING` + `close` "resume the same direction" cases are
-awkward: the unit's next start always *reverses*, so resuming the same direction isn't a single pulse.
-Confirm the exact pulse count/behaviour on hardware before encoding it — most real UX here is "press
-again," and the user rarely commands the direction the door was already heading when it stopped.
+"Resume the same direction" from a STOPPED state isn't a single pulse: the unit's next start always
+*reverses*, so continuing takes the **3-pulse dance** (reverse → stop → start) — hardware-validated
+2026-06-11 (relay edge-count = 3). It's tunable: `resumeSameDir:true` (KVS `logic_cfg`) flips which of
+continue/reverse costs 1 vs 3 pulses. The only open item is the *physical* alternation-vs-resume question
+on the **real door** (Q-03, Phase 8) — the controller mechanics are complete.

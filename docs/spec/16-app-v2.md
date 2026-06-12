@@ -1,19 +1,23 @@
 # 16 — Android app v2 (scope & design)
 
-> **Status: IN PROGRESS (2026-06-11).** Supersedes the §4D checklist in [09-phase-plan.md](09-phase-plan.md).
-> v1 (all three transports validated on-device) is the baseline; this is the redesign on top of it.
+> **Status: BUILT + VALIDATED ON-PHONE (2026-06-12).** Supersedes the §4D checklist in
+> [09-phase-plan.md](09-phase-plan.md). v1 (all three transports) is the baseline; this is the redesign on
+> top of it.
 >
-> **All functionality is built (compiles + JVM unit tests pass on the Windows toolchain).** Cyber Garage
-> Control neon theme · main screen (three bands, animated `DoorSchematic`, morphing button, STOPPED
-> split-divider button, connection footer + mono log) · `ActionModel` · `stop` command · `DemoEngine` +
-> Settings toggle (zero comms) · **notifications (3 modes) + both alarms** (`NotifyRules` pure+tested,
-> `Notifier` channels, `NotifyController` latches) · **periodic-wake** (`DoorCheckWorker` WorkManager +
-> `TimeAlarm` AlarmManager exact + `Scheduler`) · permissions/channels · Settings UI for it all · app name
-> + launcher icon. **Demo mode drives the real on-device notifications/alarms** from simulated state.
-> **Remaining = on-phone validation + polish:** notification display / alarm fire / Doze behaviour /
-> exact-alarm prompt (drive via demo), settings-redesign polish, adaptive+monochrome icon layers, and the
-> visual pass (screenshots → iterate). The runtime device-coupled behaviour can only be confirmed on-phone,
-> per the project's validate-on-hardware discipline.
+> **All functionality is built and bench-validated.** Cyber Garage Control neon theme · main screen (three
+> bands, animated `DoorSchematic`, morphing button, STOPPED split-divider button, connection footer + mono
+> log) · `ActionModel` · `stop` command · `DemoEngine` + Settings toggle (zero comms) · **notifications
+> (3 modes) + both alarms** (`NotifyRules` pure+tested, `Notifier` channels, `NotifyController` latches) ·
+> **periodic-wake** (`DoorCheckWorker` WorkManager + `TimeAlarm` AlarmManager exact + `Scheduler`) ·
+> permissions/channels · Settings UI for it all · app name + launcher icon. **Demo mode drives the real
+> on-device notifications/alarms** from simulated state.
+> **Also shipped after the first draft of this spec:** **event-driven MQTT push** (`MqttTransport.onUpdate`)
+> + **out-of-order/stale heartbeat guard** (`GarageApi.isStale`); a **self-clearing action lock**; and
+> **pull-to-refresh connection re-roam** + auto re-roam on a settings change. A Wear OS companion rides the
+> app — see [17-wear-os-exploration.md](17-wear-os-exploration.md).
+> **Validated on-phone 2026-06-12** (HW-VALIDATION): the 8-step functional matrix, all three transports,
+> notifications + both alarms (driven via demo), action lock, and pull-to-refresh re-roam. **Remaining =
+> visual polish only:** settings-redesign grouping, on-phone visual refinement, optional Compose Navigation.
 
 ## Goal
 

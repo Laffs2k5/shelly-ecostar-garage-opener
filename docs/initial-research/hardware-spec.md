@@ -1,5 +1,12 @@
 # EcoStar B Garage Door Automation — Hardware Specification & Design
 
+> **Initial-research snapshot.** The **wiring / BOM / terminal map / motor measurements here are still
+> authoritative** and match the build. The **software / state-machine sections (§4, §7) are early design
+> and superseded** — the shipped design derives state on the **i4 monitor** (not the S1) with a **7-state**
+> model (`STOPPED_OPENING`/`STOPPED_CLOSING`, not a single `STOPPED_MID`). See
+> [docs/spec/02-state-machine.md](../spec/02-state-machine.md) and
+> [docs/spec/01-architecture.md](../spec/01-architecture.md) for the current design.
+
 ## 1. Overview
 
 Smart automation of a Hörmann EcoStar B garage door operator (circa 2006) using two Shelly devices for control and state detection, with full galvanic isolation from the opener's electronics.
@@ -157,7 +164,7 @@ After power failure during travel, first impulse always opens.
 
 ### Manual Reference
 
-Original manual: `Ecostar_B_Garage_Door_Operator.pdf` (TR10C001 RE, 05.2004)
+Original manual: `eurostar garage openener - Installation, Operating and Maintenance Instructions.pdf` (TR10C001 RE, 05.2004)
 Online: https://www.yumpu.com/en/document/view/32460894/ecostar-b-garage-door-operator
 
 ---
@@ -215,7 +222,7 @@ Two optocouplers wired anti-parallel across the motor leads provide galvanic iso
 
 #### Schematic
 
-> Detailed circuit diagram available in `motor-sense-circuit.svg`
+> Detailed circuit diagram available in `motor-sense.svg`
 
 ```mermaid
 graph LR
@@ -262,7 +269,7 @@ graph LR
 
 **Isolation**: 5kV RMS between input and output sides. Zero electrical connection between EcoStar motor circuit and Shelly i4 DC.
 
-A detailed SVG circuit diagram is available: `motor-sense-circuit.svg`
+A detailed SVG circuit diagram is available: `motor-sense.svg`
 
 ### 3.4 Reed Switches
 
@@ -533,8 +540,8 @@ Detailed software design is TBD. High-level intent:
 
 | File | Description |
 |------|-------------|
-| `Ecostar_B_Garage_Door_Operator.pdf` | Original manual (TR10C001 RE, 05.2004) |
-| `motor-sense-circuit.svg` | Optocoupler sensing circuit diagram |
+| `eurostar garage openener - Installation, Operating and Maintenance Instructions.pdf` | Original manual (TR10C001 RE, 05.2004) |
+| `motor-sense.svg` | Optocoupler sensing circuit diagram |
 | `pcb-relays.jpg` | PCB close-up: 3× NAIS relays, terminals 1–7 |
 | `pcb-underside.jpg` | PCB from below showing motor connection |
 | `ecostar-label.jpg` | Unit serial number and specs label |

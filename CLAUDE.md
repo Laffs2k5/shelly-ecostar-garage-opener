@@ -41,20 +41,23 @@ Carry the coffee-timer boot-to-safe pattern: resume persisted state only on a so
 |---|---|---|
 | Device scripts | mJS (JS subset on ESP32) | `device/<name>.js` → `<name>.min.js` (deploy the minified artifact) |
 | Android app | Kotlin + Jetpack Compose, Paho mqttv3 | `app/` (build on Windows — see below) |
+| Wear OS app | Kotlin + Wear Compose; rides the phone over the Data Layer (no own MQTT) | `wear/` (separate Gradle project, **same `applicationId` + signing key** as `app/`; pure logic copied from `app/` and guarded byte-identical by `scripts/check-wear-sync.sh`) |
 | Web fallback | Vanilla HTML/CSS/JS, MQTT over WSS | `web/` |
 | Helper scripts | Bash + curl + Node | `scripts/` |
 | Broker | Local Mosquitto (mTLS) bridged to cloud EMQX | external (mqtt-leiflan) |
-| Dev/test rig | Raspberry Pi Pico + breadboard, simulating the i4's dry-contact inputs | (Phase 2) |
+| Dev/test rig | Raspberry Pi Pico: `main.py` (host-driven inputs) + `door_sim.py` (autonomous "virtual EcoStar" — senses the S1 relay, drives the i4 inputs for a full closed-loop bench test) | `device/test-rig/` |
 
 ## MQTT topics & monitoring (see spec 03)
 
 Two channels, **both kept by design** (do not collapse them):
 
-- `devices/<id>/heartbeat` — **retained**, app status (door state, config version, ts). Immediate-on-connect.
+- `devices/<id>/heartbeat` — **retained**, app status (door state, `rssi`, schema version `v`, `ts`).
+  Immediate-on-connect.
 - `mon/<id>/alive` — **non-retained**, LAN-only infra liveness. **The monitor watches `alive`, never the
   retained heartbeat** (a retained payload would resurrect a dead device on monitor restart).
 - `devices/<id>/online` — retained LWT, firmware-published.
-- `devices/<controller-id>/command` — open/close/toggle to the controller.
+- `devices/<controller-id>/command` — open/close/toggle/**stop** to the controller. (Config tuning is via
+  KVS `logic_cfg`/`wd_cfg` over RPC — there is **no** MQTT config topic.)
 
 Keep `mon/#` off the cloud bridge. Set `status_ntf`/`rpc_ntf` = `false` (else firmware floods the bridge).
 
@@ -73,7 +76,9 @@ Keep `mon/#` off the cloud bridge. Set `status_ntf`/`rpc_ntf` = `false` (else fi
 `scripts/test-device.sh` (Node mock-harness, no hardware) → `scripts/build-device.sh` (minify
 `device/monitor.js` → `.min.js`) → `scripts/deploy-device.sh monitor` (chunked `Script.PutCode` over
 RPC). Observe with `scripts/i4-watch.sh` (raw inputs), `curl http://<i4>/script/<id>/state` (derived
-state), and the Pico rig `scripts/pico.sh` (drive inputs). See spec 12.
+state), and the Pico rig `scripts/pico.sh` (drive inputs). See spec 12. Stability/WiFi surveys:
+`scripts/soak.sh` (24 h device stability) and `scripts/rssi-watch.sh` (overnight RSSI survey at the
+install location — `--summary` for the verdict).
 
 ## Development environment
 

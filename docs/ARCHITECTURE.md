@@ -25,7 +25,7 @@ graph LR
     BTN["wall button (NO)<br/>parallel, Wi-Fi-independent"]
     BR[("local broker<br/>Mosquitto mTLS")]
     CLOUD[("EMQX cloud<br/>(bridge of devices/#)")]
-    APP["Android app / web"]
+    APP["Android app / web / Wear OS watch"]
 
     REED --> I4
     MOT --> I4
@@ -68,17 +68,19 @@ graph LR
 | Where | What |
 |---|---|
 | `device/monitor.js`, `controller.js` (+`.min.js`) | the two mJS scripts (deploy the minified build) |
-| `device/test/` | Node mock-harness unit tests (31) |
-| `device/test-rig/` | Pico MicroPython input simulator (bench testing, spec [12](spec/12-test-rig-and-wiring.md)) |
+| `device/test/` | Node mock-harness unit tests (60) |
+| `device/test-rig/` | Pico MicroPython rig: `main.py` (host-driven inputs) + `door_sim.py` (autonomous "virtual EcoStar"), spec [12](spec/12-test-rig-and-wiring.md) |
 | `app/` | Android app (Kotlin/Compose, Paho) — `no.leiflan.garage` |
+| `wear/` | Wear OS companion (Kotlin/Compose) — same `applicationId`; rides the phone over the Data Layer (spec [17](spec/17-wear-os-exploration.md)); shared pure logic guarded by `check-wear-sync.sh` |
 | `web/` | cloud-WSS control page |
-| `scripts/` | build/deploy/observe/test tooling (`*-device.sh`, `pico.sh`, `i4-watch.sh`, `mqtt-{sub,pub}.sh`, `win-build.sh`) |
+| `scripts/` | build/deploy/observe/test tooling (`*-device.sh`, `test-web.sh`, `pico.sh`, `i4-watch.sh`, `i4-scenario.sh`, `mqtt-{sub,pub}.sh`, `soak.sh`, `rssi-watch.sh`, `win-build.sh`, `check-wear-sync.sh`) |
 | `docs/spec/` | numbered design docs + `INDEX.md`; decisions/open-Qs in [08](spec/08-decisions-and-open-questions.md); plan in [09](spec/09-phase-plan.md) |
 | `docs/testing/` | REGRESSION, AI-TEST-GUIDE, HW-VALIDATION |
 | `private/` (gitignored) | real device certs + network inventory + the lessons guide; app creds live in Bitwarden |
 
 ## Status
 
-Device tier (i4 monitor, S1 controller) built + hardware-verified; clients built (web tested; app compiles
-+ unit-tested + CI-green); watchdog validated; CI/CD green. Remaining: on-phone app test, the real garage
-install (wire-up + commissioning), and going public. See [09-phase-plan.md](spec/09-phase-plan.md).
+Device tier (i4 monitor, S1 controller) built + hardware-verified; clients built and bench-validated —
+app + Wear OS watch functionally tested on-device across all three transports incl. background drive
+(HW-VALIDATION 2026-06-12); web tested; watchdog validated; CI/CD green. Remaining: the real garage
+install (wire-up + commissioning — Q-02/Q-03/RSSI) and going public. See [09-phase-plan.md](spec/09-phase-plan.md).

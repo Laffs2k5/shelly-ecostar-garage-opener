@@ -7,18 +7,20 @@ Shelly devices, with full galvanic isolation from the opener electronics.
 
 ## Scope (v1)
 
-- Remote open/close over local WiFi (and optionally internet via cloud-bridged MQTT).
+- Remote open/close + a safety **stop** (halt a moving door) over local WiFi (and optionally internet via
+  cloud-bridged MQTT).
 - Full door state tracking: `CLOSED`, `OPENING`, `OPEN`, `CLOSING`, `STOPPED_OPENING`,
   `STOPPED_CLOSING`, `UNKNOWN`.
 - Physical wall button and RF remotes keep working with no WiFi/Shelly/broker dependency.
 - Door state published to MQTT for any subscriber (incl. the layer-3 monitor).
+- Clients: an Android app, a Wear OS watch companion (rides the phone), and a web fallback.
 
 ## Out of scope / deferred
 
 - Visual confirmation (camera) before remote close — a possible future addition, **not** required for
   remote operation (D-11).
 - Obstruction / safety sensing beyond what the EcoStar already enforces.
-- Android app & web client — later phases (the device tier comes first).
+- (The Android app, Wear OS watch, and web client are now built and bench-validated — see spec 16/17.)
 
 ## Hardware summary
 

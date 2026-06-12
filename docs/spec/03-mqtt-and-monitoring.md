@@ -7,11 +7,14 @@ Do **not** collapse them.
 
 | Topic | Retain | Consumer | Purpose |
 |---|---|---|---|
-| `devices/<id>/heartbeat` | **YES** | app / web | Application status: door state, last direction, config version, ts. Retained so a client gets the current picture immediately on connect. |
+| `devices/<id>/heartbeat` | **YES** | app / web | Application status: door state (+ `dir` on the monitor), `rssi`, schema version `v`, `ts`. Retained so a client gets the current picture immediately on connect. |
 | `mon/<id>/alive` | **NO** | layer-3 monitor | Pure infra liveness. Payload irrelevant. LAN-only, staleness-based (`expire_after`). |
 | `devices/<id>/online` | YES (LWT) | both | Firmware-published last-will connect/disconnect. |
 | `devices/<controller-id>/command` | NO | controller (S1) | open / close / toggle / stop from the outside world (`stop` = safety halt, only acts on a moving door). |
-| `devices/<controller-id>/config` | YES | controller (S1) | Version-gated config (rejects `v <= current`). |
+
+> **Config tuning is via KVS** (`logic_cfg`/`wd_cfg` over RPC), **not MQTT.** An earlier idea of a
+> version-gated `devices/<controller-id>/config` topic was **not implemented** — the controller subscribes
+> only to the command topic (avoids extra broker ACL/surface; KVS survives reboots and is simpler).
 
 `<id>` is the per-device id (the i4 publishes door state + its own alive; S1 publishes command-status +
 its own alive). Both devices appear in `mon/#`.

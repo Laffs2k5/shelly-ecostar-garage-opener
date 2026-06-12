@@ -1,11 +1,17 @@
 # Bench testing session — plan (run at the house; not a calendar item, just noted)
 
+> **DONE 2026-06-12 — sections 1–4 all passed.** Executed as the full closed-loop round: 8-step functional
+> matrix + all three transports + watch round-trip + background drive, observed over MQTT; three Wear
+> background-drive bugs found and fixed live. See the two 2026-06-12 entries in `HW-VALIDATION.md`.
+> Only **§5 (real-door items: Q-02/Q-03/RSSI)** remains — deferred to the garage install.
+
 **Goal: final validation of the apps + firmware before moving on.** Interactive: **you configure + tap, I
 observe over MQTT and tell you what to do next.**
 
 **The trick — the Pico runs `device/test-rig/door_sim.py` (a "virtual EcoStar").** It senses the S1 impulse
-and drives the i4 inputs to mimic a real door responding — but **fast** (~3 s travel), like the app's demo
-mode. So everything is the *real* stack, just without the physical door:
+and drives the i4 inputs to mimic a real door responding — but **fast** (~8 s travel — longer than the
+cloud round-trip so transitions don't bunch), like the app's demo mode. So everything is the *real* stack,
+just without the physical door:
 
 ```
 phone / watch  →  S1 (relay impulse)  →  Pico door_sim  →  i4 inputs  →  i4 derive  →  back to phone / watch

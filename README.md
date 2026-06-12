@@ -6,11 +6,12 @@ Smart automation of a **Hörmann EcoStar B** garage door operator using two Shel
 galvanic isolation from the opener's electronics. Remote open/close + full door-state tracking, while
 the physical wall button and RF remotes keep working independently of WiFi.
 
-> Status: **device tier + clients built and verified on the bench.** i4 monitor + S1 controller scripts
-> run on hardware (door-state derivation, command logic, MQTT + HTTP); Android app + web page build and
-> unit-test green in CI. Remaining: on-phone functional test, device hardening, and the real garage
-> install. Design in `docs/spec/` (start at `INDEX.md`); plan in `docs/spec/09-phase-plan.md`.
-> Private repo for now (intended to go public once hardened — see `CLAUDE.md`).
+> Status: **device tier + all clients built and validated on the bench.** i4 monitor + S1 controller
+> scripts run on hardware (door-state derivation, command logic incl. safety `stop`, MQTT + HTTP); the
+> Android app and a Wear OS watch companion are functionally tested on-device across all three transports
+> incl. background drive (HW-VALIDATION 2026-06-12); web page tested; CI green. Remaining: the real garage
+> install (wire-up + commissioning) and going public. Design in `docs/spec/` (start at `INDEX.md`); plan in
+> `docs/spec/09-phase-plan.md`. Private repo for now (intended to go public once hardened — see `CLAUDE.md`).
 
 ## Two devices, two roles
 
@@ -23,14 +24,15 @@ the physical wall button and RF remotes keep working independently of WiFi.
 ## Layout
 
 ```
-device/              mJS scripts (monitor + controller) + Node test harness
-app/                 Android app (Kotlin/Compose) — later phase
-web/                 HTML control page — later phase
-scripts/             Bash/Node helpers (build/minify, deploy, test)
+device/              mJS scripts (monitor + controller) + Node test harness + Pico test-rig
+app/                 Android app (Kotlin/Compose)
+wear/                Wear OS companion (Kotlin/Compose) — rides the phone over the Data Layer
+web/                 HTML control page (cloud-WSS fallback)
+scripts/             Bash/Node helpers (build/minify, deploy, observe, test)
 docs/spec/           Design docs (INDEX.md is the map)
-docs/testing/        Test guides
+docs/testing/        Test guides + HW-validation log
 docs/initial-research/  Original hardware spec, motor-sense circuit, EcoStar manual
-.github/workflows/   CI/CD — later phase
+.github/workflows/   CI/CD (build, release, deploy-pages)
 private/             gitignored: real keys/certs/creds + network inventory + lessons guide
 ```
 

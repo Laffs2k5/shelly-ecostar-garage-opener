@@ -43,7 +43,7 @@ motor. Q-02 + the Q-03 timing/resume edge are **real-door** items carried into P
 
 - [x] Pico MicroPython input simulator + WSL control (`scripts/pico.sh`); observe via `scripts/i4-watch.sh` (spec 12)
 - [x] `device/monitor.js` (+min): derive state → retained heartbeat + `mon/alive` + fire-and-forget POST to S1 + `/state` endpoint
-- [x] Node mock-harness tests (15) — `scripts/test-device.sh`
+- [x] Node mock-harness tests (monitor suite — part of the 60-test `scripts/test-device.sh`)
 - [x] Deployed + running on the live i4 (`scripts/deploy-device.sh`)
 - [x] 4× PS2501 opto board verified (correct mapping, no cross-talk); **door matrix 13/13 PASS** on hardware
 - [x] MQTT end-to-end via `garage-devtool` — every state change observed live
@@ -57,9 +57,10 @@ motor. Q-02 + the Q-03 timing/resume edge are **real-door** items carried into P
 **Goal:** command logic that pulses the EcoStar only when useful.
 
 - [x] `device/controller.js` (+min): door-picture endpoint (i4 POST), commands via MQTT + local HTTP,
-  spec-02 pulse logic (suppress / 1 / 2-pulse stop-then-reverse — D-09/D-19), 0.5 s relay pulse,
+  spec-02 pulse logic (suppress / 1 / 2-pulse stop-then-reverse / **3-pulse STOPPED-continue**, with the
+  `stop` command and `resumeSameDir` tunable — D-09/D-19), 0.5 s relay pulse,
   retained heartbeat + `mon/alive`; boot-to-safe by construction (relay `initial_state:off`)
-- [x] Node tests (12); 27 total pass
+- [x] Node tests (controller suite); **60 total device tests pass**
 - [x] Deployed + running on S1 (.161); relay configured detached/off/auto-off 0.5 s
 - [x] **End-to-end on hardware:** Pico→i4→S1 picture→decision correct; suppression + 2-pulse reverse
   confirmed; commands over **HTTP and MQTT**; i4 `controller_url` persisted in KVS
@@ -72,9 +73,10 @@ button-with-broker-down (verify at install).
 
 ---
 
-## Phase 4 — Clients: Android app + web — 💻 mostly offline
+## Phase 4 — Clients: Android app + Wear OS watch + web — 💻 mostly offline
 
-**Goal:** a two-device-aware phone app + an HTML fallback to see door state and send open/close/toggle.
+**Goal:** a two-device-aware phone app + a Wear OS companion + an HTML fallback to see door state and send
+open/close/stop.
 
 ### 4A — Broker/cloud onboarding for clients — [x] ISSUED
 - [x] **`garage-app`** LAN cert (mTLS-only, CN=username, no password, broad `devices/#`) + cloud
@@ -105,9 +107,9 @@ button-with-broker-down (verify at install).
 - [ ] **UI/UX polish pass** (low-priority — functionality at install is the priority; do whenever):
   show in Settings *which* CA / `.p12` are imported (cert CN / status); general visual tidy-up
 
-### 4D — App v2 overhaul — IN PROGRESS
-**Full scope & design: [spec 16](16-app-v2.md).** Building headless (compile + JVM unit tests); visual +
-device-coupled bits validate on-phone with the user.
+### 4D — App v2 overhaul — ✅ built + validated on-phone (2026-06-12); polish items remain
+**Full scope & design: [spec 16](16-app-v2.md).** Built headless (compile + JVM unit tests); visual +
+device-coupled bits validated on-phone + on-watch across all three transports (HW-VALIDATION 2026-06-12).
 - [x] **Cyber Garage Control neon theme** (Compose Color/Type/Theme) — dark, cyan/orange, mono readouts
 - [x] **Main screen rebuilt** — three bands: BrandBar · animated DoorSchematic (Canvas) + state word +
   mono subtext · action band · connection footer with mono history log
@@ -126,38 +128,57 @@ device-coupled bits validate on-phone with the user.
 - [x] **Settings: notification mode + both alarms** added & persisted
 - [ ] **Settings redesign polish** (auth/certs → submenu; group the new controls visually)
 - [x] **Adaptive/monochrome launcher layers** — built from the brand mark (foreground/background/monochrome)
+- [x] **Event-driven MQTT push** (`MqttTransport.onUpdate`) + **out-of-order/stale heartbeat guard**
+  (`GarageApi.isStale`) — prompt OPENING render + no backward flash on the cloud path (HW-VALIDATION 2026-06-12)
+- [x] **Self-clearing action lock** (block rapid re-taps, released on state change, never perma-block)
+- [x] **Pull-to-refresh connection re-roam** + **auto re-roam on settings change** (a transport change takes
+  effect without an app restart)
 - [ ] On-phone visual refinement (screenshots → iterate)
 - [ ] **Compose Navigation** if/when a second screen lands (settings is currently a toggle-swap)
 
-**On-phone validation checklist (next session):** notification appears/clears per mode; open-too-long +
-time-of-day alarms fire (drive via demo: set mode=always / threshold=1 min / time=now); periodic worker runs
-through Doze; exact-alarm permission prompt; visual pass on the neon screens.
+**On-phone validation — ✅ done 2026-06-12:** notifications + both alarms fire (driven via demo); the full
+8-step functional matrix, all three transports, the action lock, and pull-to-refresh re-roam all verified
+on the phone (HW-VALIDATION). Remaining = visual refinement + the optional Settings/Navigation polish above.
+
+### 4E — Wear OS companion — `wear/` — ✅ built + validated on-watch (2026-06-12)
+**Full scope: [spec 17](17-wear-os-exploration.md).** A standalone Gradle module sharing the phone's
+`applicationId` + signing key; it **rides the phone** over the Data Layer (no own MQTT).
+- [x] Wear Compose UI: single morphing button + state + connectivity, neon styling, DEMO stamp
+- [x] **Confirm Yes/No dialog on every command** ("shower tap" guard); watch-side action lock (6 s backstop)
+- [x] Mirrors the phone's door state via a retained DataItem; relays commands back via MessageClient
+- [x] **Background command relay** — `GarageWearService` (WearableListenerService) runs real commands even
+  when the phone app is killed, and **follows the door** (`BackgroundFollow`) so the watch tracks to the
+  settled state; validated on broker **and** cloud (HW-VALIDATION 2026-06-12)
+- [x] CI builds the watch APK with the shared signing key; `check-wear-sync.sh` guards the copied pure logic
 
 ### 4C — Web fallback — `web/` — [x] DONE
-- [x] `web/garage-core.js` (pure, **9 Node tests** — `scripts/test-web.sh`) + `web/index.html`:
-  cloud-WSS, door state from `garage-monitor` heartbeat, open/close/toggle to `garage-controller`
-  (non-retained), settings in `localStorage`, random client-id
+- [x] `web/garage-core.js` (pure, **15 Node tests** — `scripts/test-web.sh`) + `web/index.html`:
+  cloud-WSS, door state from `garage-monitor` heartbeat, open/close/stop to `garage-controller`
+  (non-retained), settings in `localStorage`, random client-id; synced neon UI + morphing button +
+  demo mode + animated door graphic (parity with the app)
 
-**Gate:** app + web show correct door state and drive open/close over HTTP-direct **and** broker/cloud;
-HTTP-direct works with the broker down; no identity hardcoded/bundled. *(web ✓; app HTTP-direct ✓ on the
-phone; app broker path pending cert import)*
+**Gate:** ✅ app + web + watch show correct door state and drive open/close over HTTP-direct **and**
+broker/cloud; HTTP-direct works with the broker down; no identity hardcoded/bundled. All three app
+transports validated on-phone, and the watch on-device, 2026-06-12.
 
 ---
 
 ## Phase 5 — Testing & quality — 💻
 
-- [x] Device: Node mock-harness green (27); [x] App: JVM unit tests (16); [x] Web: Node tests (9)
+- [x] Device: Node mock-harness green (60); [x] App: JVM unit tests (41); [x] Web: Node tests (15);
+  [x] Pico `door_sim` host test + [x] `check-wear-sync.sh`
 - [x] `docs/testing/REGRESSION.md` (manual checklist, 🤖/🧑) + `docs/testing/AI-TEST-GUIDE.md` (agent-runnable)
 - [x] `HW-VALIDATION.md` running log (real-hardware observations) + [x] `docs/ARCHITECTURE.md` overview
 
-**Gate:** ✅ automated suites green (31+9+16); regression checklist + agent guide + architecture overview exist.
+**Gate:** ✅ automated suites green (60+15+41); regression checklist + agent guide + architecture overview exist.
 
 ---
 
 ## Phase 6 — CI/CD (GitHub Actions) — ✅ GATE PASSED
 
-- [x] `build.yml` — **js-tests** job (device 27 + web 9 Node tests + `build-device.sh --check`) +
-  **android** job (`testDebugUnitTest` + `assembleDebug`, APK artifact). Verified green (run `success`).
+- [x] `build.yml` — **js-tests** job (device 60 + web 15 Node tests + `build-device.sh --check` +
+  `door_sim` host test + `check-wear-sync.sh`) + **android** job (`testDebugUnitTest` + `assembleDebug`
+  for **both** the app and the watch APK, cert-verified to the shared key). Verified green.
 - [x] `release.yml` — on `v*` tag: signed APK + changelog-from-conventional-commits + GitHub Release.
 - [x] `deploy-pages.yml` — `web/**` → gh-pages (Pages serving activates when the repo goes public).
 - [x] 🔴→✅ **Stable debug keystore**: `DEBUG_KEYSTORE` secret set + explicit `signingConfigs.debug`
@@ -172,15 +193,15 @@ phone; app broker path pending cert import)*
 
 - [x] **Connectivity watchdog** in both scripts (spec 13): reboot on prolonged Wi-Fi/broker loss; KVS
   `wd_cfg` overrides thresholds. **Validated on hardware** (i4): detects real broker disconnect, counter
-  climbs, resets on reconnect, no false reboot; 31 device tests incl. the reboot path. Defaults armed.
+  climbs, resets on reconnect, no false reboot; reboot path covered in the device suite. Defaults armed.
 - [x] **No `reset_reason` gate needed (D-20)** — devices are stateless across reboot (boot always safe);
   `reset_reason` 1/3 observed, nothing depends on it.
-- [ ] **Tunables via config** (optional): pulse gap (Q-03), debounce — version-gated `…/config` topic so a
-  client can change them without reflashing; expose current version in heartbeat
-- [ ] **Motion-timing & pulse safety (Q-16, [spec 14](14-motion-timing-and-pulse-safety.md))** — TDD:
-  failing tests first (incl. **time as a factor**), then fix monitor `derive()` departure asymmetry +
-  controller at-rest guard (`!moving && settledMs >= REST_GUARD`), then eval regression. Engineer for it
-  off the real door; depends on Q-02 for final confidence. `REST_GUARD_MS` becomes a config tunable above
+- [x] **Tunables via config** — done via **KVS** `logic_cfg`/`wd_cfg` over RPC (pulse gaps, lockout, gate,
+  `resumeSameDir`, watchdog thresholds); active values echoed in the heartbeat. The MQTT `…/config` topic
+  idea was **not pursued** (KVS is simpler and avoids extra broker ACL/surface)
+- [x] **Motion-timing & pulse safety (Q-16, [spec 14](14-motion-timing-and-pulse-safety.md))** — DONE,
+  hardware-validated 2026-06-10: monitor `derive()` time-gated motor-direction tiebreaker (`GATE_TICKS`)
+  + controller at-rest guard + full-sequence pulse lockout; timing provisional pending Q-02 at commissioning
 - [x] Q-09: set i4 inputs `factory_reset:false` (stuck reed at boot must not wipe the device) — done
 - [x] Q-10: device Shelly Cloud — **keep enabled** (default); harmless alongside the broker→cloud bridge
 - [x] Q-12: S1 subscribe to i4 heartbeat as fallback — **no** (HTTP-direct is the link; avoids extra ACL/surface)

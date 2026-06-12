@@ -17,14 +17,15 @@ This project splits responsibility across the two Shellys. This is the defining 
 
 ### Shelly 1 Gen3 — CONTROLLING unit
 
-- Receives open/close/toggle commands from the outside world (MQTT `devices/<s1-id>/command`, local
-  HTTP, physical button is separate/parallel).
+- Receives open/close/toggle/**stop** commands from the outside world (MQTT `devices/<s1-id>/command`,
+  local HTTP, physical button is separate/parallel). `stop` is a safety halt (only acts on a moving door).
 - Holds the **latest door picture** pushed by the i4 (last state + last direction), in RAM.
 - Decides whether to actuate: pulses the EcoStar impulse input (relay, 0.5s) **only when it would help**.
   Crucially it **suppresses counterproductive pulses** — e.g. an "open" command while the door is
   already `OPENING` is dropped, because a pulse mid-travel would *stop* the EcoStar (its impulse
   sequence is move → stop → reverse → stop → …).
-- Publishes its own retained heartbeat (relay/command status, config version) + `mon/<s1-id>/alive`.
+- Publishes its own retained heartbeat (relay/command status, last door picture, `rssi`, schema version
+  `v`) + `mon/<s1-id>/alive`.
 
 ```mermaid
 graph LR
@@ -36,7 +37,7 @@ graph LR
     I4["Shelly Plus i4 DC\nMONITORING\nderives door state"]
     S1["Shelly 1 Gen3\nCONTROLLING\ncommand logic + relay"]
     BR[("Local MQTT broker\nmTLS")]
-    CLIENTS["App / Web / Monitor"]
+    CLIENTS["App / Wear OS watch / Web / Monitor"]
     ECO["EcoStar B\nterminals 1+2"]
     BTN["Wall button (NO)\nparallel, WiFi-independent"]
 

@@ -5,15 +5,18 @@ How an agent re-verifies the system without a human. Companion to `REGRESSION.md
 
 ## Prerequisites
 - On the LAN. Devices: i4 `192.0.2.160`, S1 `192.0.2.161` (see `private/network-inventory.md`).
-- Pico rig on Windows `COM5` (simulator firmware = `device/test-rig/main.py`).
+- Pico rig on Windows `COM5` (`device/test-rig/main.py` host-driven inputs, or `door_sim.py` autonomous).
 - Broker certs in `private/` (`ca.crt`, `garage-devtool.{crt,key}`). Windows: Android Studio JBR + SDK.
 
 ## 1. Automated suites (no hardware)
 ```bash
-scripts/test-device.sh                     # device mJS logic, 27 tests
-scripts/test-web.sh                         # web core, 9 tests
-scripts/win-build.sh testDebugUnitTest      # app pure logic, 16 tests (Windows toolchain)
+scripts/test-device.sh                     # device mJS logic, 60 tests
+scripts/test-web.sh                         # web core, 15 tests
+python3 device/test-rig/test_door_sim.py    # Pico door_sim state-machine logic (host mock)
+scripts/check-wear-sync.sh                  # app->wear shared logic byte-identical
+scripts/win-build.sh testDebugUnitTest      # app pure logic, 41 tests (Windows toolchain)
 scripts/win-build.sh assembleDebug          # app compiles -> debug APK
+WB_SRC=wear WB_NAME=garage-wear scripts/win-build.sh assembleDebug   # watch APK
 ```
 
 ## 2. Device deploy (if scripts changed)
@@ -53,5 +56,8 @@ scripts/mqtt-pub.sh devices/garage-controller/command open   # command over the 
 Expect the i4 heartbeat to track each derived state and `mon/<id>/alive` to tick.
 
 ## Last full pass
-2026-06-08: suites 27+9+16 green; `assembleDebug` OK; bench matrix 13/13; commands (HTTP + MQTT) correct;
-MQTT chain observed. Devices `running:true`, RAM stable.
+2026-06-12: full closed-loop round via the Pico `door_sim` "virtual EcoStar" — 8-step functional matrix
+(open/close/stop/reverse/3-pulse-continue/Q-16-suppress/watch round-trip/background drive) over all three
+transports (HTTP-direct, local broker, cloud), observed on MQTT; three Wear background-drive bugs found +
+fixed. Suites 60+15+41 green; `assembleDebug` OK (app + watch). See `HW-VALIDATION.md` (two 2026-06-12
+entries). Earlier 2026-06-08 pass: bench matrix 13/13, devices `running:true`, RAM stable.

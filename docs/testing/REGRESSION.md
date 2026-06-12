@@ -1,8 +1,9 @@
 # Manual regression checklist
 
 What automated tests can't cover — the things a human (or AI driving hardware) verifies. Automated
-suites (run them first): `scripts/test-device.sh` (device, 27), `scripts/test-web.sh` (web, 9),
-`scripts/win-build.sh testDebugUnitTest` (app, 16). 🤖 = an agent can do it from WSL; 🧑 = needs a human.
+suites (run them first): `scripts/test-device.sh` (device, 60), `scripts/test-web.sh` (web, 15),
+`scripts/win-build.sh testDebugUnitTest` (app, 41), `scripts/check-wear-sync.sh`,
+`python3 device/test-rig/test_door_sim.py`. 🤖 = an agent can do it from WSL; 🧑 = needs a human.
 
 ## Device tier — bench rig (i4 + S1 + Pico, no EcoStar)
 
@@ -10,7 +11,9 @@ suites (run them first): `scripts/test-device.sh` (device, 27), `scripts/test-we
 - [ ] 🤖 Door matrix via `scripts/pico.sh` → `scripts/i4-watch.sh` + `curl …/script/1/state`:
   CLOSED→OPENING→OPEN→CLOSING→CLOSED, both STOPPED_* states, reed-coast overlap → correct derived state.
 - [ ] 🤖 Commands to S1 (HTTP `…/command?cmd=` **and** MQTT via `scripts/mqtt-pub.sh`): `open` from CLOSED → 1 relay pulse;
-  `open` while OPEN/OPENING → **suppressed**; `open` while CLOSING → **2 pulses** (~1.2 s apart).
+  `open` while OPEN/OPENING → **suppressed** (`pulses:0`, Q-16); `stop` while moving → 1 pulse.
+- [ ] 🤖 STOPPED resume (D-09 / `resumeSameDir` default off): from STOPPED_OPENING, `close` (reverse) → **1 pulse**;
+  `open` (continue) → **3 pulses** (start-reverse→stop→start). Mirror for STOPPED_CLOSING.
 - [ ] 🤖 MQTT end-to-end: `scripts/mqtt-sub.sh` shows i4 heartbeat tracking each state + `mon/alive`.
 - [ ] 🤖 Boot-to-safe: reboot S1 (`Shelly.Reboot`) → relay stays OFF, no spurious pulse; `reset_reason` 3.
 - [ ] 🤖 Soak ≥ 24 h: both scripts `running:true`, RAM stable, no crash.
@@ -25,6 +28,14 @@ suites (run them first): `scripts/test-device.sh` (device, 27), `scripts/test-we
 - [ ] 🧑 Background the app a while, return: reconnects without a flood; no battery drain spike (Doze).
 - [ ] 🧑 Update test: install a newer CI APK over the old one with `adb install -r` → **no signature error**
   (proves stable CI signing, guide §8).
+
+## Wear OS watch (OnePlus Watch 2R — sideloaded, shares the phone's `applicationId` + signing key)
+
+- [ ] 🧑 Watch mirrors the phone live (state + connectivity); DEMO stamp appears/clears with the phone's demo toggle.
+- [ ] 🧑 Confirm Yes/No dialog on every command; re-tap is briefly blocked (action lock), never perma-blocked.
+- [ ] 🧑 Watch round-trip: command from the watch drives S1 and the phone mirrors the new state.
+- [ ] 🧑 **Background drive**: with the phone app swiped from recents, a watch command still fires the relay
+  (via `GarageWearService`) and the watch tracks the door to its settled state — on broker **and** cloud.
 
 ## Web page (cloud-WSS)
 
