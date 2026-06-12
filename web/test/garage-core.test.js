@@ -21,10 +21,66 @@ test("randomClientId: web-prefixed and varies", function () {
   assert.notEqual(a, b);
 });
 
-test("validCmd / buildCommand", function () {
-  for (const c of ["open", "close", "toggle"]) { assert.ok(G.validCmd(c)); assert.equal(G.buildCommand(c), c); }
+test("validCmd / buildCommand (incl. stop)", function () {
+  for (const c of ["open", "close", "toggle", "stop"]) { assert.ok(G.validCmd(c)); assert.equal(G.buildCommand(c), c); }
   assert.equal(G.validCmd("banana"), false);
   assert.equal(G.buildCommand("banana"), "");
+});
+
+// ---- morphing button parity with the app's ActionModel ----
+test("actionsFor: morphing button per state", function () {
+  assert.deepEqual(G.actionsFor("CLOSED").map(a => a.cmd), ["open"]);
+  assert.deepEqual(G.actionsFor("OPEN").map(a => a.cmd), ["close"]);
+  assert.equal(G.actionsFor("OPENING")[0].cmd, "stop");
+  assert.equal(G.actionsFor("OPENING")[0].tone, "caution");
+  assert.equal(G.actionsFor("CLOSING")[0].cmd, "stop");
+  assert.equal(G.actionsFor(null)[0].cmd, "toggle");   // UNKNOWN -> best-effort
+});
+test("actionsFor: STOPPED is the Open|Close split pair", function () {
+  for (const s of ["STOPPED_OPENING", "STOPPED_CLOSING"]) {
+    assert.ok(G.isSplit(s));
+    assert.deepEqual(G.actionsFor(s).map(a => a.cmd), ["open", "close"]);
+  }
+  assert.equal(G.isSplit("OPEN"), false);
+});
+test("shortLabel drops the parenthetical", function () {
+  assert.equal(G.shortLabel("STOPPED_OPENING"), "Stopped");
+  assert.equal(G.shortLabel("STOPPED_CLOSING"), "Stopped");
+  assert.equal(G.shortLabel("OPENING"), "Opening…");
+  assert.equal(G.shortLabel("CLOSED"), "Closed");
+});
+
+// ---- connection history (mirrors ConnectionUi.pushIfChanged) ----
+test("pushLog: newest-first, capped at 4, dedup on unchanged mode", function () {
+  let log = [];
+  log = G.pushLog(log, "OFFLINE", "t0");
+  const same = G.pushLog(log, "OFFLINE", "t1");
+  assert.equal(same.length, 1);                 // unchanged mode -> no new entry
+  log = G.pushLog(log, "CLOUD", "t2");
+  log = G.pushLog(log, "OFFLINE", "t3");
+  log = G.pushLog(log, "CLOUD", "t4");
+  log = G.pushLog(log, "DEMO", "t5");
+  assert.equal(log.length, 4);                  // capped
+  assert.equal(log[0].mode, "DEMO");            // newest first
+});
+
+// ---- demo simulation (mirrors the app's DemoEngine) ----
+test("createDemo: open auto-completes after travel; stop yields STOPPED", function () {
+  const d = G.createDemo(4000);
+  assert.equal(d.door(0).state, "CLOSED");
+  d.command("open", 0);
+  assert.equal(d.door(1000).state, "OPENING");
+  assert.equal(d.door(4000).state, "OPEN");
+  d.command("close", 4000);
+  d.command("stop", 5000);
+  assert.equal(d.door(5500).state, "STOPPED_CLOSING");
+  d.command("open", 6000);                       // resume from stopped
+  assert.equal(d.door(6500).state, "OPENING");
+});
+test("createDemo: stop is a no-op when not moving", function () {
+  const d = G.createDemo();
+  d.command("stop", 0);
+  assert.equal(d.door(100).state, "CLOSED");
 });
 
 test("parseDoor: valid payload (string and object)", function () {
