@@ -17,20 +17,15 @@ android {
     }
 
     signingConfigs {
-        // §8 (NEW-PROJECT-GUIDE): sign debug with a STABLE keystore so app updates don't wipe data.
-        // CI exports DEBUG_KEYSTORE_FILE (decoded from the DEBUG_KEYSTORE secret) and we use it
-        // explicitly here rather than trusting AGP's default-location magic. Local builds leave the env
-        // unset → AGP's normal debug keystore.
+        // Committed, NON-SENSITIVE debug keystore (password is the universal "android"). One key for
+        // local + CI + the Wear app, so: (a) updates don't wipe data (NEW-PROJECT-GUIDE §8), and (b) the
+        // Wear Data Layer pairs (it requires phone + watch share applicationId AND signing key — spec 17).
+        // This is a throwaway debug-signing identity, not a credential; never used for release.
         getByName("debug") {
-            System.getenv("DEBUG_KEYSTORE_FILE")?.let { ks ->
-                val f = file(ks)
-                if (f.exists()) {
-                    storeFile = f
-                    storePassword = "android"
-                    keyAlias = "androiddebugkey"
-                    keyPassword = "android"
-                }
-            }
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
         }
     }
 

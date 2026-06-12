@@ -62,8 +62,8 @@ import no.leiflan.garage.api.ConnectionUi
 import no.leiflan.garage.api.DemoEngine
 import no.leiflan.garage.api.DoorModel
 import no.leiflan.garage.api.DoorModel.DoorStatus
-import no.leiflan.garage.api.GarageApi
 import no.leiflan.garage.api.GarageApi.ConnectionMode
+import no.leiflan.garage.api.GarageNet
 import no.leiflan.garage.api.MqttTls
 import no.leiflan.garage.api.MqttTransport
 import no.leiflan.garage.api.NotifyRules
@@ -152,19 +152,7 @@ private fun copyToFiles(ctx: Context, uri: Uri, name: String): Boolean = try {
 
 private fun hhmm(): String = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
 
-// --- poll + command (run on IO) ---
-private fun poll(s: Settings): GarageApi.StatusResult {
-    if (s.i4Ip.isNotBlank()) {
-        val local = GarageApi.fetchLocalDoor(s.i4Ip)
-        if (local != null) { MqttTransport.disconnect(); return GarageApi.decide(local, GarageApi.Broker.NONE, null) }
-    }
-    MqttTransport.ensureConnected(s.cloudUser, s.cloudPass)
-    return GarageApi.decide(null, MqttTransport.connectedVia, MqttTransport.lastDoor)
-}
-
-private fun sendCmd(s: Settings, mode: ConnectionMode, cmd: String): Boolean =
-    if (mode == ConnectionMode.HTTP_DIRECT) GarageApi.sendLocalCommand(s.s1Ip, 1, cmd)
-    else MqttTransport.publishCommand(cmd)
+// poll + command now live in GarageNet (shared with the worker + Wear service).
 
 @Composable
 fun AppRoot() {
@@ -221,7 +209,7 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
         } else {
             lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (true) {
-                    val res = withContext(Dispatchers.IO) { poll(s) }
+                    val res = withContext(Dispatchers.IO) { GarageNet.poll(ctx, s) }
                     door = res.status
                     if (res.mode != mode) log = ConnectionUi.pushIfChanged(log, res.mode, hhmm())
                     mode = res.mode
@@ -242,14 +230,16 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
     fun send(cmd: String) {
         if (busy) return
         if (s.demo) { val now = System.currentTimeMillis(); demo.command(cmd, now); door = demo.door(now); return }
-        scope.launch { busy = true; withContext(Dispatchers.IO) { sendCmd(s, mode, cmd) }; busy = false }
+        scope.launch { busy = true; withContext(Dispatchers.IO) { GarageNet.sendCommand(s, mode, cmd) }; busy = false }
     }
 
-    // Watch (Wear Data Layer): relay open/close/stop from the watch into the SAME send() path (real or demo).
-    DisposableEffect(Unit) {
+    // Watch (Wear Data Layer): in DEMO, the foreground app handles relayed commands (the demo brain lives
+    // here). REAL commands are handled by GarageWearService so they work even when this app is backgrounded
+    // — gating on demo here avoids double-execution when both receive the message.
+    DisposableEffect(s.demo) {
         val client = Wearable.getMessageClient(ctx)
         val listener = MessageClient.OnMessageReceivedListener { event ->
-            if (event.path == WearLink.CMD_PATH) {
+            if (event.path == WearLink.CMD_PATH && s.demo) {
                 val cmd = String(event.data)
                 scope.launch { send(cmd) }
             }

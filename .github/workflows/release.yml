@@ -26,29 +26,21 @@ jobs:
           java-version: 17
           cache: gradle
 
-      - name: Decode + validate debug keystore (NEW-PROJECT-GUIDE §8)
-        env:
-          DEBUG_KEYSTORE: ${{ secrets.DEBUG_KEYSTORE }}
-        run: |
-          set -euo pipefail
-          if [ -z "${DEBUG_KEYSTORE:-}" ]; then
-            echo "::error::DEBUG_KEYSTORE secret is required for releases (stable signing). Set it: base64 -w0 debug.keystore"
-            exit 1
-          fi
-          printf '%s' "$DEBUG_KEYSTORE" | base64 -d > "$RUNNER_TEMP/debug.keystore"
-          keytool -list -keystore "$RUNNER_TEMP/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
-          echo "DEBUG_KEYSTORE_FILE=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Generate Gradle wrapper
+      # Both modules sign with the committed debug.keystore (stable + shared) — no secret needed.
+      - name: Build phone debug APK
         working-directory: app
-        run: gradle wrapper
+        run: |
+          gradle wrapper
+          ./gradlew assembleDebug --no-daemon --console=plain
 
-      - name: Build debug APK
-        working-directory: app
-        run: ./gradlew assembleDebug --no-daemon --console=plain
+      - name: Build watch debug APK
+        working-directory: wear
+        run: |
+          gradle wrapper
+          ./gradlew assembleDebug --no-daemon --console=plain
 
       - name: Generate changelog
         id: notes
@@ -77,6 +69,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: app/build/outputs/apk/debug/*.apk
+          files: |
+            app/build/outputs/apk/debug/*.apk
+            wear/build/outputs/apk/debug/*.apk
           body: ${{ steps.notes.outputs.body }}
           generate_release_notes: false

@@ -18,19 +18,13 @@ android {
     }
 
     signingConfigs {
-        // Mirror the phone app's debug signing so local + CI use the SAME key (Data-Layer same-key rule).
-        // CI exports DEBUG_KEYSTORE_FILE; local builds leave it unset → AGP's default debug keystore
-        // (shared with the phone build on the same machine).
+        // SAME committed debug keystore as the phone app — required so the Wear Data Layer pairs
+        // (phone + watch must share applicationId AND signing key, spec 17). Non-sensitive debug key.
         getByName("debug") {
-            System.getenv("DEBUG_KEYSTORE_FILE")?.let { ks ->
-                val f = file(ks)
-                if (f.exists()) {
-                    storeFile = f
-                    storePassword = "android"
-                    keyAlias = "androiddebugkey"
-                    keyPassword = "android"
-                }
-            }
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
         }
     }
 

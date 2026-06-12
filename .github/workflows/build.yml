@@ -25,9 +25,11 @@ jobs:
         run: node --test 'web/test/*.test.js'
       - name: Minified device artifacts are fresh
         run: bash scripts/build-device.sh --check
+      - name: Wear shared-logic in sync with the phone app
+        run: bash scripts/check-wear-sync.sh
 
   android:
-    name: Android (unit tests + debug APK)
+    name: Android (phone + watch)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,40 +41,39 @@ jobs:
           java-version: 17
           cache: gradle
 
-      - name: Decode + validate debug keystore (stable signing, NEW-PROJECT-GUIDE §8)
-        env:
-          DEBUG_KEYSTORE: ${{ secrets.DEBUG_KEYSTORE }}
-        run: |
-          set -euo pipefail
-          if [ -z "${DEBUG_KEYSTORE:-}" ]; then
-            echo "::warning::DEBUG_KEYSTORE secret not set — the APK will be signed with an auto-generated key that changes per build, so on-device updates can fail with INSTALL_FAILED_UPDATE_INCOMPATIBLE. Set it: base64 -w0 debug.keystore"
-            exit 0
-          fi
-          printf '%s' "$DEBUG_KEYSTORE" | base64 -d > "$RUNNER_TEMP/debug.keystore"
-          keytool -list -keystore "$RUNNER_TEMP/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
-          echo "DEBUG_KEYSTORE_FILE=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
-          echo "debug keystore validated — CI will sign stably"
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Generate Gradle wrapper
+      # Both modules sign debug with the committed debug.keystore (stable + shared) — no secret needed.
+      - name: Phone — unit tests + assemble debug
         working-directory: app
-        run: gradle wrapper
-
-      - name: Unit tests + assemble debug
-        working-directory: app
-        run: ./gradlew testDebugUnitTest assembleDebug --no-daemon --console=plain
-
-      - name: Print APK signer cert (prove stable signature)
-        if: env.DEBUG_KEYSTORE_FILE != ''
         run: |
-          APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
-          SIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | head -1)
-          "$SIGNER" verify --print-certs "$APK" | grep -iE 'SHA-256 digest' || true
+          gradle wrapper
+          ./gradlew testDebugUnitTest assembleDebug --no-daemon --console=plain
 
-      - name: Upload APK artifact
+      - name: Watch — assemble debug
+        working-directory: wear
+        run: |
+          gradle wrapper
+          ./gradlew assembleDebug --no-daemon --console=plain
+
+      - name: Verify phone + watch share the signing cert (Wear Data Layer pairing)
+        run: |
+          set -euo pipefail
+          SIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | head -1)
+          PHONE=$(ls app/build/outputs/apk/debug/*.apk | head -1)
+          WATCH=$(ls wear/build/outputs/apk/debug/*.apk | head -1)
+          echo "phone:"; "$SIGNER" verify --print-certs "$PHONE" | grep -iE 'SHA-256 digest'
+          echo "watch:"; "$SIGNER" verify --print-certs "$WATCH" | grep -iE 'SHA-256 digest'
+
+      - name: Upload phone APK
         uses: actions/upload-artifact@v4
         with:
-          name: debug-apk
+          name: phone-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: Upload watch APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-debug-apk
+          path: wear/build/outputs/apk/debug/*.apk

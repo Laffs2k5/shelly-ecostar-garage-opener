@@ -21,13 +21,27 @@ notifications — they stay as-is) and **not** Phase 3 (standalone). Watch requi
   (deferred until the relay/CI step — see §4). **CI deferred** until feasibility is proven on-device.
 
 **Build split:**
-- **Phase 2a (this rough build):** standalone `wear/` Gradle project (same `applicationId` `no.leiflan.garage`),
-  Wear Compose UI with the morphing button + confirm dialogs + state + connectivity + demo stamp, **driven
-  by a local DemoEngine** so the whole thing is exercisable on the watch over ADB **with no phone relay**.
-  Purpose: validate **ADB distribution** + the on-watch UX. No phone-app changes.
-- **Phase 2b (next):** wire the **Data Layer relay** — phone `WearableListenerService` receives open/close/stop
-  and runs the existing command path; phone publishes door state as a retained `DataItem`; watch real-mode
-  sends via `MessageClient` and listens via `DataClient`. Then unify signing + decide on CI.
+- **Phase 2a — DONE & validated on the Watch 2R (2026-06-12).** Standalone `wear/` Gradle project (same
+  `applicationId`), Wear Compose UI (morphing button + confirm dialogs + state + connectivity + demo stamp).
+  **ADB-over-Wi-Fi sideload confirmed** (corp Wi-Fi has client isolation → had to use a phone hotspot; home
+  Wi-Fi also works). UX approved on-device; confirm Yes/No buttons pushed to opposite edges (anti shower-tap).
+- **Phase 2b — IMPLEMENTED (2026-06-12).** The watch **rides the phone**, no local sim:
+  - Phone `WearLink` publishes the door picture (state/dir/since/mode/demo) as a retained `DataItem` on
+    change; watch reads it (initial + `OnDataChanged`) and mirrors it, showing the DEMO stamp only when the
+    *phone* is in demo. **Foreground sync verified on-device** ("updates promptly, works as expected").
+  - Commands: watch → `MessageClient` → phone. **Foreground demo** is handled by the Activity; **REAL**
+    commands run through `GarageWearService` (`WearableListenerService`) so they work **even when the phone
+    app is backgrounded/closed**, via the shared `GarageNet` path; the watch sends `refresh` on launch to
+    wake the service and pull current state. *(Background real-command execution compiles but needs on-device
+    validation at commissioning — devices unavailable now.)*
+  - **Signing unified:** one **committed debug keystore** (`app/debug.keystore` = `wear/debug.keystore`,
+    non-sensitive, password `android`) signs phone + watch, local + CI → Data Layer always pairs; the old
+    `DEBUG_KEYSTORE` secret is retired.
+  - **CI added:** `build.yml` builds + signs both APKs, verifies they share the signing cert, uploads both;
+    `release.yml` attaches both on a `v*` tag; a `check-wear-sync.sh` guard keeps the wear copies of the
+    shared pure logic byte-identical to the phone app (no shared Gradle module yet).
+- **Remaining:** on-device validation of the **background** relay (real command while phone app closed) at
+  commissioning; optionally extract a **shared Gradle module** to remove the duplicated pure logic.
 
 ## TL;DR / recommendation
 

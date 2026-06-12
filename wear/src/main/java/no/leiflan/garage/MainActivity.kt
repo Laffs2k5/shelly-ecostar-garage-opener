@@ -128,6 +128,10 @@ fun WearApp() {
         }
     }
 
+    // On launch, ask the phone for current state — wakes GarageWearService if the phone app is closed,
+    // so the watch shows live state without the phone app being open.
+    LaunchedEffect(Unit) { relay("refresh") }
+
     MaterialTheme(colors = WearColors) {
         Scaffold(timeText = { TimeText() }) {
             val state = if (linked) door?.state else null
