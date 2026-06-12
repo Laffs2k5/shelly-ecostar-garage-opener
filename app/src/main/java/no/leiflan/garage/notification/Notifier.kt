@@ -20,6 +20,7 @@ object Notifier {
     private const val OPEN_ID = 101
     private const val ALARM_OPEN_LONG_ID = 102   // "open too long" — its own tray entry
     private const val ALARM_TIME_ID = 103        // "open at time-of-day" — separate, so both can show
+    private const val GROUP = "no.leiflan.garage.alerts"   // explicit group so they bundle consistently
 
     fun createChannels(ctx: Context) {
         val mgr = ctx.getSystemService(NotificationManager::class.java)
@@ -41,7 +42,10 @@ object Notifier {
         PendingIntent.FLAG_IMMUTABLE,
     )
 
-    /** Persistent "door open" notification — ongoing + silent (no action buttons, per spec 16). */
+    /**
+     * Persistent "door open" notification — ongoing + silent, and **local-only** so it stays on the phone
+     * (it never bridges to a watch / Phone Link). The two alarms below are NOT local-only, so they can.
+     */
     fun showOpen(ctx: Context, text: String) {
         val n = NotificationCompat.Builder(ctx, STATUS_CH)
             .setSmallIcon(R.mipmap.ic_launcher)
@@ -49,6 +53,8 @@ object Notifier {
             .setContentText(text)
             .setOngoing(true)
             .setSilent(true)
+            .setLocalOnly(true)
+            .setGroup(GROUP)
             .setContentIntent(contentIntent(ctx))
             .build()
         ctx.getSystemService(NotificationManager::class.java).notify(OPEN_ID, n)
@@ -75,6 +81,7 @@ object Notifier {
             .setContentTitle(title)
             .setContentText(text)
             .setAutoCancel(true)
+            .setGroup(GROUP)            // bundle with the others; NOT local-only, so it can reach a watch
             .setContentIntent(contentIntent(ctx))
             .build()
         ctx.getSystemService(NotificationManager::class.java).notify(id, n)
