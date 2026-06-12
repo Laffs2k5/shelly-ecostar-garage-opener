@@ -22,7 +22,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -30,6 +32,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,6 +63,7 @@ import no.leiflan.garage.api.GarageApi
 import no.leiflan.garage.api.GarageApi.ConnectionMode
 import no.leiflan.garage.api.MqttTls
 import no.leiflan.garage.api.MqttTransport
+import no.leiflan.garage.api.NotifyRules
 import no.leiflan.garage.notification.NotifyController
 import no.leiflan.garage.notification.Notifier
 import no.leiflan.garage.notification.Scheduler
@@ -300,6 +305,7 @@ private fun subtext(door: DoorStatus?, mode: ConnectionMode, nowSec: Long): Stri
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(initial: Settings, onSave: (Settings) -> Unit, onClose: () -> Unit) {
     val ctx = LocalContext.current
@@ -320,6 +326,7 @@ fun SettingsScreen(initial: Settings, onSave: (Settings) -> Unit, onClose: () ->
     var openAlarmMin by remember { mutableStateOf(initial.openAlarmMin.toString()) }
     var timeAlarmEnabled by remember { mutableStateOf(initial.timeAlarmEnabled) }
     var timeAlarm by remember { mutableStateOf(initial.timeAlarm) }
+    var showTimePicker by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf("") }
 
     val pickP12 = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -367,7 +374,12 @@ fun SettingsScreen(initial: Settings, onSave: (Settings) -> Unit, onClose: () ->
             Text("Alarm: open at time of day")
             Switch(checked = timeAlarmEnabled, onCheckedChange = { timeAlarmEnabled = it })
         }
-        if (timeAlarmEnabled) field("Time (HH:MM)", timeAlarm) { timeAlarm = it }
+        if (timeAlarmEnabled) {
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Alarm time")
+                OutlinedButton(onClick = { showTimePicker = true }) { Text(timeAlarm) }
+            }
+        }
         Spacer(Modifier.height(12.dp))
 
         field("i4 IP (door state)", i4Ip) { i4Ip = it }
@@ -391,6 +403,22 @@ fun SettingsScreen(initial: Settings, onSave: (Settings) -> Unit, onClose: () ->
             Button(onClick = { onSave(current()) }) { Text("Save") }
             TextButton(onClick = onClose) { Text("Cancel") }
         }
+    }
+
+    if (showTimePicker) {
+        val init = NotifyRules.parseHhmm(timeAlarm).let { if (it < 0) 22 * 60 else it }
+        val tpState = rememberTimePickerState(initialHour = init / 60, initialMinute = init % 60, is24Hour = true)
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            text = { TimePicker(state = tpState) },
+            confirmButton = {
+                TextButton(onClick = {
+                    timeAlarm = NotifyRules.fmtHhmm(tpState.hour * 60 + tpState.minute)
+                    showTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("Cancel") } },
+        )
     }
 }
 

@@ -44,13 +44,15 @@ object NotifyController {
             prefs.edit().putBoolean("open_fired", true).apply()
         }
 
-        // 3) open at time-of-day — once per day
+        // 3) open at time-of-day — once per (day + set time). Keying on the time too means changing the
+        // alarm time re-arms it the same day (so it's testable, and a new time isn't swallowed).
         val alarmMin = NotifyRules.parseHhmm(s.timeAlarm)
         if (alarmMin >= 0) {
-            val firedToday = prefs.getInt("time_fired_day", -1) == today
-            if (NotifyRules.timeAlarmDue(s.timeAlarmEnabled, state, nowMinOfDay, alarmMin, firedToday)) {
+            val key = today * 1440 + alarmMin
+            val firedAlready = prefs.getInt("time_fired_key", -1) == key
+            if (NotifyRules.timeAlarmDue(s.timeAlarmEnabled, state, nowMinOfDay, alarmMin, firedAlready)) {
                 Notifier.showAlarm(ctx, "Garage open", "Still open at ${s.timeAlarm}")
-                prefs.edit().putInt("time_fired_day", today).apply()
+                prefs.edit().putInt("time_fired_key", key).apply()
             }
         }
     }
