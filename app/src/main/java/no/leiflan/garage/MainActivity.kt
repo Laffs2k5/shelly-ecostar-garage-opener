@@ -35,6 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +51,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import com.google.android.gms.wearable.MessageClient
+import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -67,6 +70,7 @@ import no.leiflan.garage.api.NotifyRules
 import no.leiflan.garage.notification.NotifyController
 import no.leiflan.garage.notification.Notifier
 import no.leiflan.garage.notification.Scheduler
+import no.leiflan.garage.wear.WearLink
 import no.leiflan.garage.ui.BrandBar
 import no.leiflan.garage.ui.ConnectionFooter
 import no.leiflan.garage.ui.DemoStamp
@@ -211,6 +215,7 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
                 val openSec = if (d.since in 1L until nowSec) nowSec - d.since else 0L
                 val cal = java.util.Calendar.getInstance()
                 NotifyController.apply(ctx, s, d.state, openSec, cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE), cal.get(java.util.Calendar.DAY_OF_YEAR))
+                WearLink.publishIfChanged(ctx, d.state, d.dir, d.since, m.name, true)
                 delay(1000)
             }
         } else {
@@ -226,6 +231,7 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
                     val openSec = res.status?.let { if (it.since in 1L until nowSec) nowSec - it.since else 0L } ?: 0L
                     val cal = java.util.Calendar.getInstance()
                     NotifyController.apply(ctx, s, res.status?.state, openSec, cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE), cal.get(java.util.Calendar.DAY_OF_YEAR))
+                    WearLink.publishIfChanged(ctx, res.status?.state, res.status?.dir ?: "", res.status?.since ?: 0L, res.mode.name, false)
                     delay(5000)
                 }
             }
@@ -237,6 +243,19 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
         if (busy) return
         if (s.demo) { val now = System.currentTimeMillis(); demo.command(cmd, now); door = demo.door(now); return }
         scope.launch { busy = true; withContext(Dispatchers.IO) { sendCmd(s, mode, cmd) }; busy = false }
+    }
+
+    // Watch (Wear Data Layer): relay open/close/stop from the watch into the SAME send() path (real or demo).
+    DisposableEffect(Unit) {
+        val client = Wearable.getMessageClient(ctx)
+        val listener = MessageClient.OnMessageReceivedListener { event ->
+            if (event.path == WearLink.CMD_PATH) {
+                val cmd = String(event.data)
+                scope.launch { send(cmd) }
+            }
+        }
+        client.addListener(listener)
+        onDispose { client.removeListener(listener) }
     }
 
     val state = door?.state
