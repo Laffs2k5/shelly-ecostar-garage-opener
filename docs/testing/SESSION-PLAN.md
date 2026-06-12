@@ -1,8 +1,11 @@
 # Bench testing session — plan (run when back at the house)
 
 Interactive session: **you tap, I observe + instruct.** Bench = i4 (`192.0.2.160`), S1 (`192.0.2.161`),
-**Pico connected** (COM5, `scripts/pico.sh`), **phone on USB**, **watch reachable over a non-isolated
-network** (phone hotspot or home Wi-Fi — corp Wi-Fi blocks watch adb). Ping me when set up and we go live.
+**Pico connected** (COM5, `scripts/pico.sh`), **phone on USB**, **watch on a non-isolated network** (home
+Wi-Fi — corp Wi-Fi blocks watch adb; use a phone hotspot there). Watch has a **static reservation:
+`192.0.2.162`** on home Wi-Fi, but the **wireless-debugging port still rotates** each session — grab it
+from the watch's Wireless debugging screen, then `adb connect 192.0.2.162:<port>` (pairing persists).
+Ping me when set up and we go live.
 
 ## 0. Pre-flight (do first)
 - **⚠ Uninstall the old phone + watch apps first** — the debug signing key changed (now a committed shared
