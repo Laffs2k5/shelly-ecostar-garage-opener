@@ -24,7 +24,25 @@
 
   .hero { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; }
   #door { width:200px; height:170px; }
-  #panel { transition:height .5s ease, y .5s ease; }
+  /* door panel slides; motion states loop indeterminately (we know direction, not position) */
+  #door .panel { transition:transform .5s ease; }
+  #door.s-closed  .panel { transform:translateY(0); }
+  #door.s-open    .panel { transform:translateY(-96px); }
+  #door.s-stopped .panel { transform:translateY(-58px); }
+  #door.s-unknown { opacity:.35; }
+  #door.s-opening .panel { animation:doorRise 1.7s ease-in-out infinite; }
+  #door.s-closing .panel { animation:doorFall 1.7s ease-in-out infinite; }
+  @keyframes doorRise { 0%{transform:translateY(-6px)} 100%{transform:translateY(-96px)} }
+  @keyframes doorFall { 0%{transform:translateY(-96px)} 100%{transform:translateY(-6px)} }
+  /* travel-direction chevrons (cyan), flowing; flipped for closing */
+  #door .chevs { opacity:0; transition:opacity .3s; }
+  #door.s-opening .chevs, #door.s-closing .chevs { opacity:1; }
+  #door.s-closing .chevs { transform:scaleY(-1); transform-box:fill-box; transform-origin:center; }
+  #door.s-opening .c1, #door.s-closing .c1 { animation:chevFlow 1.2s linear infinite; }
+  #door.s-opening .c2, #door.s-closing .c2 { animation:chevFlow 1.2s linear infinite .2s; }
+  #door.s-opening .c3, #door.s-closing .c3 { animation:chevFlow 1.2s linear infinite .4s; }
+  @keyframes chevFlow { 0%,100%{opacity:.12} 45%{opacity:1} }
+  @media (prefers-reduced-motion: reduce) { #door .panel, #door .chevs polyline { animation:none !important; } }
   .state { font-size:40px; font-weight:700; text-align:center; margin-top:14px; }
   .state.stopped { color:var(--orange); }
   .sub { font-family:var(--mono); font-size:12px; color:var(--mut); letter-spacing:.5px; }
@@ -83,9 +101,20 @@
   </header>
 
   <div class="hero">
-    <svg id="door" viewBox="0 0 200 170" aria-hidden="true">
+    <svg id="door" class="door s-closed" viewBox="0 0 200 170" aria-hidden="true">
+      <defs><clipPath id="op"><rect x="40" y="20" width="120" height="120" rx="4"/></clipPath></defs>
       <rect x="40" y="20" width="120" height="120" fill="#0b0d10" stroke="#00f2ff" stroke-width="2" rx="4"/>
-      <rect id="panel" x="42" y="22" width="116" height="116" fill="#393939" rx="3"/>
+      <g class="panel" clip-path="url(#op)">
+        <rect x="42" y="22" width="116" height="116" fill="#393939" rx="3"/>
+        <line x1="42" y1="52" x2="158" y2="52" stroke="#2b2b2b" stroke-width="2"/>
+        <line x1="42" y1="82" x2="158" y2="82" stroke="#2b2b2b" stroke-width="2"/>
+        <line x1="42" y1="112" x2="158" y2="112" stroke="#2b2b2b" stroke-width="2"/>
+      </g>
+      <g class="chevs" stroke="#00f2ff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <polyline class="c1" points="88,58 100,49 112,58"/>
+        <polyline class="c2" points="88,74 100,65 112,74"/>
+        <polyline class="c3" points="88,90 100,81 112,90"/>
+      </g>
       <path d="M40 140 L160 140 M55 165 L145 165 M40 140 L30 165 M160 140 L170 165 M100 140 L100 165"
             stroke="#00f2ff" stroke-opacity="0.18" stroke-width="1" fill="none"/>
     </svg>
@@ -143,14 +172,15 @@
   function nowSec() { return Math.floor(Date.now() / 1000); }
   function hhmm() { return new Date().toLocaleTimeString(); }
 
-  function fraction(st) { return st === "OPEN" ? 1 : (st === "CLOSED" || !st) ? 0 : 0.5; }
+  var DOOR_CLASS = {
+    CLOSED: "s-closed", OPEN: "s-open", OPENING: "s-opening", CLOSING: "s-closing",
+    STOPPED_OPENING: "s-stopped", STOPPED_CLOSING: "s-stopped", UNKNOWN: "s-unknown"
+  };
 
   function render() {
     var st = door ? door.state : null;
-    // door graphic: panel retracts as it opens
-    var openH = 116, frac = fraction(st), panelH = Math.max(0, openH * (1 - frac));
-    var panel = $("panel"); panel.setAttribute("height", panelH); panel.setAttribute("y", 22);
-    panel.style.opacity = (st && st !== "UNKNOWN") ? "1" : "0.3";
+    // door graphic: CSS drives panel position + opening/closing animation off this state class
+    $("door").setAttribute("class", "door " + (DOOR_CLASS[st] || "s-unknown"));
 
     var stateEl = $("state");
     stateEl.textContent = door ? G.shortLabel(st) : "—";
