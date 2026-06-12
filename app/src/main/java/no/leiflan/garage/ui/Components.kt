@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -28,8 +29,10 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import no.leiflan.garage.R
 import no.leiflan.garage.api.ActionModel
 import no.leiflan.garage.api.ActionModel.Tone
 import no.leiflan.garage.ui.theme.CautionOrange
@@ -43,6 +46,12 @@ import no.leiflan.garage.ui.theme.OnSurfaceVar
 
 private fun toneColor(t: Tone) = if (t == Tone.PRIMARY) NeonCyan else CautionOrange
 private fun onToneColor(t: Tone) = if (t == Tone.PRIMARY) OnCyan else OnOrange
+private fun iconFor(cmd: String): Int = when (cmd) {
+    "open" -> R.drawable.ic_open
+    "close" -> R.drawable.ic_close
+    "stop" -> R.drawable.ic_stop
+    else -> R.drawable.ic_engage
+}
 
 /** A diffused neon glow behind [content], the DESIGN.md "active glow" in place of a Material shadow. */
 @Composable
@@ -73,9 +82,8 @@ fun NeonActionButton(action: ActionModel.Action, enabled: Boolean, onCmd: (Strin
             modifier = Modifier.fillMaxWidth().height(64.dp),
         ) {
             Row(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterVertically) {
-                if (action.arrow.isNotEmpty()) {
-                    Text(action.arrow, style = MaterialTheme.typography.headlineMedium); Spacer(Modifier.width(10.dp))
-                }
+                Icon(painterResource(iconFor(action.cmd)), contentDescription = null, modifier = Modifier.size(26.dp))
+                Spacer(Modifier.width(12.dp))
                 Text(action.label, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
             }
         }
@@ -105,7 +113,8 @@ private fun Half(action: ActionModel.Action, enabled: Boolean, onCmd: (String) -
         contentAlignment = Alignment.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (action.arrow.isNotEmpty()) { Text(action.arrow, color = OnCyan, style = MaterialTheme.typography.headlineMedium); Spacer(Modifier.width(8.dp)) }
+            Icon(painterResource(iconFor(action.cmd)), contentDescription = null, tint = OnCyan, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(8.dp))
             Text(action.label, color = OnCyan, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
         }
     }
@@ -131,12 +140,12 @@ fun DemoStamp(modifier: Modifier = Modifier) {
 fun BrandBar(onSettings: () -> Unit, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("▦", color = NeonCyan, style = MaterialTheme.typography.headlineMedium)
+            Icon(painterResource(R.drawable.ic_garage), contentDescription = null, tint = NeonCyan, modifier = Modifier.size(30.dp))
             Spacer(Modifier.width(12.dp))
             Text("GARAGE", color = OnSurface, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         }
         Box(Modifier.size(48.dp).clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
-            Text("⚙", color = OnSurfaceVar, style = MaterialTheme.typography.headlineMedium)
+            Icon(painterResource(R.drawable.ic_settings), contentDescription = "Settings", tint = OnSurfaceVar, modifier = Modifier.size(26.dp))
         }
     }
 }
