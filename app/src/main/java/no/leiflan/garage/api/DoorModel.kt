@@ -25,6 +25,12 @@ object DoorModel {
     )
 
     fun label(state: String?): String = LABELS[state] ?: (state ?: "—")
+
+    /** Big-display label: drop the "(opening/closing)" parenthetical — the subtext carries that context. */
+    fun shortLabel(state: String?): String = when (state) {
+        "STOPPED_OPENING", "STOPPED_CLOSING" -> "Stopped"
+        else -> label(state)
+    }
     fun isMoving(state: String?): Boolean = state == "OPENING" || state == "CLOSING"
     fun isStopped(state: String?): Boolean = state == "STOPPED_OPENING" || state == "STOPPED_CLOSING"
 

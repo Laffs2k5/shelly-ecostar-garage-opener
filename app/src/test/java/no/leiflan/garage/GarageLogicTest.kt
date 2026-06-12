@@ -117,6 +117,13 @@ class GarageLogicTest {
         assertTrue(DoorModel.isStopped("STOPPED_OPENING"))
     }
 
+    @Test fun shortLabelDropsParenthetical() {
+        assertEquals("Stopped", DoorModel.shortLabel("STOPPED_OPENING"))
+        assertEquals("Stopped", DoorModel.shortLabel("STOPPED_CLOSING"))
+        assertEquals("Opening…", DoorModel.shortLabel("OPENING"))  // unchanged
+        assertEquals("Closed", DoorModel.shortLabel("CLOSED"))
+    }
+
     @Test fun duration() {
         assertEquals(60L, DoorModel.durationSec(door("OPEN", since = 100), 160))
         assertEquals(0L, DoorModel.durationSec(door("OPEN", since = 0), 160))

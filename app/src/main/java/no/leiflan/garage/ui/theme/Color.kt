@@ -14,7 +14,8 @@ val BgBase = Color(0xFF0A0A0A)          // level 0 — the floor
 val Surface0 = Color(0xFF121212)
 val Surface1 = Color(0xFF1C1C1C)        // level 1 — main card
 val Surface2 = Color(0xFF201F1F)
-val OutlineGray = Color(0xFF2C2C2C)
+val OutlineGray = Color(0xFF849495)     // visible field/border outline (DESIGN.md `outline`)
+val OutlineFaint = Color(0xFF2C2C2C)    // subtle 1px card border (level-1)
 val PanelGray = Color(0xFF393939)       // door-panel fill in the schematic
 
 val OnSurface = Color(0xFFE5E2E1)

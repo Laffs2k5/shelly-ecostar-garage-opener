@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,13 +16,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -74,7 +79,14 @@ class MainActivity : ComponentActivity() {
         MqttTransport.init(this)
         Notifier.createChannels(this)
         Scheduler.apply(this, loadSettings(this))
-        setContent { GarageTheme { AppRoot() } }
+        setContent {
+            GarageTheme {
+                // Root Surface = dark background + light default content colour (fixes black-on-dark text)
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    AppRoot()
+                }
+            }
+        }
     }
 }
 
@@ -213,37 +225,50 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
 
     val state = door?.state
     val actions = ActionModel.actionsFor(state)
-    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp)) {
+    Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp)) {
+        Spacer(Modifier.height(8.dp))
         BrandBar(onSettings = onSettings)
 
-        // --- State band (dominant, centred) ---
-        Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            DoorSchematic(state, Modifier.fillMaxWidth().height(260.dp))
-            Spacer(Modifier.height(24.dp))
-            Text(
-                DoorModel.label(state),
-                style = MaterialTheme.typography.displayMedium,
-                color = if (DoorModel.isStopped(state)) CautionOrange else MaterialTheme.colorScheme.onBackground,
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(subtext(door, mode, nowSec), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        // --- State band: hero + state pulled up under the banner ---
+        Spacer(Modifier.height(20.dp))
+        DoorSchematic(state, Modifier.fillMaxWidth().height(230.dp))
+        Spacer(Modifier.height(16.dp))
+        Text(
+            DoorModel.shortLabel(state),
+            style = MaterialTheme.typography.displayMedium,
+            color = if (DoorModel.isStopped(state)) CautionOrange else MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            subtext(door, mode, nowSec),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
 
-        // --- Action band ---
+        // --- Action band: in the thumb zone, right under the state ---
+        Spacer(Modifier.height(28.dp))
         if (ActionModel.isSplit(state) && actions.size == 2) {
             SplitActionButton(actions[0], actions[1], enabled = !busy, onCmd = ::send)
         } else {
             NeonActionButton(actions[0], enabled = !busy, onCmd = ::send)
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.weight(1f))   // empty space; the footer is pinned to the bottom
+
+        // --- Connection footer: fixed-height block so the header doesn't shift with the log ---
         val online = mode != ConnectionMode.OFFLINE
         ConnectionFooter(
             headerLabel = ConnectionUi.label(mode),
             online = online,
             freshness = if (online) "live" else "—",
             lines = log.map { "${it.time}  ${ConnectionUi.label(it.mode)}" },
+            modifier = Modifier.height(108.dp),
         )
+        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -289,7 +314,17 @@ fun SettingsScreen(initial: Settings, onSave: (Settings) -> Unit, onClose: () ->
         if (uri != null) note = if (copyToFiles(ctx, uri, MqttTls.CA_FILE)) "CA cert imported" else "CA import failed"
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
+    fun current() = Settings(
+        i4Ip.trim(), s1Ip.trim(), monId.trim().ifBlank { "garage-monitor" }, ctrlId.trim().ifBlank { "garage-controller" },
+        localHost.trim(), cloudHost.trim(), cloudUser.trim(), cloudPass, p12Pass, clientId.trim(), demo,
+        notifyMode, notifyAfterMin.toIntOrNull() ?: 5,
+        openAlarmEnabled, openAlarmMin.toIntOrNull() ?: 10,
+        timeAlarmEnabled, timeAlarm.trim(),
+    )
+    // Back from Settings = save + return to the main screen (not exit the app).
+    BackHandler { onSave(current()) }
+
+    Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp)) {
         Text("Settings", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -338,13 +373,7 @@ fun SettingsScreen(initial: Settings, onSave: (Settings) -> Unit, onClose: () ->
         if (note.isNotBlank()) { Spacer(Modifier.height(6.dp)); Text(note, style = MaterialTheme.typography.bodySmall) }
         Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = {
-                onSave(Settings(i4Ip.trim(), s1Ip.trim(), monId.trim().ifBlank { "garage-monitor" }, ctrlId.trim().ifBlank { "garage-controller" },
-                    localHost.trim(), cloudHost.trim(), cloudUser.trim(), cloudPass, p12Pass, clientId.trim(), demo,
-                    notifyMode, notifyAfterMin.toIntOrNull() ?: 5,
-                    openAlarmEnabled, openAlarmMin.toIntOrNull() ?: 10,
-                    timeAlarmEnabled, timeAlarm.trim()))
-            }) { Text("Save") }
+            Button(onClick = { onSave(current()) }) { Text("Save") }
             TextButton(onClick = onClose) { Text("Close") }
         }
     }

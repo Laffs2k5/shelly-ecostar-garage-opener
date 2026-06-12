@@ -114,17 +114,21 @@ private fun Half(action: ActionModel.Action, enabled: Boolean, onCmd: (String) -
 fun BrandBar(onSettings: () -> Unit, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("▦", color = NeonCyan, style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.width(10.dp))
-            Text("GARAGE", color = OnSurface, style = MaterialTheme.typography.titleLarge)
+            Text("▦", color = NeonCyan, style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.width(12.dp))
+            Text("GARAGE", color = OnSurface, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         }
-        Box(Modifier.size(40.dp).clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
-            Text("⚙", color = OnSurfaceVar, style = MaterialTheme.typography.titleLarge)
+        Box(Modifier.size(48.dp).clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
+            Text("⚙", color = OnSurfaceVar, style = MaterialTheme.typography.headlineMedium)
         }
     }
 }
 
-/** Connection footer: a status dot + transport label, then the mono history log (newest-first). */
+/**
+ * Connection footer: a status dot + transport label, then the mono history log (newest-first, max 4).
+ * Top-aligned in a fixed-height block so the header keeps a stable position regardless of how many log
+ * lines are present (it doesn't "grow from the bottom").
+ */
 @Composable
 fun ConnectionFooter(headerLabel: String, online: Boolean, freshness: String, lines: List<String>, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth()) {
@@ -138,6 +142,6 @@ fun ConnectionFooter(headerLabel: String, online: Boolean, freshness: String, li
             )
         }
         Spacer(Modifier.height(8.dp))
-        lines.forEach { Text(it, color = OnSurfaceVar.copy(alpha = 0.6f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(start = 18.dp, top = 2.dp)) }
+        lines.take(4).forEach { Text(it, color = OnSurfaceVar.copy(alpha = 0.6f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(start = 18.dp, top = 2.dp)) }
     }
 }
