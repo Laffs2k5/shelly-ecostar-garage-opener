@@ -115,7 +115,8 @@ device-coupled bits validate on-phone with the user.
   button split by a divider) — `ActionModel`, pure + unit-tested; `stop` added to `GarageApi.VALID`
 - [x] **Demo mode** — `DemoEngine` (pure, unit-tested) + Settings toggle; drives the whole UI with **zero
   real comms**
-- [x] **App name "Garage control"** + launcher icon (iconikai pack 2, square PNGs)
+- [x] **App name "Garage control"** + **custom adaptive launcher icon** built from the cyan garage brand
+  mark (dark + neon-glow background, foreground, monochrome layer) — replaced the glassy iconikai PNGs
 - [x] **Persistent "door open" notification** — 3 modes (always / after ≥X min / off), no action buttons
   (`NotifyRules` pure + tested; `Notifier` status channel) — *display validates on-phone*
 - [x] **Alarm: open > X minutes** · **Alarm: open at time-of-day** (rules tested; alarm channel)
@@ -124,7 +125,8 @@ device-coupled bits validate on-phone with the user.
 - [x] **Demo drives the real notifications/alarms** from simulated state — notif path testable with no devices
 - [x] **Settings: notification mode + both alarms** added & persisted
 - [ ] **Settings redesign polish** (auth/certs → submenu; group the new controls visually)
-- [ ] **Adaptive/monochrome launcher layers** (designer) + on-phone visual refinement (screenshots → iterate)
+- [x] **Adaptive/monochrome launcher layers** — built from the brand mark (foreground/background/monochrome)
+- [ ] On-phone visual refinement (screenshots → iterate)
 - [ ] **Compose Navigation** if/when a second screen lands (settings is currently a toggle-swap)
 
 **On-phone validation checklist (next session):** notification appears/clears per mode; open-too-long +

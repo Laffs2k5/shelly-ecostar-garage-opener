@@ -174,8 +174,9 @@ three-band layout (Identity / State / Action).
   sharp inner / rounded outer corners — *not* two separate buttons; user's call overrides the stopped mock).
 - **Action colours:** cyan for Open/Close/Engage; **orange for Stop** with an active glow during motion.
 - **Connection footer:** transport line (dot + `Wi-Fi · direct live`) + mono history log (newest-first, cap 4).
-- **Launcher icon:** **iconikai pack 2** (neon garage+roof). Square PNGs wired now; proper adaptive
-  foreground/background + monochrome layers later with a designer.
+- **Launcher icon:** **custom adaptive icon built from the cyan garage brand mark** (`ic_launcher_*`
+  vectors: dark + neon-glow background, cyan foreground, monochrome layer). Replaced the glassy iconikai
+  PNGs (user preferred the brand mark). Density PNGs removed; adaptive XML only (minSdk 35).
 - **App name:** **"Garage control"** (also the top-bar wordmark).
 - **Iterate later:** install on phone → screenshots → refine together (per user).
 

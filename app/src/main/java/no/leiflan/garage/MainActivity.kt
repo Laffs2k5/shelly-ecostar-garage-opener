@@ -216,6 +216,11 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
                     if (res.mode != mode) log = ConnectionUi.pushIfChanged(log, res.mode, hhmm())
                     mode = res.mode
                     nowSec = System.currentTimeMillis() / 1000
+                    // Drive notifications from the foreground too, so closing the door in-app clears the
+                    // open/alarm notifications immediately (not on the next background wake).
+                    val openSec = res.status?.let { if (it.since in 1L until nowSec) nowSec - it.since else 0L } ?: 0L
+                    val cal = java.util.Calendar.getInstance()
+                    NotifyController.apply(ctx, s, res.status?.state, openSec, cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE), cal.get(java.util.Calendar.DAY_OF_YEAR))
                     delay(5000)
                 }
             }

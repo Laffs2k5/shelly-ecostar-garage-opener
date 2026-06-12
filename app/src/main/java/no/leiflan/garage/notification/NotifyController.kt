@@ -31,9 +31,12 @@ object NotifyController {
             Notifier.cancelOpen(ctx)
         }
 
-        // 2) open > X minutes — once per open episode (latch clears when the door is no longer open)
+        // 2) open > X minutes — once per open episode (latch clears when the door is no longer open).
+        // When the door is no longer open, also dismiss any standing alarm (open-too-long / time-of-day) —
+        // closing the door makes the alert moot, so it clears immediately (not 15 min later).
         if (!open) {
             prefs.edit().putBoolean("open_fired", false).apply()
+            Notifier.cancelAlarm(ctx)
         } else if (NotifyRules.openTooLong(s.openAlarmEnabled, state, openSec, s.openAlarmMin) &&
             !prefs.getBoolean("open_fired", false)
         ) {

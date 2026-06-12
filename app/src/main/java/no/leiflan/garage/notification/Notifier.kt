@@ -57,6 +57,10 @@ object Notifier {
         ctx.getSystemService(NotificationManager::class.java).cancel(OPEN_ID)
     }
 
+    fun cancelAlarm(ctx: Context) {
+        ctx.getSystemService(NotificationManager::class.java).cancel(ALARM_ID)
+    }
+
     /** A one-off alarm notification (high importance). */
     fun showAlarm(ctx: Context, title: String, text: String) {
         val n = NotificationCompat.Builder(ctx, ALARM_CH)
