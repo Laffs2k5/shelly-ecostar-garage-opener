@@ -36,11 +36,11 @@ object NotifyController {
         // closing the door makes the alert moot, so it clears immediately (not 15 min later).
         if (!open) {
             prefs.edit().putBoolean("open_fired", false).apply()
-            Notifier.cancelAlarm(ctx)
+            Notifier.cancelAlarms(ctx)
         } else if (NotifyRules.openTooLong(s.openAlarmEnabled, state, openSec, s.openAlarmMin) &&
             !prefs.getBoolean("open_fired", false)
         ) {
-            Notifier.showAlarm(ctx, "Garage still open", "Open over ${s.openAlarmMin} min")
+            Notifier.showOpenTooLong(ctx, "Open over ${s.openAlarmMin} min")
             prefs.edit().putBoolean("open_fired", true).apply()
         }
 
@@ -51,7 +51,7 @@ object NotifyController {
             val key = today * 1440 + alarmMin
             val firedAlready = prefs.getInt("time_fired_key", -1) == key
             if (NotifyRules.timeAlarmDue(s.timeAlarmEnabled, state, nowMinOfDay, alarmMin, firedAlready)) {
-                Notifier.showAlarm(ctx, "Garage open", "Still open at ${s.timeAlarm}")
+                Notifier.showTimeAlarm(ctx, "Still open at ${s.timeAlarm}")
                 prefs.edit().putInt("time_fired_key", key).apply()
             }
         }
