@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -63,6 +64,7 @@ import no.leiflan.garage.notification.Notifier
 import no.leiflan.garage.notification.Scheduler
 import no.leiflan.garage.ui.BrandBar
 import no.leiflan.garage.ui.ConnectionFooter
+import no.leiflan.garage.ui.DemoStamp
 import no.leiflan.garage.ui.DoorSchematic
 import no.leiflan.garage.ui.NeonActionButton
 import no.leiflan.garage.ui.SplitActionButton
@@ -257,7 +259,11 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
             NeonActionButton(actions[0], enabled = !busy, onCmd = ::send)
         }
 
-        Spacer(Modifier.weight(1f))   // empty space; the footer is pinned to the bottom
+        // Empty band (footer is pinned below). The Box always holds weight(1f) so showing the DEMO
+        // stamp inside it shifts nothing.
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            if (s.demo) DemoStamp()
+        }
 
         // --- Connection footer: fixed-height block so the header doesn't shift with the log ---
         val online = mode != ConnectionMode.OFFLINE
@@ -279,8 +285,8 @@ private fun subtext(door: DoorStatus?, mode: ConnectionMode, nowSec: Long): Stri
         door == null && mode == ConnectionMode.OFFLINE -> "not connected"
         door == null -> "waiting for device…"
         state == "OPENING" || state == "CLOSING" -> "in motion"
-        state == "STOPPED_OPENING" -> "stopped while opening"
-        state == "STOPPED_CLOSING" -> "stopped while closing"
+        state == "STOPPED_OPENING" -> "while opening"
+        state == "STOPPED_CLOSING" -> "while closing"
         else -> "for " + DoorModel.fmtDur(DoorModel.durationSec(door, nowSec))
     }
 }
@@ -336,7 +342,7 @@ fun SettingsScreen(initial: Settings, onSave: (Settings) -> Unit, onClose: () ->
         // --- Notifications & alarms (spec 16) ---
         Text("Open-door notification", style = MaterialTheme.typography.bodyLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("always" to "Always", "after" to "After min", "off" to "Off").forEach { (v, lbl) ->
+            listOf("always" to "Always", "after" to "After (min)", "off" to "Off").forEach { (v, lbl) ->
                 if (notifyMode == v) Button(onClick = { notifyMode = v }) { Text(lbl) }
                 else OutlinedButton(onClick = { notifyMode = v }) { Text(lbl) }
             }
@@ -374,7 +380,7 @@ fun SettingsScreen(initial: Settings, onSave: (Settings) -> Unit, onClose: () ->
         Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(onClick = { onSave(current()) }) { Text("Save") }
-            TextButton(onClick = onClose) { Text("Close") }
+            TextButton(onClick = onClose) { Text("Cancel") }
         }
     }
 }

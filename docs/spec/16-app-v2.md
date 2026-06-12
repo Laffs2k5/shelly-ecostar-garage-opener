@@ -184,14 +184,31 @@ three-band layout (Identity / State / Action).
 What to commission, in deliverable terms. **Everything vector/SVG** unless noted — Android consumes vector
 drawables; the build converts SVG→`VectorDrawable` XML (Android Studio "Vector Asset", or `svg2vectordrawable`).
 
-### UI icons (in-app)
-- **Format:** SVG on a **24×24 dp** canvas (Material baseline grid), ~**2 dp** padding → ~20×20 live area;
-  single-path where possible, **1.5–2 dp** stroke if outlined, **flat single-colour** (we tint in code, so
-  deliver black `#000` on transparent — no baked colours).
-- **Provide each at 24 dp** (code scales). Also a few at **48 dp** if any icon has fine detail that must
-  stay crisp large.
-- **List:** gear/settings, alarm/clock, notification/bell, demo/flask, info, chevron/back, signal/Wi-Fi,
-  cloud, offline, check/imported, plus the **action glyphs** ▲ open / ▼ close / ■ stop / ⏻ engage.
+### UI icons (in-app) — designer brief (2026-06-11)
+
+The app currently fakes a few of these with Unicode glyphs (`▦`, `⚙`, `▲▼■`) — they render inconsistently
+across devices and aren't on-brand. We want a proper set.
+
+- **Format:** **SVG**, each on a **24×24 dp** artboard (Material baseline grid) with ~**2 dp** safe padding
+  (≈20×20 live area). **Flat, single-colour, black `#000` on transparent** — the app tints them in code
+  (neon cyan / caution orange / grey per context), so **bake no colour**. Outlined style, **2 dp** stroke,
+  rounded joins/caps to match the neon aesthetic. Deliver at 24 dp; add a **48 dp** version for any with
+  fine detail (the action icons especially, since they sit in 64 dp buttons).
+- **Style:** thin neon-line look (think the door schematic) — consistent weight, geometric, slightly rounded.
+
+| Icon | Where it's used | What it represents |
+|---|---|---|
+| **Brand mark** | top-left of the banner, beside "GARAGE" | the app's identity — a garage/door motif; should echo the **launcher icon** (pack 2: garage + roof). Deliver also as a wider **lockup** (mark + "GARAGE" wordmark) option. |
+| **Settings (gear)** | top-right of the banner → opens Settings | configuration |
+| **Open (▲ up)** | action button @ CLOSED / split-pair left | raise/open the door |
+| **Close (▼ down)** | action button @ OPEN / split-pair right | lower/close the door |
+| **Stop (■ square)** | action button while OPENING/CLOSING | halt a moving door (safety) — pairs with caution-orange |
+| **Engage (power/?)** | action button @ UNKNOWN | best-effort toggle when state is unknown |
+| **Connection dot** | footer status (currently a filled dot) | transport health — green=connected, red=offline (a simple disc is fine; optional Wi-Fi/cloud glyphs) |
+| **Settings-row icons** (optional) | notification, open-too-long alarm, time-of-day alarm, demo | bell · clock-with-warning · alarm-clock · flask/"sim" — small leading icons for the settings rows |
+
+Sizes recap: **24 dp** master, **48 dp** for the 4 action icons. One colour (black), transparent bg, SVG.
+The brand mark + action set are the priority; the settings-row icons are nice-to-have.
 
 ### Launcher icon (adaptive)
 - **Adaptive icon = two layers, each 108×108 dp**, with only the inner **72×72 dp "safe zone"** guaranteed

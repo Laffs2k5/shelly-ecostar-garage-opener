@@ -1,6 +1,7 @@
 package no.leiflan.garage.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -106,6 +108,21 @@ private fun Half(action: ActionModel.Action, enabled: Boolean, onCmd: (String) -
             if (action.arrow.isNotEmpty()) { Text(action.arrow, color = OnCyan, style = MaterialTheme.typography.headlineMedium); Spacer(Modifier.width(8.dp)) }
             Text(action.label, color = OnCyan, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
         }
+    }
+}
+
+/** Watermark stamp shown in the empty band while demo mode is active (so sim isn't mistaken for real). */
+@Composable
+fun DemoStamp(modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .rotate(-6f)
+            .border(2.dp, CautionOrange.copy(alpha = 0.85f), RoundedCornerShape(10.dp))
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("DEMO", color = CautionOrange.copy(alpha = 0.9f), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text("SIMULATED · NO DEVICES", color = CautionOrange.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall)
     }
 }
 
