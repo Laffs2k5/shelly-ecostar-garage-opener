@@ -43,6 +43,11 @@ object GarageApi {
 
     fun heartbeatTopic(monitorId: String) = "devices/$monitorId/heartbeat"
 
+    /** True if [incomingTs] is OLDER than [lastTs] (both i4 unixtimes) — i.e. an out-of-order/stale
+     *  heartbeat that should be ignored so the UI never regresses to a past state. ts==0 (missing) is never
+     *  stale. Matters on the broker/cloud path where heartbeats are QoS 0 (unordered). Pure (JVM-tested). */
+    fun isStale(incomingTs: Long, lastTs: Long): Boolean = incomingTs in 1 until lastTs
+
     /** Parse an incoming MQTT message IFF it's the monitor's heartbeat — else null. Drives the event-driven
      *  (push) UI update on the broker/cloud path. Pure (JVM-tested). */
     fun parseHeartbeat(topic: String, monitorId: String, payload: String?): DoorStatus? =

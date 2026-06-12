@@ -187,12 +187,18 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
     var mode by remember { mutableStateOf(ConnectionMode.OFFLINE) }
     var log by remember { mutableStateOf(listOf<ConnectionUi.LogEntry>()) }
     var nowSec by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
+    var lastTs by remember { mutableStateOf(0L) }      // newest i4 ts shown — drop older (out-of-order) heartbeats
     var locked by remember { mutableStateOf(false) }   // action lock: blocks rapid re-taps (see send + below)
     val demo = remember { DemoEngine() }   // demo simulation — zero real comms
 
     // Apply a resolved status to the UI + watch + notifications. Called by the live poll AND, on the
     // broker/cloud path, the instant a heartbeat is PUSHED (MqttTransport.onUpdate) — no waiting for a poll.
     fun applyResult(res: GarageApi.StatusResult) {
+        val st = res.status
+        // Ignore an out-of-order / stale heartbeat (QoS 0 on the broker/cloud path can deliver these),
+        // so the UI never flashes back to a past state. Connection-mode changes still apply.
+        if (st != null && GarageApi.isStale(st.ts, lastTs)) { if (res.mode != mode) { mode = res.mode }; return }
+        if (st != null && st.ts > 0) lastTs = st.ts
         door = res.status
         if (res.mode != mode) log = ConnectionUi.pushIfChanged(log, res.mode, hhmm())
         mode = res.mode

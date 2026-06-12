@@ -91,6 +91,14 @@ class GarageLogicTest {
         assertNull(GarageApi.parseHeartbeat("devices/garage-monitor/heartbeat", "garage-monitor", "garbage"))
     }
 
+    @Test fun staleHeartbeatDetection() {
+        assertTrue(GarageApi.isStale(5, 10))      // older than last -> stale, drop
+        assertFalse(GarageApi.isStale(10, 10))    // same second -> apply
+        assertFalse(GarageApi.isStale(11, 10))    // newer -> apply
+        assertFalse(GarageApi.isStale(0, 10))     // missing ts -> never stale
+        assertFalse(GarageApi.isStale(5, 0))      // no baseline yet -> apply
+    }
+
     @Test fun urls() {
         assertEquals("http://192.0.2.160/script/1/state", GarageApi.stateUrl("192.0.2.160", 1))
         assertEquals("http://192.0.2.161/script/1/command?cmd=open", GarageApi.commandUrl("192.0.2.161", 1, "open"))
