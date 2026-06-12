@@ -1,0 +1,4 @@
+<resources>
+    <!-- Wear apps render via Compose; the activity just needs a no-titlebar device-default base. -->
+    <style name="Theme.GarageWear" parent="@android:style/Theme.DeviceDefault" />
+</resources>

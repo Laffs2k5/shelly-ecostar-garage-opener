@@ -1,0 +1,18 @@
+<!-- Adaptive-icon foreground: the cyan garage brand mark, scaled into the 72dp safe zone of the 108 canvas.
+     (Same geometry as drawable/ic_garage, mapped x'=3x+18, y'=3y+18.) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path
+        android:pathData="M25.5,49.5 L54,28.5 L82.5,49.5"
+        android:strokeColor="#FF00F2FF" android:strokeWidth="6"
+        android:fillColor="#00000000" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path
+        android:pathData="M33,49.5 L33,79.5 L75,79.5 L75,49.5"
+        android:strokeColor="#FF00F2FF" android:strokeWidth="6"
+        android:fillColor="#00000000" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path
+        android:pathData="M42,60 L66,60 M42,69 L66,69"
+        android:strokeColor="#FF00F2FF" android:strokeWidth="6"
+        android:fillColor="#00000000" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

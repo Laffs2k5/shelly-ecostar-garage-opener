@@ -6,6 +6,29 @@
 > (`no.leiflan.garage`, which holds all MQTT/mTLS/HTTP + door state) rather than re-implementing comms on
 > the watch, with a **hard no-Google-Play-publish constraint**.
 
+## Decisions (locked 2026-06-12)
+
+Pursuing **Phase 2 (tethered Wear app)**. **Not** doing Phase 1 notification actions (no actions on
+notifications — they stay as-is) and **not** Phase 3 (standalone). Watch requirements:
+- **Single morphing button** (Open / Close / Stop / Engage) + **state text** — like the phone.
+- **Confirm yes/no dialog on EVERY open/close/stop tap** — anti-accidental ("shower tap") safety.
+- **Connectivity indicator** = small short text at the bottom (no log); switch to **iconography** if text is
+  too big for the round screen.
+- **Same neon Cyber Garage Control colours/styling** as the phone.
+- **Demo mode supported seamlessly**, with a small **DEMO stamp** in the UI.
+- **Notification tap on the watch → opens the watch app/tile** *if feasible* (stretch).
+- **Signing:** make local + CI builds use the **same key** so the Data-Layer same-key rule is satisfied
+  (deferred until the relay/CI step — see §4). **CI deferred** until feasibility is proven on-device.
+
+**Build split:**
+- **Phase 2a (this rough build):** standalone `wear/` Gradle project (same `applicationId` `no.leiflan.garage`),
+  Wear Compose UI with the morphing button + confirm dialogs + state + connectivity + demo stamp, **driven
+  by a local DemoEngine** so the whole thing is exercisable on the watch over ADB **with no phone relay**.
+  Purpose: validate **ADB distribution** + the on-watch UX. No phone-app changes.
+- **Phase 2b (next):** wire the **Data Layer relay** — phone `WearableListenerService` receives open/close/stop
+  and runs the existing command path; phone publishes door state as a retained `DataItem`; watch real-mode
+  sends via `MessageClient` and listens via `DataClient`. Then unify signing + decide on CI.
+
 ## TL;DR / recommendation
 
 - **The Watch 2R is a real Wear OS device and runs third-party apps** — this is fully doable.

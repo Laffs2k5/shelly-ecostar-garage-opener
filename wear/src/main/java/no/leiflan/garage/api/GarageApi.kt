@@ -1,0 +1,86 @@
+package no.leiflan.garage.api
+
+import no.leiflan.garage.api.DoorModel.DoorStatus
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+
+/**
+ * Control logic for the two-device design (spec 01):
+ *  - **door state** is read from the i4 (`garage-monitor`) — HTTP `/state` direct, or its MQTT heartbeat.
+ *  - **commands** go to the S1 (`garage-controller`) — HTTP `/command`, or its MQTT command topic.
+ *
+ * [decide] is pure (JVM-unit-tested). The HTTP-direct calls + JSON parse use Android (`HttpURLConnection`,
+ * `org.json`) and are exercised on-device. The MQTT path lives in MqttTransport (added next).
+ */
+object GarageApi {
+
+    enum class Broker { NONE, LOCAL, CLOUD }
+    enum class ConnectionMode { HTTP_DIRECT, LOCAL_BROKER, CLOUD, OFFLINE }
+    data class StatusResult(val status: DoorStatus?, val mode: ConnectionMode)
+
+    val VALID = listOf("open", "close", "toggle", "stop")
+    fun validCmd(cmd: String): Boolean = VALID.contains(cmd)
+
+    /**
+     * Connection priority (NEW-PROJECT-GUIDE §5): HTTP-direct (i4 on the LAN) > local broker > cloud >
+     * offline. `local` is the door read directly from the i4; `mqttDoor` is the last door from whichever
+     * broker we're on (`mqttVia`). Pure — no I/O.
+     */
+    fun decide(local: DoorStatus?, mqttVia: Broker, mqttDoor: DoorStatus?): StatusResult {
+        if (local != null) return StatusResult(local, ConnectionMode.HTTP_DIRECT)
+        if (mqttDoor != null) when (mqttVia) {
+            Broker.LOCAL -> return StatusResult(mqttDoor, ConnectionMode.LOCAL_BROKER)
+            Broker.CLOUD -> return StatusResult(mqttDoor, ConnectionMode.CLOUD)
+            Broker.NONE -> {}
+        }
+        return StatusResult(null, ConnectionMode.OFFLINE)
+    }
+
+    // ---- HTTP-direct (per-device IP) ----
+    fun stateUrl(i4Ip: String, scriptId: Int = 1) = "http://$i4Ip/script/$scriptId/state"
+    fun commandUrl(s1Ip: String, scriptId: Int, cmd: String) = "http://$s1Ip/script/$scriptId/command?cmd=$cmd"
+
+    /** Parse an i4 `/state` (or heartbeat) JSON body into a door picture, or null. */
+    fun parseDoor(json: String?): DoorStatus? {
+        if (json.isNullOrBlank()) return null
+        return try {
+            val o = JSONObject(json)
+            val st = o.optString("state", "")
+            if (st.isEmpty()) null
+            else DoorStatus(st, o.optString("dir", ""), o.optLong("since", 0L), o.optLong("ts", 0L))
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** GET the i4's `/state` (2 s timeouts). Null on any failure → roam down to the broker. */
+    fun fetchLocalDoor(i4Ip: String, scriptId: Int = 1): DoorStatus? {
+        if (i4Ip.isBlank()) return null
+        return try {
+            val c = (URL(stateUrl(i4Ip, scriptId)).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 2000; readTimeout = 2000; requestMethod = "GET"
+            }
+            val body = c.inputStream.bufferedReader().use { it.readText() }
+            c.disconnect()
+            parseDoor(body)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** GET the S1's `/command?cmd=…` (2 s). Returns true on HTTP 200. */
+    fun sendLocalCommand(s1Ip: String, scriptId: Int, cmd: String): Boolean {
+        if (s1Ip.isBlank() || !validCmd(cmd)) return false
+        return try {
+            val c = (URL(commandUrl(s1Ip, scriptId, cmd)).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 2000; readTimeout = 2000; requestMethod = "GET"
+            }
+            val ok = c.responseCode == 200
+            c.disconnect()
+            ok
+        } catch (_: Exception) {
+            false
+        }
+    }
+}
