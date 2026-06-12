@@ -3,6 +3,41 @@
 What was **actually observed on real hardware** (vs. mocked/inferred) — NEW-PROJECT-GUIDE §10. Newest
 first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 
+## 2026-06-12 — Full app + watch functional test round (closed-loop, observed via MQTT)
+
+End-to-end functional round on the **bench closed loop**: phone app + OnePlus Watch 2R driving the real
+i4+S1, with the Pico running `door_sim.py` as a fast "virtual EcoStar" (TRAVEL 8 s) — it senses the S1
+relay impulse and drives the i4 inputs, so the i4 derives real states from a real motion model. Claude
+observed only (`mosquitto_sub` on both heartbeats, `garage-devtool` cert); user tapped phone/watch.
+Door travel observed ~8–9 s; controller `fires` counter advanced exactly as predicted each step.
+
+| # | Action (source) | Controller | Monitor (i4) | Verdict |
+|---|---|---|---|---|
+| 1 | Open from CLOSED (phone) | `open`, pulses 1, fires→102 | CLOSED→OPENING→OPEN | ✅ |
+| 2 | Close from OPEN (phone) | `close`, pulses 1, fires→103 | OPEN→CLOSING→CLOSED | ✅ |
+| 3 | Stop mid-OPENING (phone) | `stop`, pulses 1, fires→105 (door `moving:true`) | OPENING→STOPPED_OPENING (`0000`) | ✅ |
+| 4 | Reverse: STOPPED_OPENING + close (phone) | `close`, **pulses 1**, fires→106 | →CLOSING | ✅ 1-pulse reverse (D-09) |
+| 5 | Continue: STOPPED_OPENING + open (phone) | `open`, **pulses 3**, fires→109 | CLOSING→STOPPED_CLOSING→OPENING | ✅ 3-pulse dance |
+| 5b | Continue: STOPPED_CLOSING + close (phone, bonus) | `close`, **pulses 3**, fires→112 | OPENING→STOPPED_OPENING→CLOSING→CLOSED | ✅ mirror of #5 |
+| 6 | Q-16: 2nd `open` while OPENING (raw HTTP) | `open`, **pulses 0**, fires unchanged (115) | stays OPENING | ✅ counterproductive pulse suppressed |
+| 7 | Close from watch (Data Layer→phone→S1) | `close`, pulses 1, fires→116 | OPEN→CLOSING→CLOSED | ✅ watch round-trip + state mirror |
+| 8 | **Open from watch, phone app swiped from recents** | `open`, pulses 1, fires→117 | CLOSED→OPENING→OPEN | ✅ background drive (WearableListenerService) |
+
+- **#4/#5 confirm the EcoStar impulse model both ways on the real controller:** reverse-from-stopped = 1
+  pulse; continue-same-direction = the 3-pulse dance, with the i4 deriving the intermediate flicker states
+  from `door_sim`'s genuine micro-moves. #5b is the closing-direction mirror (caught during free play).
+- **#6 Q-16 defense-in-depth proven at both layers:** the app **cannot** emit a counterproductive command
+  (morphing button only offers *Stop* while moving + action-lock blocks re-taps), and the controller
+  **also** suppresses it (`pulses:0`, `fires` flat) when a raw command bypasses the UI. Injected via
+  `GET /script/1/command?cmd=open` on the S1 while OPENING.
+- **#8 closes the "drive when backgrounded" goal (app v2):** watch command fired the real relay with the
+  phone app **not foreground** — `GarageWearService` receives the Data Layer message and calls `GarageNet`.
+- **Event-driven push held up:** OPENING was rendered promptly each cycle (no missed transient), and no
+  stale/out-of-order flash — the `isStale` guard + `door_sim` 8 s travel did their job on the cloud path.
+- Action-lock behaved: `locked:true` on each fire, cleared on the next door-state change (no perma-block).
+- **Provisional:** still the bench loop, not the EcoStar — physical alternation/timing (Q-02/Q-03) and RSSI
+  remain real-door commissioning items.
+
 ## 2026-06-11 — Resource re-assessment (after stop + 3-pulse + cfgObj growth)
 
 Re-check vs. the 2026-06-08 baseline, after the controller gained `stop`, the 3-pulse sequencer,
