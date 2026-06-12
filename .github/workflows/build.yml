@@ -27,6 +27,8 @@ jobs:
         run: bash scripts/build-device.sh --check
       - name: Wear shared-logic in sync with the phone app
         run: bash scripts/check-wear-sync.sh
+      - name: Pico door_sim logic tests
+        run: python3 device/test-rig/test_door_sim.py
 
   android:
     name: Android (phone + watch)
