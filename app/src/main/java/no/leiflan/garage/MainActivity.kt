@@ -160,15 +160,19 @@ private fun sendCmd(s: Settings, mode: ConnectionMode, cmd: String): Boolean =
 @Composable
 fun AppRoot() {
     val ctx = LocalContext.current
-    var showSettings by remember { mutableStateOf(false) }
     var settings by remember { mutableStateOf(loadSettings(ctx)) }
-    val needsSetup = !settings.demo && settings.i4Ip.isBlank() && settings.cloudHost.isBlank()
+    // Open Settings automatically on first run (nothing configured yet), but NEVER trap the user there —
+    // this is just the initial value, not a gate. The app runs with whatever it has: Wi-Fi-direct only,
+    // cloud only, or offline. Back/Cancel always returns to the main screen.
+    var showSettings by remember {
+        mutableStateOf(!settings.demo && settings.i4Ip.isBlank() && settings.cloudHost.isBlank())
+    }
 
     // Ask for notification permission once (Android 13+); harmless if already granted.
     val notifPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     LaunchedEffect(Unit) { notifPerm.launch(Manifest.permission.POST_NOTIFICATIONS) }
 
-    if (showSettings || needsSetup) {
+    if (showSettings) {
         SettingsScreen(settings, onSave = { saveSettings(ctx, it); Scheduler.apply(ctx, it); settings = it; showSettings = false }, onClose = { showSettings = false })
     } else {
         MainScreen(settings, onSettings = { showSettings = true })
