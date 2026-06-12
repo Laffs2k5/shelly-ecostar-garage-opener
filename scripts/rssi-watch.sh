@@ -27,7 +27,8 @@ sample_dev() { # ip -> reachable,rssi,ssid,uptime,sta_ip   (reachable=0 with bla
   wifi=$(curl -s --max-time 6 "http://$ip/rpc/WiFi.GetStatus" 2>/dev/null || echo '')
   sys=$(curl -s --max-time 6 "http://$ip/rpc/Sys.GetStatus" 2>/dev/null || echo '')
   if [ -z "$wifi" ] || [ "$wifi" = '{}' ]; then echo "0,,,,"; return; fi
-  jq -rn --argjson w "${wifi:-{}}" --argjson s "${sys:-{}}" \
+  [ -n "$sys" ] || sys='{}'
+  jq -rn --argjson w "$wifi" --argjson s "$sys" \
     '[1,($w.rssi//""),($w.ssid//""),($s.uptime//""),($w.sta_ip//"")]|map(tostring)|join(",")' 2>/dev/null \
     || echo "0,,,,"
 }
