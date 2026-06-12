@@ -28,7 +28,8 @@ import time
 CHAN_GPIO = {1: 2, 2: 3, 3: 4, 4: 5}   # SW1 closed-reed, SW2 open-reed, SW3 motor-opening, SW4 motor-closing
 SENSE_GP = 15                          # S1 impulse sense (HIGH while the relay is pulsed)
 
-TRAVEL_MS = 3000     # fast, demo-like full travel (real door is ~17 s — we don't wait that long on the bench)
+TRAVEL_MS = 8000     # fast-ish full travel: < real door (~17 s) but > cloud round-trip, so the app doesn't
+                     # render bunched/overlapping transitions on the laggy cloud path (bench realism).
 DEPART_MS = 600      # reed held while the motor starts (> i4 gate ~400 ms, so the gate detects the departure)
 KICK_MS   = 160      # end-of-travel relief reverse-kick (< gate, so it must NOT glitch the end state)
 DEBOUNCE_MS = 250    # ignore re-triggers within this window (one ~0.5 s closure = one impulse)

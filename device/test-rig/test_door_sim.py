@@ -36,7 +36,7 @@ def reset(state="CLOSED", last_dir="closing"):
     pat = {"CLOSED": (1, 0, 0, 0), "OPEN": (0, 1, 0, 0)}.get(state, (0, 0, 0, 0))
     ds._set(*pat)
 
-def settle(target, max_steps=200):
+def settle(target, max_steps=400):
     """Advance the fake clock in 50 ms steps, ticking, until the door reaches `target` at rest."""
     for _ in range(max_steps):
         if ds.state == target and ds.phase == "rest":
