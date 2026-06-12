@@ -29,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -178,6 +179,7 @@ fun AppRoot() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(s: Settings, onSettings: () -> Unit) {
     val ctx = LocalContext.current
@@ -189,6 +191,7 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
     var nowSec by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
     var lastTs by remember { mutableStateOf(0L) }      // newest i4 ts shown — drop older (out-of-order) heartbeats
     var locked by remember { mutableStateOf(false) }   // action lock: blocks rapid re-taps (see send + below)
+    var refreshing by remember { mutableStateOf(false) }   // pull-to-refresh: re-roaming the connection
     val demo = remember { DemoEngine() }   // demo simulation — zero real comms
 
     // Apply a resolved status to the UI + watch + notifications. Called by the live poll AND, on the
@@ -236,6 +239,11 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
                 delay(1000)
             }
         } else {
+            // A settings change (new `s`) restarts this effect — drop any cached connection so the loop
+            // re-roams from scratch through the preferred order (HTTP-direct > local > cloud) against the
+            // NEW config. Without this, an already-open broker connection would survive a transport change
+            // until the app was killed (ensureConnected only upgrades cloud→local, never tears down).
+            withContext(Dispatchers.IO) { MqttTransport.disconnect() }
             lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 // Polls HTTP-direct (no push possible) + keeps the broker connection alive + is the fallback
                 // for the pushed broker updates. Foreground-only (lifecycle-gated), so 2 s is fine.
@@ -259,6 +267,19 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
         scope.launch { withContext(Dispatchers.IO) { GarageNet.sendCommand(s, mode, cmd) } }
     }
 
+    // Pull-to-refresh: force a connection re-roam on demand (a transport change in Settings, or just a
+    // wedged link). Drop the cached connection, then re-decide through the normal preferred order. No-op
+    // in demo (no real comms). Brief spinner; the live loop/push takes over once it lands.
+    fun refresh() {
+        if (s.demo) return
+        refreshing = true
+        scope.launch {
+            withContext(Dispatchers.IO) { MqttTransport.disconnect() }
+            applyResult(withContext(Dispatchers.IO) { GarageNet.poll(ctx, s) })
+            refreshing = false
+        }
+    }
+
     // Watch (Wear Data Layer): in DEMO, the foreground app handles relayed commands (the demo brain lives
     // here). REAL commands are handled by GarageWearService so they work even when this app is backgrounded
     // — gating on demo here avoids double-execution when both receive the message.
@@ -276,54 +297,63 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
 
     val state = door?.state
     val actions = ActionModel.actionsFor(state)
-    Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp)) {
-        Spacer(Modifier.height(8.dp))
-        BrandBar(onSettings = onSettings)
+    // Pull down anywhere on the upper region to force a connection re-roam (preferred order). The upper
+    // region is a scrollable so the gesture has something to ride; the footer stays pinned below it.
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = ::refresh,
+        modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
+    ) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
+            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+                Spacer(Modifier.height(8.dp))
+                BrandBar(onSettings = onSettings)
 
-        // --- State band: hero + state pulled up under the banner ---
-        Spacer(Modifier.height(20.dp))
-        DoorSchematic(state, Modifier.fillMaxWidth().height(230.dp))
-        Spacer(Modifier.height(16.dp))
-        Text(
-            DoorModel.shortLabel(state),
-            style = MaterialTheme.typography.displayMedium,
-            color = if (DoorModel.isStopped(state)) CautionOrange else MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            subtext(door, mode, nowSec),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
+                // --- State band: hero + state pulled up under the banner ---
+                Spacer(Modifier.height(20.dp))
+                DoorSchematic(state, Modifier.fillMaxWidth().height(230.dp))
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    DoorModel.shortLabel(state),
+                    style = MaterialTheme.typography.displayMedium,
+                    color = if (DoorModel.isStopped(state)) CautionOrange else MaterialTheme.colorScheme.onBackground,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    subtext(door, mode, nowSec),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-        // --- Action band: in the thumb zone, right under the state ---
-        Spacer(Modifier.height(28.dp))
-        if (ActionModel.isSplit(state) && actions.size == 2) {
-            SplitActionButton(actions[0], actions[1], enabled = !locked, onCmd = ::send)
-        } else {
-            NeonActionButton(actions[0], enabled = !locked, onCmd = ::send)
+                // --- Action band: in the thumb zone, right under the state ---
+                Spacer(Modifier.height(28.dp))
+                if (ActionModel.isSplit(state) && actions.size == 2) {
+                    SplitActionButton(actions[0], actions[1], enabled = !locked, onCmd = ::send)
+                } else {
+                    NeonActionButton(actions[0], enabled = !locked, onCmd = ::send)
+                }
+
+                if (s.demo) {
+                    Spacer(Modifier.height(24.dp))
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { DemoStamp() }
+                }
+            }
+
+            // --- Connection footer: fixed-height block so the header doesn't shift with the log ---
+            val online = mode != ConnectionMode.OFFLINE
+            ConnectionFooter(
+                headerLabel = ConnectionUi.label(mode),
+                online = online,
+                freshness = if (online) "live" else "—",
+                lines = log.map { "${it.time}  ${ConnectionUi.label(it.mode)}" },
+                modifier = Modifier.height(108.dp),
+            )
+            Spacer(Modifier.height(8.dp))
         }
-
-        // Empty band (footer is pinned below). The Box always holds weight(1f) so showing the DEMO
-        // stamp inside it shifts nothing.
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            if (s.demo) DemoStamp()
-        }
-
-        // --- Connection footer: fixed-height block so the header doesn't shift with the log ---
-        val online = mode != ConnectionMode.OFFLINE
-        ConnectionFooter(
-            headerLabel = ConnectionUi.label(mode),
-            online = online,
-            freshness = if (online) "live" else "—",
-            lines = log.map { "${it.time}  ${ConnectionUi.label(it.mode)}" },
-            modifier = Modifier.height(108.dp),
-        )
-        Spacer(Modifier.height(8.dp))
     }
 }
 

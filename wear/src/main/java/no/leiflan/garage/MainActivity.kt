@@ -63,9 +63,12 @@ import no.leiflan.garage.ui.theme.Surface1
 private const val STATE_PATH = "/garage/state"
 private const val CMD_PATH = "/garage/cmd"
 
-// Same guard as the phone (MainActivity.ACTION_LOCK_MS): briefly block re-taps after a command so a
-// "shower tap" can't fire it 3× — but never perma-block (also cleared on the next door-state change).
-private const val ACTION_LOCK_MS = 3000L
+// Briefly block re-taps after a command so a "shower tap" can't fire it 3× — but never perma-block (also
+// cleared on the next door-state change). Longer than the phone's 3 s because the watch's worst case is a
+// backgrounded command over CLOUD: the phone service must connect WSS, publish, then follow the door and
+// republish the new state back here — that round-trip can exceed 3 s, and the backstop must outlast it so
+// the button doesn't briefly flicker back to the pre-command action before the new state lands.
+private const val ACTION_LOCK_MS = 6000L
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
