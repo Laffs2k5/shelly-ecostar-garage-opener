@@ -126,6 +126,16 @@ class GarageLogicTest {
         assertFalse(f.keepFollowing(f.MAX_MS, false, "OPENING")) // timeout caps a door that never settles
     }
 
+    @Test fun wearPublishSkipsNullStateNotRealUnknown() {
+        // a null/blank reading must NOT clobber the watch's known state with a bogus "Unknown"
+        assertFalse(no.leiflan.garage.wear.WearLink.shouldPublish(null))
+        assertFalse(no.leiflan.garage.wear.WearLink.shouldPublish(""))
+        assertFalse(no.leiflan.garage.wear.WearLink.shouldPublish("   "))
+        // a real i4 state — including the literal UNKNOWN door state — still publishes
+        assertTrue(no.leiflan.garage.wear.WearLink.shouldPublish("UNKNOWN"))
+        assertTrue(no.leiflan.garage.wear.WearLink.shouldPublish("OPENING"))
+    }
+
     @Test fun urls() {
         assertEquals("http://192.0.2.160/script/1/state", GarageApi.stateUrl("192.0.2.160", 1))
         assertEquals("http://192.0.2.161/script/1/command?cmd=open", GarageApi.commandUrl("192.0.2.161", 1, "open"))

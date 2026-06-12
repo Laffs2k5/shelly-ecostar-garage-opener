@@ -16,9 +16,16 @@ object WearLink {
 
     @Volatile private var last = ""
 
+    /** A NULL/blank state means "no reading right now" (e.g. a backgrounded poll before the broker
+     *  connection has a heartbeat). Publishing it would overwrite a known state on the watch with a bogus
+     *  "Unknown", so we skip it. A real i4 "UNKNOWN" state string is non-blank and still publishes. Pure
+     *  (JVM-tested). */
+    fun shouldPublish(state: String?): Boolean = !state.isNullOrBlank()
+
     /** Publish the door picture for the watch — only when it actually changes (DataItems aren't free). */
     fun publishIfChanged(ctx: Context, state: String?, dir: String, since: Long, mode: String, demo: Boolean) {
-        val s = state ?: "UNKNOWN"
+        if (!shouldPublish(state)) return
+        val s = state!!
         val key = "$s|$dir|$since|$mode|$demo"
         if (key == last) return
         last = key
