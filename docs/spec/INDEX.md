@@ -18,6 +18,7 @@ mapping is obvious.
 | [14-motion-timing-and-pulse-safety.md](14-motion-timing-and-pulse-safety.md) | **DEFERRED task:** reed departure asymmetry + cross-device pulse-timing race (Q-16) |
 | [15-garage-i4-observation.md](15-garage-i4-observation.md) | In-garage **i4-only** signal-capture session (observe-only) → input data for Q-02/Q-03/Q-16 |
 | [16-app-v2.md](16-app-v2.md) | Android app v2 scope & design: periodic-wake background model, notification/alarms/demo, morphing button |
+| [17-wear-os-exploration.md](17-wear-os-exploration.md) | **Exploration:** OnePlus Watch 2R companion app — leverage the phone via Data Layer, no-Play-Store sideloading, phased plan |
 
 One-page system overview: [../ARCHITECTURE.md](../ARCHITECTURE.md).
 Source hardware design: [../initial-research/hardware-spec.md](../initial-research/hardware-spec.md).
