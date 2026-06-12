@@ -22,8 +22,10 @@ watch `192.0.2.162` (home Wi-Fi; grab the rotating wireless-debugging port → `
 - **⚠ Uninstall the old phone + watch apps first** — the debug signing key changed (committed shared key);
   installing over the old build fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. Uninstall both, install fresh
   (build via `win-build.sh` or pull both APKs from the latest green CI run / a `v*` release).
-- **Wire the door_sim sense line (one wire):** Pico **3V3 → S1 relay COM**, **S1 relay NO → Pico GP15**
-  (internal pull-down). The ~0.5 s relay closure reads HIGH = one impulse. (Bench only — no EcoStar attached.)
+- **Wire the door_sim sense line (two wires to S1's dry-contact relay terminals `O`/`I`):** Pico **`3V3` →
+  S1 `O`**, and **S1 `I` → Pico `GP15`** (input, internal pull-down). At rest GP15 is LOW; the ~0.5 s relay
+  closure loops the Pico's 3V3 back to GP15 = HIGH = one impulse. `O`/`I` are interchangeable. **Bench only**
+  — at the real install `O`/`I` go to EcoStar terminals 1+2; don't put 3V3 there.
 - **Start the sim:** `mpremote connect COM5 run device/test-rig/door_sim.py` (streams `DOOR …` transitions I
   can watch), or deploy it as `main.py` for the session. It boots the door at CLOSED.
 - **You configure the phone for REAL** (not demo): i4/S1 IPs for HTTP-direct, and/or broker creds. I confirm

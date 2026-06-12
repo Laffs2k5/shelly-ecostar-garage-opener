@@ -13,9 +13,11 @@
 # the end-of-travel relief reverse-kick, so the i4's Q-16 gate is exercised.
 #
 # WIRING (bench only — no real door connected):
-#   S1 relay dry contact -> Pico.  Pico 3V3 -> S1 relay COM ; S1 relay NO -> GP15 (SENSE, internal pull-down).
-#   The ~0.5 s relay closure reads HIGH on GP15 = one impulse. SW1..SW4 = GP2..GP5 as in main.py.
-#   (At the real install the EcoStar sits on those S1 terminals, not the Pico — this sim is bench-only.)
+#   The S1 relay is a dry contact between terminals 'O' and 'I' (closes ~0.5 s per impulse). Wire it across
+#   the Pico's 3V3 and GP15:   Pico 3V3 -> S1 'O' ,  S1 'I' -> Pico GP15 (input, internal pull-down).
+#   At rest GP15 is LOW; the relay closure loops 3V3 back to GP15 = HIGH = one impulse. 'O'/'I' are
+#   interchangeable. SW1..SW4 = GP2..GP5 as in main.py.
+#   (At the real install 'O'/'I' go to EcoStar terminals 1+2, NOT the Pico — this sim is bench-only.)
 #
 # RUN:  mpremote connect COM5 run device/test-rig/door_sim.py   (streams DOOR transitions to the host so the
 #       operator can watch state alongside MQTT). Or deploy as main.py to auto-run at boot for the session.
