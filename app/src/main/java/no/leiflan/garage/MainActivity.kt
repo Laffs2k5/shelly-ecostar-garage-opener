@@ -103,6 +103,7 @@ class MainActivity : ComponentActivity() {
 }
 
 private const val PREFS = "garage_settings"
+private const val ACTION_LOCK_MS = 3000L   // max time a button stays locked after a tap (anti rapid-tap)
 
 data class Settings(
     val i4Ip: String, val s1Ip: String, val monId: String, val ctrlId: String,
@@ -186,7 +187,7 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
     var mode by remember { mutableStateOf(ConnectionMode.OFFLINE) }
     var log by remember { mutableStateOf(listOf<ConnectionUi.LogEntry>()) }
     var nowSec by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
-    var busy by remember { mutableStateOf(false) }
+    var locked by remember { mutableStateOf(false) }   // action lock: blocks rapid re-taps (see send + below)
     val demo = remember { DemoEngine() }   // demo simulation — zero real comms
 
     // Apply a resolved status to the UI + watch + notifications. Called by the live poll AND, on the
@@ -240,11 +241,16 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
         }
     }
     LaunchedEffect(Unit) { while (true) { nowSec = System.currentTimeMillis() / 1000; delay(1000) } }
+    // Release the action lock as soon as the door state actually changes (the button has morphed, so the
+    // next tap is a deliberate new command — e.g. Stop after Open). The timeout in send() is the backstop.
+    LaunchedEffect(door?.state) { locked = false }
 
     fun send(cmd: String) {
-        if (busy) return
+        if (locked) return                                       // ignore rapid re-taps
+        locked = true                                            // disable buttons until the door reacts…
+        scope.launch { delay(ACTION_LOCK_MS); locked = false }   // …or this safety timeout (never perma-block)
         if (s.demo) { val now = System.currentTimeMillis(); demo.command(cmd, now); door = demo.door(now); return }
-        scope.launch { busy = true; withContext(Dispatchers.IO) { GarageNet.sendCommand(s, mode, cmd) }; busy = false }
+        scope.launch { withContext(Dispatchers.IO) { GarageNet.sendCommand(s, mode, cmd) } }
     }
 
     // Watch (Wear Data Layer): in DEMO, the foreground app handles relayed commands (the demo brain lives
@@ -291,9 +297,9 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
         // --- Action band: in the thumb zone, right under the state ---
         Spacer(Modifier.height(28.dp))
         if (ActionModel.isSplit(state) && actions.size == 2) {
-            SplitActionButton(actions[0], actions[1], enabled = !busy, onCmd = ::send)
+            SplitActionButton(actions[0], actions[1], enabled = !locked, onCmd = ::send)
         } else {
-            NeonActionButton(actions[0], enabled = !busy, onCmd = ::send)
+            NeonActionButton(actions[0], enabled = !locked, onCmd = ::send)
         }
 
         // Empty band (footer is pinned below). The Box always holds weight(1f) so showing the DEMO
