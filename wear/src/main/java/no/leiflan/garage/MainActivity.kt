@@ -63,6 +63,10 @@ import no.leiflan.garage.ui.theme.Surface1
 private const val STATE_PATH = "/garage/state"
 private const val CMD_PATH = "/garage/cmd"
 
+// Same guard as the phone (MainActivity.ACTION_LOCK_MS): briefly block re-taps after a command so a
+// "shower tap" can't fire it 3× — but never perma-block (also cleared on the next door-state change).
+private const val ACTION_LOCK_MS = 3000L
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -90,6 +94,7 @@ fun WearApp() {
     var linked by remember { mutableStateOf(false) }   // have we received state from the phone?
     var nowSec by remember { mutableStateOf(System.currentTimeMillis() / 1000) }
     var pending by remember { mutableStateOf<ActionModel.Action?>(null) }
+    var locked by remember { mutableStateOf(false) }   // re-tap guard (see ACTION_LOCK_MS)
 
     fun applyState(m: DataMap) {
         door = DoorStatus(m.getString("state", "UNKNOWN"), m.getString("dir", ""), m.getLong("since", 0L), 0L)
@@ -118,6 +123,10 @@ fun WearApp() {
 
     // Local 1s tick just for the "for Xs" duration text (no networking).
     LaunchedEffect(Unit) { while (true) { nowSec = System.currentTimeMillis() / 1000; delay(1000) } }
+
+    // Release the re-tap lock as soon as the door actually changes state (so it never perma-blocks even if
+    // the timeout coroutine is lost to recomposition).
+    LaunchedEffect(door?.state) { locked = false }
 
     fun relay(cmd: String) {
         scope.launch(Dispatchers.IO) {
@@ -155,12 +164,13 @@ fun WearApp() {
                 Spacer(Modifier.height(10.dp))
 
                 if (linked) {
+                    val onTap: (ActionModel.Action) -> Unit = { if (!locked) pending = it }
                     if (actions.size == 2) {
-                        ActionChip(actions[0]) { pending = it }
+                        ActionChip(actions[0], !locked, onTap)
                         Spacer(Modifier.height(6.dp))
-                        ActionChip(actions[1]) { pending = it }
+                        ActionChip(actions[1], !locked, onTap)
                     } else {
-                        ActionChip(actions[0]) { pending = it }
+                        ActionChip(actions[0], !locked, onTap)
                     }
                 }
 
@@ -189,7 +199,12 @@ fun WearApp() {
                                 colors = ChipDefaults.chipColors(backgroundColor = Surface1, contentColor = OnSurface),
                             )
                             CompactChip(
-                                onClick = { relay(p.cmd); pending = null },
+                                onClick = {
+                                    relay(p.cmd)
+                                    locked = true
+                                    scope.launch { delay(ACTION_LOCK_MS); locked = false }
+                                    pending = null
+                                },
                                 label = { Text("Yes") },
                                 colors = ChipDefaults.chipColors(backgroundColor = NeonCyan, contentColor = OnCyan),
                             )
@@ -202,10 +217,11 @@ fun WearApp() {
 }
 
 @Composable
-private fun ActionChip(action: ActionModel.Action, onTap: (ActionModel.Action) -> Unit) {
+private fun ActionChip(action: ActionModel.Action, enabled: Boolean, onTap: (ActionModel.Action) -> Unit) {
     val cyan = action.tone == ActionModel.Tone.PRIMARY
     Chip(
         onClick = { onTap(action) },
+        enabled = enabled,
         label = { Text("${action.arrow} ${action.label}".trim(), textAlign = TextAlign.Center) },
         colors = ChipDefaults.chipColors(
             backgroundColor = if (cyan) NeonCyan else CautionOrange,

@@ -99,6 +99,33 @@ class GarageLogicTest {
         assertFalse(GarageApi.isStale(5, 0))      // no baseline yet -> apply
     }
 
+    // --- BackgroundFollow: the watch-service post-command follow policy ---
+    @Test fun followNotSettledUntilMovementSeen() {
+        // pre-command rest state (still CLOSED during departure) must NOT end the follow
+        assertFalse(no.leiflan.garage.api.BackgroundFollow.settled(false, "CLOSED"))
+        assertFalse(no.leiflan.garage.api.BackgroundFollow.settled(false, "OPENING"))
+        // while moving, never settled
+        assertFalse(no.leiflan.garage.api.BackgroundFollow.settled(true, "OPENING"))
+        assertFalse(no.leiflan.garage.api.BackgroundFollow.settled(true, "CLOSING"))
+    }
+
+    @Test fun followSettlesOnceMovedThenAtRest() {
+        assertTrue(no.leiflan.garage.api.BackgroundFollow.settled(true, "OPEN"))
+        assertTrue(no.leiflan.garage.api.BackgroundFollow.settled(true, "CLOSED"))
+        // a stop command: moving -> STOPPED_* is a resting end state
+        assertTrue(no.leiflan.garage.api.BackgroundFollow.settled(true, "STOPPED_OPENING"))
+        assertTrue(no.leiflan.garage.api.BackgroundFollow.settled(true, "STOPPED_CLOSING"))
+    }
+
+    @Test fun followLoopStartsContinuesAndStops() {
+        val f = no.leiflan.garage.api.BackgroundFollow
+        assertTrue(f.keepFollowing(0, false, null))            // start: nothing yet -> follow
+        assertTrue(f.keepFollowing(2000, false, "CLOSED"))     // departure overlap, still in window
+        assertTrue(f.keepFollowing(3000, true, "OPENING"))     // moving -> keep
+        assertFalse(f.keepFollowing(4000, true, "OPEN"))       // moved + at rest -> stop
+        assertFalse(f.keepFollowing(f.MAX_MS, false, "OPENING")) // timeout caps a door that never settles
+    }
+
     @Test fun urls() {
         assertEquals("http://192.0.2.160/script/1/state", GarageApi.stateUrl("192.0.2.160", 1))
         assertEquals("http://192.0.2.161/script/1/command?cmd=open", GarageApi.commandUrl("192.0.2.161", 1, "open"))
