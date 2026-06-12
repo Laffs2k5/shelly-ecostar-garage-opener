@@ -41,6 +41,13 @@ object GarageApi {
     fun stateUrl(i4Ip: String, scriptId: Int = 1) = "http://$i4Ip/script/$scriptId/state"
     fun commandUrl(s1Ip: String, scriptId: Int, cmd: String) = "http://$s1Ip/script/$scriptId/command?cmd=$cmd"
 
+    fun heartbeatTopic(monitorId: String) = "devices/$monitorId/heartbeat"
+
+    /** Parse an incoming MQTT message IFF it's the monitor's heartbeat — else null. Drives the event-driven
+     *  (push) UI update on the broker/cloud path. Pure (JVM-tested). */
+    fun parseHeartbeat(topic: String, monitorId: String, payload: String?): DoorStatus? =
+        if (topic == heartbeatTopic(monitorId)) parseDoor(payload) else null
+
     /** Parse an i4 `/state` (or heartbeat) JSON body into a door picture, or null. */
     fun parseDoor(json: String?): DoorStatus? {
         if (json.isNullOrBlank()) return null

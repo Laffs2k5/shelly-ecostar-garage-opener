@@ -71,4 +71,6 @@ dependencies {
     implementation("org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5")
     // JVM unit tests for the pure logic (decide / labels / door model / cert builder).
     testImplementation("junit:junit:4.13.2")
+    // Real org.json on the test classpath (Android's is a stub in JVM unit tests) so JSON parsing is testable.
+    testImplementation("org.json:json:20231013")
 }

@@ -37,6 +37,10 @@ object MqttTransport {
     @Volatile var lastDoor: DoorStatus? = null
         private set
 
+    /** Fired on the Paho callback thread whenever a fresh monitor heartbeat lands — lets the UI update the
+     *  instant state is PUSHED over the broker/cloud subscription, instead of waiting for the next poll. */
+    @Volatile var onUpdate: (() -> Unit)? = null
+
     val isConnected: Boolean get() = client?.isConnected == true
 
     fun init(context: Context) { if (appCtx == null) appCtx = context.applicationContext }
@@ -144,7 +148,7 @@ object MqttTransport {
     }
 
     private fun onMessage(topic: String, payload: String) {
-        if (topic == topicHeartbeat()) GarageApi.parseDoor(payload)?.let { lastDoor = it }
+        GarageApi.parseHeartbeat(topic, monId(), payload)?.let { lastDoor = it; onUpdate?.invoke() }
     }
 
     /** Publish open/close/toggle to the controller (QoS 1, non-retained). Returns false if not connected. */

@@ -62,6 +62,7 @@ import no.leiflan.garage.api.ConnectionUi
 import no.leiflan.garage.api.DemoEngine
 import no.leiflan.garage.api.DoorModel
 import no.leiflan.garage.api.DoorModel.DoorStatus
+import no.leiflan.garage.api.GarageApi
 import no.leiflan.garage.api.GarageApi.ConnectionMode
 import no.leiflan.garage.api.GarageNet
 import no.leiflan.garage.api.MqttTls
@@ -188,6 +189,27 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     val demo = remember { DemoEngine() }   // demo simulation — zero real comms
 
+    // Apply a resolved status to the UI + watch + notifications. Called by the live poll AND, on the
+    // broker/cloud path, the instant a heartbeat is PUSHED (MqttTransport.onUpdate) — no waiting for a poll.
+    fun applyResult(res: GarageApi.StatusResult) {
+        door = res.status
+        if (res.mode != mode) log = ConnectionUi.pushIfChanged(log, res.mode, hhmm())
+        mode = res.mode
+        nowSec = System.currentTimeMillis() / 1000
+        val openSec = res.status?.let { if (it.since in 1L until nowSec) nowSec - it.since else 0L } ?: 0L
+        val cal = java.util.Calendar.getInstance()
+        NotifyController.apply(ctx, s, res.status?.state, openSec, cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE), cal.get(java.util.Calendar.DAY_OF_YEAR))
+        WearLink.publishIfChanged(ctx, res.status?.state, res.status?.dir ?: "", res.status?.since ?: 0L, res.mode.name, false)
+    }
+
+    // Event-driven: update the UI the moment a heartbeat arrives over the broker/cloud subscription.
+    DisposableEffect(s.demo) {
+        if (!s.demo) {
+            MqttTransport.onUpdate = { scope.launch { applyResult(GarageApi.decide(null, MqttTransport.connectedVia, MqttTransport.lastDoor)) } }
+        }
+        onDispose { MqttTransport.onUpdate = null }
+    }
+
     LaunchedEffect(s) {
         if (s.demo) {
             // Fully local simulation: tick the engine, never touch the network — but DO drive the real
@@ -208,19 +230,11 @@ fun MainScreen(s: Settings, onSettings: () -> Unit) {
             }
         } else {
             lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // Polls HTTP-direct (no push possible) + keeps the broker connection alive + is the fallback
+                // for the pushed broker updates. Foreground-only (lifecycle-gated), so 2 s is fine.
                 while (true) {
-                    val res = withContext(Dispatchers.IO) { GarageNet.poll(ctx, s) }
-                    door = res.status
-                    if (res.mode != mode) log = ConnectionUi.pushIfChanged(log, res.mode, hhmm())
-                    mode = res.mode
-                    nowSec = System.currentTimeMillis() / 1000
-                    // Drive notifications from the foreground too, so closing the door in-app clears the
-                    // open/alarm notifications immediately (not on the next background wake).
-                    val openSec = res.status?.let { if (it.since in 1L until nowSec) nowSec - it.since else 0L } ?: 0L
-                    val cal = java.util.Calendar.getInstance()
-                    NotifyController.apply(ctx, s, res.status?.state, openSec, cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE), cal.get(java.util.Calendar.DAY_OF_YEAR))
-                    WearLink.publishIfChanged(ctx, res.status?.state, res.status?.dir ?: "", res.status?.since ?: 0L, res.mode.name, false)
-                    delay(5000)
+                    applyResult(withContext(Dispatchers.IO) { GarageNet.poll(ctx, s) })
+                    delay(2000)
                 }
             }
         }

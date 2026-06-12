@@ -81,6 +81,16 @@ class GarageLogicTest {
         assertFalse(no.leiflan.garage.api.ActionModel.isSplit("UNKNOWN"))
     }
 
+    @Test fun heartbeatTopicAndParse() {
+        assertEquals("devices/garage-monitor/heartbeat", GarageApi.heartbeatTopic("garage-monitor"))
+        val d = GarageApi.parseHeartbeat("devices/garage-monitor/heartbeat", "garage-monitor", "{\"state\":\"OPENING\",\"since\":5}")
+        assertEquals("OPENING", d?.state)
+        // wrong topic -> ignored (the push path must only react to OUR monitor's heartbeat)
+        assertNull(GarageApi.parseHeartbeat("devices/other/heartbeat", "garage-monitor", "{\"state\":\"OPEN\"}"))
+        // bad payload -> null (no crash)
+        assertNull(GarageApi.parseHeartbeat("devices/garage-monitor/heartbeat", "garage-monitor", "garbage"))
+    }
+
     @Test fun urls() {
         assertEquals("http://192.0.2.160/script/1/state", GarageApi.stateUrl("192.0.2.160", 1))
         assertEquals("http://192.0.2.161/script/1/command?cmd=open", GarageApi.commandUrl("192.0.2.161", 1, "open"))
