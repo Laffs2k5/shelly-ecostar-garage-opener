@@ -3,6 +3,47 @@
 What was **actually observed on real hardware** (vs. mocked/inferred) — NEW-PROJECT-GUIDE §10. Newest
 first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 
+## 2026-06-12 — Transport matrix (all 3) + Wear background-drive fixes (closed-loop)
+
+Continued the same bench closed loop (phone + watch + Pico `door_sim`, observed via MQTT). Re-ran the
+key paths over **each transport** and fixed three issues found live.
+
+**Transport matrix — every transport now exercised with the full state machine + watch + background:**
+
+| | State render | Commands | Background drive (app killed) |
+|---|---|---|---|
+| Wi-Fi direct (HTTP) | ✅ 2 s poll | ✅ full 8-step matrix (above) | ✅ |
+| Local broker (mTLS) | ✅ prompt push | ✅ incl. mid-travel `stop` | ✅ |
+| Cloud (WSS) | ✅ prompt push | ✅ + `isStale` order guard | ✅ (WSS from killed app) |
+
+- **Broker/cloud push** rendered OPENING/CLOSING promptly (event-driven `onUpdate`), not on the 2 s poll.
+- **`isStale` out-of-order guard (cloud):** the open→stop→close sequence that used to flash OPENING showed
+  clean forward-only motion; device `ts` strictly increasing on the wire.
+- **Commands delivered via MQTT publish** on both broker (`fires` 118/120/121/124) and cloud
+  (125/126/130), incl. the 3-pulse continue dance over broker.
+
+**🐞 Three issues found + fixed live (all re-verified on hardware):**
+1. **Watch went "Unknown" after a backgrounded command.** `GarageWearService` did one early poll
+   (`sleep(1500)`) then exited; over the broker/cloud transport the freshly-opened connection often had no
+   heartbeat yet, so it read OFFLINE — and `WearLink.publishIfChanged` mapped that *null* reading to the
+   string `"UNKNOWN"`, **clobbering the watch's good state**. Fixes: (a) the service now FOLLOWS the door
+   for the travel window (`BackgroundFollow`, polls ~1 s, publishes each change, stops once moved+at-rest
+   or 12 s); (b) a null/blank reading is never published (a real i4 `"UNKNOWN"` still is). Re-test: watch
+   tracked **Closing… → Closed** on a backgrounded broker command, and **→ Open** on a backgrounded cloud
+   command.
+2. **Watch button had no re-tap lock** (the phone's was missing on Wear). Added the same action-lock
+   (cleared on door-state change; safety backstop **6 s** on the watch — longer than the phone's 3 s
+   because the cloud-background round-trip can exceed 3 s and was briefly un-dimming the button before the
+   new state landed). Re-test: re-tap blocked.
+3. **Transport change in Settings stuck until app kill.** `ensureConnected` keeps a live connection and
+   only upgrades cloud→local, never tears down — so blanking the local host left the app on the stale
+   broker connection. Fixes: (a) **pull-to-refresh** forces a re-roam through the preferred order on
+   demand; (b) a settings change now disconnects first so the loop re-roams against the new config. Re-test:
+   Cloud→(brief Offline)→Wi-Fi·broker on Save without a kill; pull-to-refresh spinner re-roams; UI intact.
+
+All app unit tests pass (added `BackgroundFollow` + `WearLink.shouldPublish` coverage). Both APKs CI-signed
+with the shared committed debug key.
+
 ## 2026-06-12 — Full app + watch functional test round (closed-loop, observed via MQTT)
 
 End-to-end functional round on the **bench closed loop**: phone app + OnePlus Watch 2R driving the real
