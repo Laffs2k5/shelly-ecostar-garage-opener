@@ -6,14 +6,15 @@ secrets.*
 # NEW-PROJECT-GUIDE live here. Anything under private/ is ignored.
 private/
 
-# Android Studio (app/ added in a later phase)
-app/.gradle/
-app/build/
-app/local.properties
-app/.idea/
-app/*.iml
+# Android Studio / Gradle build artifacts (any module — app/, wear/, …)
+**/.gradle/
+**/build/
+**/local.properties
+**/.idea/
+**/*.iml
 app/captures/
 app/.externalNativeBuild/
+# Note: app/debug.keystore + wear/debug.keystore are intentionally TRACKED (non-sensitive shared debug key)
 
 # OS files
 .DS_Store
