@@ -12,8 +12,9 @@ android {
         applicationId = "no.leiflan.garage"
         minSdk = 35
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        // Dev/local default unchanged; CI release overrides both from the vX.Y.Z tag (semver).
+        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 2
+        versionName = System.getenv("VERSION_NAME") ?: "0.2.0"
     }
 
     signingConfigs {

@@ -11,6 +11,12 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
 import java.io.File
 import javax.net.ssl.SSLSocketFactory
 
+/** Client-id / MQTT-username precedence: explicit `client_id` pref, else `cloud_user` pref, else a
+ *  generic fallback. Pure (JVM-tested) — the fallback is inert whenever real creds are set, which is
+ *  why genericizing it for the public repo cannot affect a configured app. */
+internal fun resolveClientId(clientId: String, cloudUser: String, fallback: String = "garage-app"): String =
+    clientId.ifBlank { cloudUser.ifBlank { fallback } }
+
 /**
  * MQTT transport for the phone (spec 11 §7 broker list with failover), two-device variant:
  *   1. LOCAL broker (Mosquitto, mTLS) — `ssl://<localHost>:8883`, client cert from the imported PKCS#12.
@@ -49,7 +55,7 @@ object MqttTransport {
     private fun pref(key: String, def: String = ""): String =
         prefs()?.getString(key, "")?.takeIf { it.isNotBlank() } ?: def
 
-    private fun clientId(): String = pref("client_id", pref("cloud_user", "garage-app"))
+    private fun clientId(): String = resolveClientId(pref("client_id"), pref("cloud_user"))
     private fun monId(): String = pref("mon_id", "garage-monitor")
     private fun ctrlId(): String = pref("ctrl_id", "garage-controller")
     private fun localHost(): String = pref("mqtt_local_host")

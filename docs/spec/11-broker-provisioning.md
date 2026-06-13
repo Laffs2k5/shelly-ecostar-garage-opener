@@ -137,8 +137,8 @@ Notes from the i4 provisioning:
 The phone app + web page need broker access too. **Model (from maintainer, full spec
 `mqtt-leiflan/docs/onboarding-devices.md`): per-app credential, household-flat.**
 
-- **Unit of credential = per app.** The garage app on operator's phone gets its OWN cert + cloud user/pass.
-  Naming `<person>-<app>` → **CN `garage-app`** (durable across phone swaps, readable in logs/ACL).
+- **Unit of credential = per app.** The garage app on the operator's phone gets its OWN cert + cloud
+  user/pass. Naming `<person>-<app>` → **CN `garage-app`** (durable across phone swaps, readable in logs/ACL).
 - **ACL: one broad block per app**, identical to existing clients:
   ```
   user garage-app
@@ -154,5 +154,5 @@ The phone app + web page need broker access too. **Model (from maintainer, full 
 - **Web page:** cloud-WSS only (browsers can't present a client cert over MQTT-WSS; a Pages https page
   can't HTTP-direct to a Shelly — mixed content). Uses a **cloud user/pass + random client-id**;
   HTTP-direct + local-broker mTLS are the **Android app's** paths.
-- **4A order:** issue `garage-app` cert (broad block above) + a cloud user/pass. Family adds
-  `user2-garage` etc. the same way. (`oneplus-13` = the coffee app on operator's phone — left as-is.)
+- **4A order:** issue `garage-app` cert (broad block above) + a cloud user/pass. Additional household
+  apps add `user2-garage` etc. the same way. (`oneplus-13` = the coffee app from the sibling project — left as-is.)

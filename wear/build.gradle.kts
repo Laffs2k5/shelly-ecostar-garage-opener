@@ -13,8 +13,9 @@ android {
         applicationId = "no.leiflan.garage"
         minSdk = 30          // Wear OS 3+ (Watch 2R is Wear OS 4/5)
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1"
+        // Dev/local default unchanged; CI release overrides both from the vX.Y.Z tag (semver).
+        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 1
+        versionName = System.getenv("VERSION_NAME") ?: "0.1"
     }
 
     signingConfigs {

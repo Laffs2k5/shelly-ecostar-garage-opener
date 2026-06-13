@@ -32,3 +32,7 @@ logs/
 # Public-release runbook: local-only (reveals the scrub strategy + identity details).
 # Untracked + a history-purge target — see its own Part E. (Decision 2026-06-13.)
 docs/spec/18-public-release-readiness.md
+
+# Python bytecode cache
+__pycache__/
+*.pyc

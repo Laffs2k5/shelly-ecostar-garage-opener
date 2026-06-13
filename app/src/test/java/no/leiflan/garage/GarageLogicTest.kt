@@ -6,6 +6,7 @@ import no.leiflan.garage.api.DoorModel.DoorStatus
 import no.leiflan.garage.api.GarageApi
 import no.leiflan.garage.api.GarageApi.Broker
 import no.leiflan.garage.api.GarageApi.ConnectionMode
+import no.leiflan.garage.api.resolveClientId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -17,6 +18,15 @@ import org.junit.Test
 class GarageLogicTest {
 
     private fun door(state: String = "OPEN", since: Long = 0) = DoorStatus(state, "", since, 0)
+
+    // --- resolveClientId(): client_id pref > cloud_user pref > generic fallback (B2 scrub regression guard) ---
+    @Test fun clientIdPrefersExplicitThenCloudUserThenFallback() {
+        assertEquals("ci", resolveClientId("ci", "cu", "fb"))   // explicit client_id wins
+        assertEquals("cu", resolveClientId("", "cu", "fb"))     // else cloud_user
+        assertEquals("fb", resolveClientId("", "", "fb"))       // else fallback
+        assertEquals("cu", resolveClientId("   ", "cu", "fb"))  // blank client_id ignored
+        assertEquals("garage-app", resolveClientId("", ""))     // default fallback is the generic id (not a name)
+    }
 
     // --- decide(): HTTP-direct > local broker > cloud > offline ---
     @Test fun httpDirectWins() {

@@ -164,7 +164,8 @@ After power failure during travel, first impulse always opens.
 
 ### Manual Reference
 
-Original manual: `eurostar garage openener - Installation, Operating and Maintenance Instructions.pdf` (TR10C001 RE, 05.2004)
+Original manual: Hörmann EcoStar B operator, *Installation, Operating and Maintenance Instructions*
+(TR10C001 RE, 05.2004) — **not redistributed here** (manufacturer copyright); kept locally in `private/`.
 Online: https://www.yumpu.com/en/document/view/32460894/ecostar-b-garage-door-operator
 
 ---
@@ -540,7 +541,7 @@ Detailed software design is TBD. High-level intent:
 
 | File | Description |
 |------|-------------|
-| `eurostar garage openener - Installation, Operating and Maintenance Instructions.pdf` | Original manual (TR10C001 RE, 05.2004) |
+| Hörmann EcoStar B manual (TR10C001 RE, 05.2004) | Original operator manual — not bundled (copyright); kept in `private/`, see link above |
 | `motor-sense.svg` | Optocoupler sensing circuit diagram |
 | `pcb-relays.jpg` | PCB close-up: 3× NAIS relays, terminals 1–7 |
 | `pcb-underside.jpg` | PCB from below showing motor connection |
