@@ -3,6 +3,28 @@
 What was **actually observed on real hardware** (vs. mocked/inferred) — NEW-PROJECT-GUIDE §10. Newest
 first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 
+## 2026-06-13 — Overnight WiFi/RSSI survey at the final-box location — PASS
+
+Q-17 RSSI survey, run with `scripts/rssi-watch.sh` (60 s interval) from the always-on PC on the same WiFi
+(`HomeWiFi`); both Shellys mains-only, Pico disconnected. The box is at its **final mounting spot** (above
+the window on the side wall — closer to the AP than the earlier mid-garage observe point). **13h17m,
+794 samples/device** (2026-06-12 18:03Z → 2026-06-13 07:20Z); no sample gaps >150 s (WSL never paused).
+
+| Device | Reachable | RSSI min / mean / max | < −80 dBm | Longest outage | Reboots |
+|---|---|---|---|---|---|
+| i4 (.160) | **100%** (794/794) | −71 / **−66.5** / −61 | 0 | none | 0 |
+| S1 (.161) | **100%** (794/794) | −70 / **−66.8** / −65 | 0 | none | 0 |
+
+- **Zero outages, zero reboots, 100% reachable all night.** Mean held flat at ~−66.5; worst single dip −71
+  — ~9 dB above the −80 watchdog-concern line, ~19 dB above the ESP32 drop-off (~−90).
+- **Markedly better than the 2026-06-10 mid-garage reading (−73 to −85).** This location has solid, stable
+  margin — no antenna/AP mitigation needed here. Retires the RSSI half of Q-17.
+- 🐞 Fixed a `rssi-watch.sh` bug found at first run: `--argjson w "${wifi:-{}}"` mis-parsed (the `{}`
+  default's `}` closed `${` early, appending a stray `}`), so every reachable device was logged
+  *unreachable*. The synthetic `--summary` self-test passed because it never exercised that line with live
+  device JSON — caught by sanity-checking the first real rows. Fixed + pushed before the real run.
+- Raw log `logs/rssi-overnight.csv` is gitignored working data (numbers captured above).
+
 ## 2026-06-12 — Transport matrix (all 3) + Wear background-drive fixes (closed-loop)
 
 Continued the same bench closed loop (phone + watch + Pico `door_sim`, observed via MQTT). Re-ran the
