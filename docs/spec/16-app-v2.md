@@ -1,7 +1,7 @@
 # 16 — Android app v2 (scope & design)
 
 > **Status: BUILT + VALIDATED ON-PHONE (2026-06-12).** Supersedes the §4D checklist in
-> [09-phase-plan.md](09-phase-plan.md). v1 (all three transports) is the baseline; this is the redesign on
+> [09-phase-plan.md](../archive/09-phase-plan.md). v1 (all three transports) is the baseline; this is the redesign on
 > top of it.
 >
 > **All functionality is built and bench-validated.** Cyber Garage Control neon theme · main screen (three

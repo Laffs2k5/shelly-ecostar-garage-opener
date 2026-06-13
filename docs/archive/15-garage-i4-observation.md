@@ -1,11 +1,15 @@
 # 15 — In-garage i4 observation session (signal capture for the logic)
 
+> 🗄️ **ARCHIVED — historical record.** One-time session run 2026-06-10; its findings live in
+> [14-motion-timing-and-pulse-safety.md](../spec/14-motion-timing-and-pulse-safety.md) and
+> [HW-VALIDATION.md](../testing/HW-VALIDATION.md). Kept for context.
+
 > **Purpose:** temporarily wire the **i4 monitor only** to the real door's sensors and **observe** while
 > the user drives the door by its existing wall button / RF remote. This captures the *real* timing of
 > the reeds and motor-direction optos through actual open/close/stop/reverse cycles — the input data we
 > need to nail down the deferred logic (**Q-02** motor-opto behaviour, **Q-03** resume/pulse-gap,
-> **Q-16** derive() departure asymmetry + at-rest guard + pulse spacing). See also [02](02-state-machine.md),
-> [14](14-motion-timing-and-pulse-safety.md), and the canonical circuit in
+> **Q-16** derive() departure asymmetry + at-rest guard + pulse spacing). See also [02](../spec/02-state-machine.md),
+> [14](../spec/14-motion-timing-and-pulse-safety.md), and the canonical circuit in
 > [hardware-spec §3.3–3.7](../initial-research/hardware-spec.md).
 
 ## Scope & safety — OBSERVE ONLY

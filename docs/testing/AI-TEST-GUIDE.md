@@ -14,7 +14,7 @@ scripts/test-device.sh                     # device mJS logic, 60 tests
 scripts/test-web.sh                         # web core, 15 tests
 python3 device/test-rig/test_door_sim.py    # Pico door_sim state-machine logic (host mock)
 scripts/check-wear-sync.sh                  # app->wear shared logic byte-identical
-scripts/win-build.sh testDebugUnitTest      # app pure logic, 41 tests (Windows toolchain)
+scripts/win-build.sh testDebugUnitTest      # app pure logic, 42 tests (Windows toolchain)
 scripts/win-build.sh assembleDebug          # app compiles -> debug APK
 WB_SRC=wear WB_NAME=garage-wear scripts/win-build.sh assembleDebug   # watch APK
 ```

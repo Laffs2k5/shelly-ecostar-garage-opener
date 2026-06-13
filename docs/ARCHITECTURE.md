@@ -74,13 +74,17 @@ graph LR
 | `wear/` | Wear OS companion (Kotlin/Compose) — same `applicationId`; rides the phone over the Data Layer (spec [17](spec/17-wear-os-exploration.md)); shared pure logic guarded by `check-wear-sync.sh` |
 | `web/` | cloud-WSS control page |
 | `scripts/` | build/deploy/observe/test tooling (`*-device.sh`, `test-web.sh`, `pico.sh`, `i4-watch.sh`, `i4-scenario.sh`, `mqtt-{sub,pub}.sh`, `soak.sh`, `rssi-watch.sh`, `win-build.sh`, `check-wear-sync.sh`) |
-| `docs/spec/` | numbered design docs + `INDEX.md`; decisions/open-Qs in [08](spec/08-decisions-and-open-questions.md); plan in [09](spec/09-phase-plan.md) |
+| `docs/spec/` | numbered design docs + `INDEX.md`; decisions/open-Qs in [08](spec/08-decisions-and-open-questions.md) |
+| `docs/archive/` | completed phase plan + historical session records ([README](archive/README.md)) |
 | `docs/testing/` | REGRESSION, AI-TEST-GUIDE, HW-VALIDATION |
 | `private/` (gitignored) | real device certs + network inventory + the lessons guide; app creds live in Bitwarden |
 
 ## Status
 
-Device tier (i4 monitor, S1 controller) built + hardware-verified; clients built and bench-validated —
-app + Wear OS watch functionally tested on-device across all three transports incl. background drive
-(HW-VALIDATION 2026-06-12); web tested; watchdog validated; CI/CD green. Remaining: the real garage
-install (wire-up + commissioning — Q-02/Q-03/RSSI) and going public. See [09-phase-plan.md](spec/09-phase-plan.md).
+**v1.0.0 — released & deployed.** Device tier (i4 monitor, S1 controller) deployed on the real door;
+Android app + Wear OS watch shipped (APKs on the
+[Releases](https://github.com/Laffs2k5/shelly-ecostar-garage-opener/releases) page) and validated
+on-device across all three transports incl. background drive (HW-VALIDATION 2026-06-12); web control
+page live on GitHub Pages; watchdog validated; CI/CD green. The completed build plan is archived in
+[docs/archive/](archive/README.md); remaining real-door tuning (Q-02/Q-03) is tracked in
+[08-decisions-and-open-questions.md](spec/08-decisions-and-open-questions.md).

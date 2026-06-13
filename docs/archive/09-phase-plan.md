@@ -1,5 +1,9 @@
 # 09 — Phase plan
 
+> 🗄️ **ARCHIVED — historical record.** All phases completed at **v1.0.0** (2026-06-13). Kept for context;
+> not maintained against current code. Live status: [README](../../README.md) ·
+> [ARCHITECTURE](../ARCHITECTURE.md) · [decisions log](../spec/08-decisions-and-open-questions.md).
+
 Gated phases. Each produces something independently testable; each gate must pass before the next is
 *finished* (phases can overlap — see "Sequencing" at the end). The **device tier comes first**; the app
 comes before the real install (it's the easiest way to test/control the door during commissioning).
@@ -108,7 +112,7 @@ open/close/stop.
   show in Settings *which* CA / `.p12` are imported (cert CN / status); general visual tidy-up
 
 ### 4D — App v2 overhaul — ✅ built + validated on-phone (2026-06-12); polish items remain
-**Full scope & design: [spec 16](16-app-v2.md).** Built headless (compile + JVM unit tests); visual +
+**Full scope & design: [spec 16](../spec/16-app-v2.md).** Built headless (compile + JVM unit tests); visual +
 device-coupled bits validated on-phone + on-watch across all three transports (HW-VALIDATION 2026-06-12).
 - [x] **Cyber Garage Control neon theme** (Compose Color/Type/Theme) — dark, cyan/orange, mono readouts
 - [x] **Main screen rebuilt** — three bands: BrandBar · animated DoorSchematic (Canvas) + state word +
@@ -141,7 +145,7 @@ device-coupled bits validated on-phone + on-watch across all three transports (H
 on the phone (HW-VALIDATION). Remaining = visual refinement + the optional Settings/Navigation polish above.
 
 ### 4E — Wear OS companion — `wear/` — ✅ built + validated on-watch (2026-06-12)
-**Full scope: [spec 17](17-wear-os-exploration.md).** A standalone Gradle module sharing the phone's
+**Full scope: [spec 17](../spec/17-wear-os-exploration.md).** A standalone Gradle module sharing the phone's
 `applicationId` + signing key; it **rides the phone** over the Data Layer (no own MQTT).
 - [x] Wear Compose UI: single morphing button + state + connectivity, neon styling, DEMO stamp
 - [x] **Confirm Yes/No dialog on every command** ("shower tap" guard); watch-side action lock (6 s backstop)
@@ -199,7 +203,7 @@ transports validated on-phone, and the watch on-device, 2026-06-12.
 - [x] **Tunables via config** — done via **KVS** `logic_cfg`/`wd_cfg` over RPC (pulse gaps, lockout, gate,
   `resumeSameDir`, watchdog thresholds); active values echoed in the heartbeat. The MQTT `…/config` topic
   idea was **not pursued** (KVS is simpler and avoids extra broker ACL/surface)
-- [x] **Motion-timing & pulse safety (Q-16, [spec 14](14-motion-timing-and-pulse-safety.md))** — DONE,
+- [x] **Motion-timing & pulse safety (Q-16, [spec 14](../spec/14-motion-timing-and-pulse-safety.md))** — DONE,
   hardware-validated 2026-06-10: monitor `derive()` time-gated motor-direction tiebreaker (`GATE_TICKS`)
   + controller at-rest guard + full-sequence pulse lockout; timing provisional pending Q-02 at commissioning
 - [x] Q-09: set i4 inputs `factory_reset:false` (stuck reed at boot must not wipe the device) — done
@@ -246,25 +250,21 @@ manual/RF operation.
 
 ---
 
-## Phase 9 — Public release — 💻
+## Phase 9 — Public release — ✅ DONE (2026-06-13)
 
-The repo started **private** intending to go public (D-06).
+The repo started private and went public at v1.0.0 (D-06).
 
-- [ ] Secrets/identity scrub audit: grep for placeholders; confirm **nothing** real (keys/IPs/MACs/IDs) is
-  committed — incl. archived docs/history (NEW-PROJECT-GUIDE §9)
-- [ ] **LICENSE** (Q-08); README polish (badges, web Pages link, photos); `docs/ARCHITECTURE.md` linked
-- [ ] Flip repo to public; verify the released APK + Pages work from a clean clone
+- [x] Secrets/identity scrub audit — working tree **and** git history purged (RFC 5737 IPs, generic IDs); grep gate clean
+- [x] **LICENSE** (MIT, Q-08); README polished (badges, Pages link); `docs/ARCHITECTURE.md` linked
+- [x] Flipped repo to public; released v1.0.0 APKs + verified Pages live
 
-**Gate:** public repo with nothing identity-specific; clean build from a fresh clone.
+**Gate:** ✅ public repo with nothing identity-specific; clean build from a fresh clone.
 
 ---
 
-## Sequencing / parallelism
+## Sequencing / parallelism — ✅ COMPLETE
 
-- **Done:** 0–2; 3 core. **Now (off-LAN, 💻):** Phase 4 (app+web code + JVM/Node tests), Phase 6 (CI/CD),
-  Phase 5 docs — none need the devices until integration testing.
-- **Needs LAN/devices (☁):** finishing 3 (soak), Phase 7 (watchdog), and on-device integration of 4.
-- **Phase 8 (install)** is gated on Phase 4 (app) being usable and ideally Phase 7 (hardened firmware).
-- **Phase 9** last.
+All phases 0–9 complete as of v1.0.0 (2026-06-13): device scripts → clients (app / watch / web) + CI/CD
+→ resilience → real install + commissioning → public release.
 - Real-door unknowns (**Q-02**, **Q-03** timing/resume) are intentionally parked until Phase 8 — the rig
   covers everything else.

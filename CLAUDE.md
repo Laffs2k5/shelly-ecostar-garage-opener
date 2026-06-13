@@ -99,10 +99,10 @@ Windows ARM64 + WSL2 (Ubuntu).
 
 ## Credentials & public-repo hygiene
 
-Repo starts **private**, intended to go public later → adopt no-hardcoded-identity discipline from day
-one. No real keys/usernames/IPs/hostnames/device-IDs/MACs in committed files. All real material in
-`private/` + `.env` (both gitignored). `.env.example` documents the shape. mTLS `.p12` + CA public cert
-are runtime-provisioned per device, never committed/bundled.
+Repo is **public** (since v1.0.0) — maintain the no-hardcoded-identity discipline: no real
+keys/usernames/IPs/hostnames/device-IDs/MACs in committed files (committed example IPs use RFC 5737
+`192.0.2.x`). All real material in `private/` + `.env` (both gitignored). `.env.example` documents the
+shape. mTLS `.p12` + CA public cert are runtime-provisioned per device, never committed/bundled.
 
 ## Git workflow
 
@@ -112,5 +112,6 @@ are runtime-provisioned per device, never committed/bundled.
 
 ## Docs
 
-`docs/spec/INDEX.md` is the map. Phase plan: `docs/spec/09-phase-plan.md`. Open questions &
-decision log: `docs/spec/08-decisions-and-open-questions.md`.
+`docs/spec/INDEX.md` is the map. Open questions & decision log:
+`docs/spec/08-decisions-and-open-questions.md`. The completed phase plan + historical session records
+are archived under `docs/archive/`.

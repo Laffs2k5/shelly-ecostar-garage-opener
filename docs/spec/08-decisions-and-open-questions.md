@@ -36,7 +36,7 @@
 | Q-05 | ~~Monitor door-state alerts~~ | RESOLVED → D-12 (we expose status; HA decides alerts) |
 | Q-06 | ~~S1 static IP + hostname~~ | RESOLVED: `192.0.2.161` / `shelly1g3-example`; on network + mTLS-provisioned (spec 11) |
 | Q-07 | ~~Repo name~~ | RESOLVED → D-13 (renamed to ecostar) |
-| Q-08 | ~~LICENSE choice~~ | RESOLVED: none for now (private repo); revisit if it goes public |
+| Q-08 | ~~LICENSE choice~~ | RESOLVED: **MIT** (repo public since v1.0.0, 2026-06-13) |
 | Q-09 | ~~Disable per-input `factory_reset`?~~ | RESOLVED 2026-06-08: set **`factory_reset:false`** on all 4 i4 inputs via `Input.SetConfig` (a stuck/closed reed at boot can't factory-wipe the device). Device-config (not in script) — re-apply if the i4 is ever factory-reset. `invert:false` per D-16 |
 | Q-10 | ~~Keep or disable Shelly Cloud on the devices?~~ | RESOLVED 2026-06-08 — **keep enabled (default)**. User: leave it on. Redundant with the broker→cloud bridge but harmless; no reason to change device config |
 | Q-11 | ~~MQTT CN/identity convention~~ | RESOLVED → D-15 (`garage-monitor` / `garage-controller`) |

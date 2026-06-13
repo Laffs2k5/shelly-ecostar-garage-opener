@@ -20,7 +20,7 @@ Shelly devices, with full galvanic isolation from the opener electronics.
 - Visual confirmation (camera) before remote close — a possible future addition, **not** required for
   remote operation (D-11).
 - Obstruction / safety sensing beyond what the EcoStar already enforces.
-- (The Android app, Wear OS watch, and web client are now built and bench-validated — see spec 16/17.)
+- (The Android app, Wear OS watch, and web client shipped in v1.0.0 — see spec 16/17.)
 
 ## Hardware summary
 
