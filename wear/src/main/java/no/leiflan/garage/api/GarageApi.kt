@@ -41,6 +41,18 @@ object GarageApi {
     fun stateUrl(i4Ip: String, scriptId: Int = 1) = "http://$i4Ip/script/$scriptId/state"
     fun commandUrl(s1Ip: String, scriptId: Int, cmd: String) = "http://$s1Ip/script/$scriptId/command?cmd=$cmd"
 
+    fun heartbeatTopic(monitorId: String) = "devices/$monitorId/heartbeat"
+
+    /** True if [incomingTs] is OLDER than [lastTs] (both i4 unixtimes) — i.e. an out-of-order/stale
+     *  heartbeat that should be ignored so the UI never regresses to a past state. ts==0 (missing) is never
+     *  stale. Matters on the broker/cloud path where heartbeats are QoS 0 (unordered). Pure (JVM-tested). */
+    fun isStale(incomingTs: Long, lastTs: Long): Boolean = incomingTs in 1 until lastTs
+
+    /** Parse an incoming MQTT message IFF it's the monitor's heartbeat — else null. Drives the event-driven
+     *  (push) UI update on the broker/cloud path. Pure (JVM-tested). */
+    fun parseHeartbeat(topic: String, monitorId: String, payload: String?): DoorStatus? =
+        if (topic == heartbeatTopic(monitorId)) parseDoor(payload) else null
+
     /** Parse an i4 `/state` (or heartbeat) JSON body into a door picture, or null. */
     fun parseDoor(json: String?): DoorStatus? {
         if (json.isNullOrBlank()) return null
