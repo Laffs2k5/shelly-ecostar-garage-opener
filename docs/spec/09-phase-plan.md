@@ -216,8 +216,9 @@ device config hardened.
 
 **Goal:** move from bench to the actual garage, safely.
 
-### 8A — Full install electrical diagram (deliverable)
-- [ ] `docs/spec/install-schematic.svg` — the **complete** install: 230 V→S1 (C7), 5 V USB→i4, S1 relay +
+### 8A — Full install electrical diagram (deliverable) ✅
+- [x] `docs/spec/install-schematic-schemdraw.svg` (+ `.png`; regenerate via `install-schematic-schemdraw.py`)
+  — the **complete** install: 230 V→S1 (C7), 5 V USB→i4, S1 relay +
   parallel push-button → EcoStar **T1/T2**, motor leads → 2× motor-sense optos (anti-parallel, 10 kΩ) →
   i4 SW3/SW4, 2× reed switches → i4 SW1/SW2 + ⏚, single Cat5 pairing, enclosure/grommets. Supersedes the
   `hardware-spec.md` sketches; cross-check against them
