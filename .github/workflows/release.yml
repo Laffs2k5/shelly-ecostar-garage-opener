@@ -68,7 +68,8 @@ jobs:
               for type_label in "feat:Features" "fix:Bug Fixes" "docs:Documentation" "test:Tests" "refactor:Refactoring" "build:Build" "chore:Maintenance"; do
                 prefix="${type_label%%:*}"
                 label="${type_label##*:}"
-                COMMITS=$(git log --pretty=format:"- %s" "${PREVIOUS_TAG}..${{ github.ref_name }}" | grep "^- ${prefix}:" | sed "s/^- ${prefix}: /- /" || true)
+                # match "type:" AND "type(scope):" (conventional-commit scopes), stripping either form
+                COMMITS=$(git log --pretty=format:"- %s" "${PREVIOUS_TAG}..${{ github.ref_name }}" | grep -E "^- ${prefix}(\(.+\))?: " | sed -E "s/^- ${prefix}(\(.+\))?: /- /" || true)
                 if [ -n "$COMMITS" ]; then
                   echo "### ${label}"; echo "$COMMITS"; echo ""
                 fi
