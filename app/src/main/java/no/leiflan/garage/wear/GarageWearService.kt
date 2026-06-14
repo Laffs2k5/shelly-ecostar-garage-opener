@@ -29,7 +29,7 @@ class GarageWearService : WearableListenerService() {
         val cmd = String(event.data)
         try {
             if (cmd == "refresh") {
-                publish(ctx, GarageNet.poll(ctx, s))
+                refresh(ctx, s)
             } else if (GarageApi.validCmd(cmd)) {
                 val res = GarageNet.poll(ctx, s)
                 GarageNet.sendCommand(s, res.mode, cmd)
@@ -39,16 +39,45 @@ class GarageWearService : WearableListenerService() {
     }
 
     /**
-     * Follow the door after a command so the watch sees the operation through (the foreground app, which
-     * normally republishes heartbeats to the watch, isn't running). Poll once a second; publish on every
-     * change; stop as soon as the door has moved and settled (or [BackgroundFollow.MAX_MS] elapses). This
-     * also gives a freshly-opened broker/cloud connection time to actually receive heartbeats — the old
-     * single 1.5 s read often fired before any arrived, leaving the watch stuck on its last-known state.
+     * Launch refresh (watch sends `refresh` on open): poll until a RESTING reading lands, then publish it —
+     * see [BackgroundFollow.keepRefreshing]. The old single poll, on a cold broker/cloud wake, read null
+     * (the retained heartbeat hadn't arrived yet) and [WearLink] correctly suppressed that null — so it
+     * published nothing and the watch stayed stuck on its last-known (often still-moving) state. Polling
+     * keeps the connection alive between reads, so a later poll gets the real state and publishes it.
      */
-    private fun follow(ctx: Context, s: no.leiflan.garage.Settings) {
-        var seenMoving = false
+    private fun refresh(ctx: Context, s: no.leiflan.garage.Settings) {
         var elapsed = 0L
         var lastState: String? = null
+        while (true) {
+            val res = GarageNet.poll(ctx, s)
+            val st = res.status?.state
+            if (st != null && st != lastState) { publish(ctx, res); lastState = st }
+            elapsed += BackgroundFollow.POLL_MS
+            if (!BackgroundFollow.keepRefreshing(elapsed, lastState)) break
+            Thread.sleep(BackgroundFollow.POLL_MS)
+        }
+    }
+
+    /**
+     * Follow the door after a command so the watch sees the operation through (the foreground app, which
+     * normally republishes heartbeats to the watch, isn't running). Two phases: first WARM UP — wait out a
+     * cold broker/cloud connect until the first real reading (null polls here must NOT count against the
+     * motion window, or a slow connect eats it and we never see the door reach rest); then FOLLOW — poll
+     * once a second, publish each change, and stop as soon as the door has moved and settled (or
+     * [BackgroundFollow.MAX_MS] elapses).
+     */
+    private fun follow(ctx: Context, s: no.leiflan.garage.Settings) {
+        var lastState: String? = null
+        var elapsed = 0L
+        while (BackgroundFollow.keepWaiting(elapsed, lastState != null)) {
+            Thread.sleep(BackgroundFollow.POLL_MS)
+            elapsed += BackgroundFollow.POLL_MS
+            val res = GarageNet.poll(ctx, s)
+            val st = res.status?.state
+            if (st != null && st != lastState) { publish(ctx, res); lastState = st }
+        }
+        var seenMoving = DoorModel.isMoving(lastState)
+        elapsed = 0L
         while (BackgroundFollow.keepFollowing(elapsed, seenMoving, lastState)) {
             Thread.sleep(BackgroundFollow.POLL_MS)
             elapsed += BackgroundFollow.POLL_MS

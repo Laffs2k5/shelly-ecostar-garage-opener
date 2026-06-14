@@ -12,7 +12,8 @@ package no.leiflan.garage.api
  * (sleep, poll, publish) live in the service.
  */
 object BackgroundFollow {
-    const val MAX_MS = 12_000L   // > one full travel (~8 s) + departure/settle margin
+    const val MAX_MS = 12_000L   // motion-follow window: > one full travel (~8 s) + departure/settle margin
+    const val WAIT_MS = 10_000L  // cold-connect grace: how long to keep polling for the FIRST real reading
     const val POLL_MS = 1_000L
 
     /** True once the door has reached a resting state AFTER we observed it moving — the operation is
@@ -23,4 +24,18 @@ object BackgroundFollow {
     /** Keep following while still inside the window and not yet settled. */
     fun keepFollowing(elapsedMs: Long, seenMoving: Boolean, state: String?): Boolean =
         elapsedMs < MAX_MS && !settled(seenMoving, state)
+
+    /** Command warm-up: keep polling until ANY real reading lands (or [WAIT_MS] elapses). The motion follow
+     *  must start from a warm connection — on a cold broker/cloud wake the first poll(s) read null (the
+     *  retained heartbeat hasn't arrived yet); counting those against the follow window above would let a
+     *  slow connect eat it and we'd never see the door reach its resting state. Pure (JVM-tested). */
+    fun keepWaiting(elapsedMs: Long, gotReading: Boolean): Boolean = elapsedMs < WAIT_MS && !gotReading
+
+    /** Launch-refresh policy: keep polling until we have a RESTING reading to publish (or [WAIT_MS] elapses).
+     *  Fixes the old single-poll refresh — on a cold broker/cloud wake that one poll read null (heartbeat not
+     *  arrived) and published nothing, leaving the watch stuck on its last-known (often still-moving) state.
+     *  A null keeps us waiting; a moving reading keeps us following until the door comes to rest, so the
+     *  watch lands on a settled picture. Pure (JVM-tested). */
+    fun keepRefreshing(elapsedMs: Long, state: String?): Boolean =
+        elapsedMs < WAIT_MS && !(state != null && !DoorModel.isMoving(state))
 }

@@ -38,6 +38,13 @@ notifications — they stay as-is) and **not** Phase 3 (standalone). Watch requi
     (`BackgroundFollow`) and `WearLink` never publishes a null reading as "Unknown" — the watch tracks the
     door to its settled state with the phone app killed. A watch-side **action lock** (6 s backstop) was
     also added to match the phone.
+  - **v1.0.1 — stale-state fix:** with the phone app killed, opening the watch could leave it stuck on
+    `OPENING`/`CLOSING` until a command was issued. Root cause: the launch `refresh` did a **single** poll,
+    which on a cold broker/cloud wake reads null (the retained heartbeat hasn't arrived yet) and `WearLink`
+    correctly suppresses null — so it published nothing and the watch kept its last-known (moving) state.
+    Fix: `refresh` now polls until a **resting** reading lands (`BackgroundFollow.keepRefreshing`), and the
+    post-command `follow` gets a **warm-up phase** (`keepWaiting`) so a slow connect no longer eats the
+    motion window before the door reaches rest. Pure policy is JVM-unit-tested.
   - **Signing unified:** one **committed debug keystore** (`app/debug.keystore` = `wear/debug.keystore`,
     non-sensitive, password `android`) signs phone + watch, local + CI → Data Layer always pairs; the old
     `DEBUG_KEYSTORE` secret is retired.

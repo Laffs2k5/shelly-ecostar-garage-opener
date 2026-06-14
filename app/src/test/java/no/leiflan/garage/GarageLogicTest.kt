@@ -136,6 +136,26 @@ class GarageLogicTest {
         assertFalse(f.keepFollowing(f.MAX_MS, false, "OPENING")) // timeout caps a door that never settles
     }
 
+    @Test fun commandWarmUpWaitsForFirstReadingThenStops() {
+        val f = no.leiflan.garage.api.BackgroundFollow
+        assertTrue(f.keepWaiting(0, false))           // cold connect, no reading yet -> keep polling
+        assertTrue(f.keepWaiting(3000, false))        // still none, in window -> keep
+        assertFalse(f.keepWaiting(0, true))           // first reading landed -> warm-up done
+        assertFalse(f.keepWaiting(f.WAIT_MS, false))  // grace cap: give up even if nothing ever answers
+    }
+
+    @Test fun refreshWaitsThroughNullAndMotionUntilRest() {
+        val f = no.leiflan.garage.api.BackgroundFollow
+        assertTrue(f.keepRefreshing(0, null))                   // cold connect, null read -> keep polling
+        assertTrue(f.keepRefreshing(2000, "OPENING"))           // moving -> follow until it rests
+        assertTrue(f.keepRefreshing(2000, "CLOSING"))
+        assertFalse(f.keepRefreshing(2000, "OPEN"))             // resting reading -> publish + stop
+        assertFalse(f.keepRefreshing(2000, "CLOSED"))
+        assertFalse(f.keepRefreshing(2000, "STOPPED_OPENING"))  // a stopped state is at rest -> stop
+        assertFalse(f.keepRefreshing(2000, "STOPPED_CLOSING"))
+        assertFalse(f.keepRefreshing(f.WAIT_MS, null))          // grace cap: stop rather than spin forever
+    }
+
     @Test fun wearPublishSkipsNullStateNotRealUnknown() {
         // a null/blank reading must NOT clobber the watch's known state with a bogus "Unknown"
         assertFalse(no.leiflan.garage.wear.WearLink.shouldPublish(null))
