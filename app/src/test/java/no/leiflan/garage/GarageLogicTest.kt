@@ -166,6 +166,29 @@ class GarageLogicTest {
         assertTrue(no.leiflan.garage.wear.WearLink.shouldPublish("OPENING"))
     }
 
+    // --- fetchLocalDoor retry policy: a cold i4 (power-save) misses the 1st probe; one retry latches direct ---
+    @Test fun localProbeRetriesOnceThenSucceedsOrGivesUp() {
+        val d = door("OPEN")
+        // always fails -> tries `attempts` times, sleeping between (1 retry, 1 sleep), then null -> broker
+        run {
+            var calls = 0; var slept = 0L
+            val r = GarageApi.retryProbe(attempts = 2, retryMs = 500L, sleep = { slept += it }) { calls++; null }
+            assertNull(r); assertEquals(2, calls); assertEquals(500L, slept)
+        }
+        // cold miss then wakes: fails 1st, succeeds on retry -> returns it; probed twice, slept once
+        run {
+            var calls = 0; var slept = 0L
+            val r = GarageApi.retryProbe(attempts = 2, retryMs = 500L, sleep = { slept += it }) { calls++; if (calls == 1) null else d }
+            assertEquals("OPEN", r?.state); assertEquals(2, calls); assertEquals(500L, slept)
+        }
+        // already reachable: 1st probe succeeds -> no retry, no sleep (the common "direct" path is untouched)
+        run {
+            var calls = 0; var slept = 0L
+            val r = GarageApi.retryProbe(attempts = 2, retryMs = 500L, sleep = { slept += it }) { calls++; d }
+            assertSame(d, r); assertEquals(1, calls); assertEquals(0L, slept)
+        }
+    }
+
     @Test fun urls() {
         assertEquals("http://192.0.2.160/script/1/state", GarageApi.stateUrl("192.0.2.160", 1))
         assertEquals("http://192.0.2.161/script/1/command?cmd=open", GarageApi.commandUrl("192.0.2.161", 1, "open"))

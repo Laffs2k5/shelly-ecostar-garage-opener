@@ -66,18 +66,44 @@ object GarageApi {
         }
     }
 
-    /** GET the i4's `/state` (2 s timeouts). Null on any failure → roam down to the broker. */
+    // HTTP-direct probe retry: the i4 (WiFi power-saving + often weak signal) can miss the FIRST cold contact
+    // — its modem-sleep drops the packet and the phone's ARP entry has aged — so a single 2 s probe loses the
+    // race and the app falls back to the broker. One quick retry, after the in-flight ARP/wake completes,
+    // usually lands and lets HTTP-direct latch on a cold open instead of needing warm-up traffic first.
+    const val LOCAL_PROBE_ATTEMPTS = 2
+    const val LOCAL_PROBE_RETRY_MS = 500L
+
+    /** Run [probe] up to [attempts] times, returning the first non-null result, sleeping [retryMs] between
+     *  tries. [sleep] is injectable so the retry policy is JVM-unit-testable without real delays. */
+    internal fun retryProbe(
+        attempts: Int = LOCAL_PROBE_ATTEMPTS,
+        retryMs: Long = LOCAL_PROBE_RETRY_MS,
+        sleep: (Long) -> Unit = { Thread.sleep(it) },
+        probe: () -> DoorStatus?,
+    ): DoorStatus? {
+        var i = 0
+        while (true) {
+            probe()?.let { return it }
+            if (++i >= attempts) return null
+            sleep(retryMs)
+        }
+    }
+
+    /** GET the i4's `/state` (2 s timeouts), retrying once on a cold miss (see [retryProbe]). Null on
+     *  repeated failure → roam down to the broker. */
     fun fetchLocalDoor(i4Ip: String, scriptId: Int = 1): DoorStatus? {
         if (i4Ip.isBlank()) return null
-        return try {
-            val c = (URL(stateUrl(i4Ip, scriptId)).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 2000; readTimeout = 2000; requestMethod = "GET"
+        return retryProbe {
+            try {
+                val c = (URL(stateUrl(i4Ip, scriptId)).openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 2000; readTimeout = 2000; requestMethod = "GET"
+                }
+                val body = c.inputStream.bufferedReader().use { it.readText() }
+                c.disconnect()
+                parseDoor(body)
+            } catch (_: Exception) {
+                null
             }
-            val body = c.inputStream.bufferedReader().use { it.readText() }
-            c.disconnect()
-            parseDoor(body)
-        } catch (_: Exception) {
-            null
         }
     }
 
