@@ -41,7 +41,7 @@ Carry the coffee-timer boot-to-safe pattern: resume persisted state only on a so
 |---|---|---|
 | Device scripts | mJS (JS subset on ESP32) | `device/<name>.js` → `<name>.min.js` (deploy the minified artifact) |
 | Android app | Kotlin + Jetpack Compose, Paho mqttv3 | `app/` (build on Windows — see below) |
-| Wear OS app | Kotlin + Wear Compose; rides the phone over the Data Layer (no own MQTT) | `wear/` (separate Gradle project, **same `applicationId` + signing key** as `app/`; pure logic copied from `app/` and guarded byte-identical by `scripts/check-wear-sync.sh`) |
+| Wear OS app | Kotlin + Wear Compose; rides the phone over the Data Layer (no own MQTT); ships a **watch-face complication** (zero-background, foreground/tap refresh — spec 17 Phase 2c) | `wear/` (separate Gradle project, **same `applicationId` + signing key** as `app/`; pure logic copied from `app/` and guarded byte-identical by `scripts/check-wear-sync.sh`) |
 | Web fallback | Vanilla HTML/CSS/JS, MQTT over WSS | `web/` |
 | Helper scripts | Bash + curl + Node | `scripts/` |
 | Broker | Local Mosquitto (mTLS) bridged to cloud EMQX | external (mqtt-leiflan) |

@@ -28,9 +28,11 @@
             </intent-filter>
         </activity>
 
-        <!-- Watch-face complication: renders door state, taps open MainActivity (spec 17).
-             SMALL_IMAGE keeps our colours; MONOCHROMATIC_ICON / SHORT_TEXT are fallbacks. No periodic
-             polling — GarageStateListenerService pushes updates on each state change. -->
+        <!-- Watch-face complication: renders door state, taps open MainActivity (spec 17 Phase 2c).
+             SMALL_IMAGE keeps our colours; MONOCHROMATIC_ICON / SHORT_TEXT are fallbacks. Zero background
+             work: no periodic polling (UPDATE_PERIOD_SECONDS=0) and NO background DATA_CHANGED listener —
+             the app refreshes it while foregrounded and on tap. This keeps the watch's Wear OS chip asleep
+             (the OnePlus dual-engine battery win) at the cost of live-on-glance updates. -->
         <service
             android:name=".complication.GarageComplicationService"
             android:exported="true"
@@ -47,17 +49,6 @@
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
                 android:value="0" />
-        </service>
-
-        <!-- Push complication refreshes when the phone publishes a new door state (mirrors the phone's
-             GarageWearService registration style; binds even when the app is backgrounded). -->
-        <service
-            android:name=".complication.GarageStateListenerService"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
-                <data android:scheme="wear" android:host="*" android:pathPrefix="/garage/state" />
-            </intent-filter>
         </service>
     </application>
 

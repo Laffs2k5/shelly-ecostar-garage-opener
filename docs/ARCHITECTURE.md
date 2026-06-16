@@ -71,7 +71,7 @@ graph LR
 | `device/test/` | Node mock-harness unit tests (60) |
 | `device/test-rig/` | Pico MicroPython rig: `main.py` (host-driven inputs) + `door_sim.py` (autonomous "virtual EcoStar"), spec [12](spec/12-test-rig-and-wiring.md) |
 | `app/` | Android app (Kotlin/Compose, Paho) — `no.leiflan.garage` |
-| `wear/` | Wear OS companion (Kotlin/Compose) — same `applicationId`; rides the phone over the Data Layer (spec [17](spec/17-wear-os-exploration.md)); shared pure logic guarded by `check-wear-sync.sh` |
+| `wear/` | Wear OS companion (Kotlin/Compose) — watch app + watch-face complication; same `applicationId`; rides the phone over the Data Layer (spec [17](spec/17-wear-os-exploration.md)); shared pure logic guarded by `check-wear-sync.sh` |
 | `web/` | cloud-WSS control page |
 | `scripts/` | build/deploy/observe/test tooling (`*-device.sh`, `test-web.sh`, `pico.sh`, `i4-watch.sh`, `i4-scenario.sh`, `mqtt-{sub,pub}.sh`, `soak.sh`, `rssi-watch.sh`, `win-build.sh`, `check-wear-sync.sh`) |
 | `docs/spec/` | numbered design docs + `INDEX.md`; decisions/open-Qs in [08](spec/08-decisions-and-open-questions.md) |

@@ -13,6 +13,16 @@ are required for the Data Layer to pair (spec 17). The pure logic (`DoorModel`, 
 `GarageApi`, theme) is **copied verbatim from `app/`** and guarded byte-identical by
 `scripts/check-wear-sync.sh` — edit it in `app/` then re-sync; never let the copies diverge.
 
+## Surfaces
+
+- **Watch app** — the morphing Open/Close/Stop button + state + connectivity, confirm dialog on every
+  command. Mirrors the phone's door state; relays commands back.
+- **Watch-face complication** (`complication/GarageComplicationService`) — renders the door state as the
+  garage glyph (slat bars removed by state, colour-coded) on any standard configurable complication slot;
+  tapping it opens the watch app. **Zero background work** — no polling and no `DATA_CHANGED` listener, so
+  the watch's efficiency chip stays asleep; it refreshes when the app is opened/used and on tap (shows the
+  last-synced state otherwise). Rationale + trade-offs: spec 17 Phase 2c.
+
 ## Build (Windows toolchain, driven from WSL)
 
 ```bash

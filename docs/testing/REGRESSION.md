@@ -36,6 +36,10 @@ suites (run them first): `scripts/test-device.sh` (device, 60), `scripts/test-we
 - [ ] 🧑 Watch round-trip: command from the watch drives S1 and the phone mirrors the new state.
 - [ ] 🧑 **Background drive**: with the phone app swiped from recents, a watch command still fires the relay
   (via `GarageWearService`) and the watch tracks the door to its settled state — on broker **and** cloud.
+- [ ] 🧑 **Watch-face complication** (added to a configurable slot): shows the door glyph
+  (closed = two bars / mid-travel = one orange bar / open = no bars / unknown = dimmed); tap opens the watch
+  app; state refreshes after opening the app. Zero background work — no recurring battery warning beyond the
+  one-time add prompt (spec 17 Phase 2c).
 
 ## Web page (cloud-WSS)
 

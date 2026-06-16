@@ -64,7 +64,7 @@ Full commissioning + validation steps: [docs/testing/REGRESSION.md](docs/testing
 ```text
 device/              mJS scripts (monitor + controller) + Node test harness + Pico test-rig
 app/                 Android app (Kotlin/Compose)
-wear/                Wear OS companion (Kotlin/Compose) — rides the phone over the Data Layer
+wear/                Wear OS companion (Kotlin/Compose) — watch app + watch-face complication; rides the phone
 web/                 HTML control page (cloud-WSS fallback)
 scripts/             Bash/Node helpers (build/minify, deploy, observe, test)
 docs/spec/           Design docs (INDEX.md is the map)

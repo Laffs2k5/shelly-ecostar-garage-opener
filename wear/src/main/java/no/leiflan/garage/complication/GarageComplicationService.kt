@@ -22,15 +22,19 @@ import no.leiflan.garage.MainActivity
 import no.leiflan.garage.R
 
 /**
- * Watch-face complication that mirrors the door state and launches the app on tap (spec 17).
+ * Watch-face complication that mirrors the door state and launches the app on tap (spec 17 Phase 2c).
  *
  * State comes from the phone's RETAINED `/garage/state` DataItem — read directly here via [Wearable]'s
- * DataClient rather than from a persisted copy: it's the single source of truth, always current, and
- * available even when the Compose [MainActivity] process is dead (this service runs independently).
- * [GarageStateListenerService] calls back through ComplicationDataSourceUpdateRequester whenever the
- * phone publishes a change, so the complication refreshes without polling (UPDATE_PERIOD_SECONDS=0).
+ * DataClient (the system keeps that item synced to the watch without us running). It's the single source
+ * of truth, current on demand, and available even when the Compose [MainActivity] process is dead.
  *
- * SMALL_IMAGE is the primary type (full colour preserved — cyan/orange/grey survive); MONOCHROMATIC_ICON
+ * **Zero background work by design.** There is no periodic polling (`UPDATE_PERIOD_SECONDS=0`) and NO
+ * background `DATA_CHANGED` listener — on a dual-engine watch (OnePlus Watch 2R) a background data source
+ * keeps the Wear OS chip awake and erodes the efficiency-chip battery win. So this is invoked only when the
+ * system asks: on activation, when [MainActivity] requests an update while foregrounded, and on tap. The
+ * trade-off is no live-on-glance update — it shows the last-synced state until the app is next opened/used.
+ *
+ * SMALL_IMAGE is the primary type (full colour preserved — cyan/orange/grey survive); MONOCHROMATIC_IMAGE
  * and SHORT_TEXT are fallbacks for slots that only accept those (the slot, not the user, picks one).
  */
 class GarageComplicationService : ComplicationDataSourceService() {

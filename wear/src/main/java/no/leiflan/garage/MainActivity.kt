@@ -1,5 +1,6 @@
 package no.leiflan.garage
 
+import android.content.ComponentName
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -36,6 +37,7 @@ import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
 import androidx.wear.compose.material.dialog.Dialog
+import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataClient
@@ -49,6 +51,7 @@ import no.leiflan.garage.api.ActionModel
 import no.leiflan.garage.api.DoorModel
 import no.leiflan.garage.api.DoorModel.DoorStatus
 import no.leiflan.garage.api.GarageApi.ConnectionMode
+import no.leiflan.garage.complication.GarageComplicationService
 import no.leiflan.garage.ui.theme.BgBase
 import no.leiflan.garage.ui.theme.CautionOrange
 import no.leiflan.garage.ui.theme.ConnGreen
@@ -104,6 +107,14 @@ fun WearApp() {
         mode = try { ConnectionMode.valueOf(m.getString("mode", "OFFLINE")) } catch (_: Exception) { ConnectionMode.OFFLINE }
         demo = m.getBoolean("demo", false)
         linked = true
+        // Refresh the watch-face complication from the foreground only — the complication has no background
+        // listener (keeps the Wear OS chip asleep, spec 17 Phase 2c), so opening/using the app is what brings
+        // it current. Cheap: fires on the initial read + each real state change while we're open.
+        try {
+            ComplicationDataSourceUpdateRequester
+                .create(ctx, ComponentName(ctx, GarageComplicationService::class.java))
+                .requestUpdateAll()
+        } catch (_: Exception) { /* complication libs unavailable — ignore */ }
     }
 
     // Listen for the phone's door-state DataItem (+ read the current one on start).
