@@ -1,6 +1,6 @@
 # 17 — Wear OS companion (OnePlus Watch 2R)
 
-> **Status: IMPLEMENTED (Phase 2a + 2b) — on-device validated 2026-06-12, incl. the background relay.**
+> **Status: IMPLEMENTED (Phase 2a + 2b + 2c) — on-device validated 2026-06-12, incl. the background relay.**
 > The `wear/` module ships a tethered watch app that **leans on the existing phone app**
 > (`no.leiflan.garage`, which holds all MQTT/mTLS/HTTP + door state) rather than re-implementing comms on
 > the watch, with a **hard no-Google-Play-publish constraint** (sideloaded). The research that led here is
@@ -51,6 +51,19 @@ notifications — they stay as-is) and **not** Phase 3 (standalone). Watch requi
   - **CI added:** `build.yml` builds + signs both APKs, verifies they share the signing cert, uploads both;
     `release.yml` attaches both on a `v*` tag; a `check-wear-sync.sh` guard keeps the wear copies of the
     shared pure logic byte-identical to the phone app (no shared Gradle module yet).
+- **Phase 2c — watch-face complication.** A `ComplicationDataSourceService`
+  (`wear/.../complication/GarageComplicationService`) renders the door on any watch-face slot that exposes
+  a standard configurable complication — reusing the garage app-icon glyph with the slat bars removed by
+  state: **CLOSED** = both bars (cyan), **mid-travel** (OPENING/CLOSING + both STOPPED_*) = one bar
+  (orange), **OPEN** = no bars (cyan), **UNKNOWN/offline** = both bars (dimmed grey). Tapping it launches
+  `MainActivity` (which re-`refresh`es state). It reads the phone's retained `/garage/state` DataItem
+  directly (no extra persistence — works with the app process dead); `GarageStateListenerService`
+  (`WearableListenerService` on `DATA_CHANGED`) pushes a refresh on each state change, so there's no
+  polling (`UPDATE_PERIOD_SECONDS=0`). Declares `SUPPORTED_TYPES=SMALL_IMAGE,ICON,SHORT_TEXT` — SMALL_IMAGE
+  is primary (full colour preserved); ICON (→ `MONOCHROMATIC_IMAGE`) and SHORT_TEXT are tinted/text
+  fallbacks. Pure state→glyph mapping is JVM-unit-tested (`ComplicationContentTest`, wired into `build.yml`).
+  **Caveat:** only attachable where the watch face exposes a real, configurable complication slot of a
+  supported type — an OEM shortcut baked into a stock face cannot be targeted by any data source.
 - **Remaining:** optionally extract a **shared Gradle module** to remove the duplicated pure logic (the
   `check-wear-sync.sh` guard covers the duplication for now).
 

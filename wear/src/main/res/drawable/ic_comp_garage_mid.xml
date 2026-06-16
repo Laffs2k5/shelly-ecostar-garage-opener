@@ -1,0 +1,18 @@
+<!-- Complication glyph: door MID-TRAVEL — one slat bar removed. Used for OPENING/CLOSING and
+     STOPPED_OPENING/STOPPED_CLOSING. Orange = in motion / not settled (matches CautionOrange). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path
+        android:pathData="M2.5,10.5 L12,3.5 L21.5,10.5"
+        android:strokeColor="#FFFF9500" android:strokeWidth="2"
+        android:fillColor="#00000000" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path
+        android:pathData="M5,10.5 L5,20.5 L19,20.5 L19,10.5"
+        android:strokeColor="#FFFF9500" android:strokeWidth="2"
+        android:fillColor="#00000000" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path
+        android:pathData="M8,17 L16,17"
+        android:strokeColor="#FFFF9500" android:strokeWidth="2"
+        android:fillColor="#00000000" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

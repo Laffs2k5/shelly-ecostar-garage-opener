@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Garage control</string>
+    <!-- Label shown in the watch face's complication-provider picker. -->
+    <string name="complication_label">Garage door</string>
 </resources>

@@ -53,4 +53,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     // Wear Data Layer — mirror the phone's door state + relay commands (spec 17, Phase 2b).
     implementation("com.google.android.gms:play-services-wearable:18.2.0")
+    // Watch-face complication: a data source that renders door state on the watch face (spec 17).
+    implementation("androidx.wear.watchface:watchface-complications-data-source:1.2.1")
+    implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1")
+    // JVM unit test for the pure state -> glyph mapping (no Android deps), mirrors the phone app.
+    testImplementation("junit:junit:4.13.2")
 }

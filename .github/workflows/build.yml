@@ -53,11 +53,11 @@ jobs:
           gradle wrapper
           ./gradlew testDebugUnitTest assembleDebug --no-daemon --console=plain
 
-      - name: Watch — assemble debug
+      - name: Watch — unit tests + assemble debug
         working-directory: wear
         run: |
           gradle wrapper
-          ./gradlew assembleDebug --no-daemon --console=plain
+          ./gradlew testDebugUnitTest assembleDebug --no-daemon --console=plain
 
       - name: Verify phone + watch share the signing cert (Wear Data Layer pairing)
         run: |
