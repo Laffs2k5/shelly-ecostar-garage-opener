@@ -73,6 +73,17 @@ notifications — they stay as-is) and **not** Phase 3 (standalone). Watch requi
     the *only* way to get passive liveness — not worth the battery cost here.)
   - **Caveat:** only attachable where the watch face exposes a real, configurable complication slot of a
     supported type — an OEM shortcut baked into a stock face cannot be targeted by any data source.
+  - **OnePlus battery warning (investigated v1.1.1 — confirmed unavoidable).** The Watch 2R lists every
+    third-party complication under a "Third-party complications" group behind a blanket high-battery warning
+    you must click through. It's **categorical, not a measurement** — the zero-background v1.1.1 build shows
+    the identical warning, and first-party complications show none. Why: first-party complications are served
+    by the BES 2700 efficiency chip (the multi-day-battery engine); a third-party `ComplicationDataSourceService`
+    can only run on the Snapdragon/Wear OS chip, and there is **no public way to be efficiency-chip-served**
+    (Wear OS 4 platform dynamic values evaluate only built-in data types — HR/steps/battery/time — never
+    arbitrary app state like door position). **Decision: keep the complication and accept the warning** — with
+    zero background work the real cost is just face-render time on a chip that's already awake when you look,
+    far below the warning's figure. The only efficiency-chip-friendly surface would be a phone-posted,
+    Wear-bridged **notification** with actions (parked — revisit only if battery cost ever proves real).
 - **Remaining:** optionally extract a **shared Gradle module** to remove the duplicated pure logic (the
   `check-wear-sync.sh` guard covers the duplication for now).
 
