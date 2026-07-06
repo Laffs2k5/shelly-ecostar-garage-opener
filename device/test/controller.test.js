@@ -317,3 +317,26 @@ test("watchdog reboots S1 after a broker-down threshold; safe when connected", f
   h.setNet(true, false); h.tick(3);   // TICK_MS=1000 → mqttDown hits 1000 within a few ticks
   assert.ok(h.reboots >= 1, "reboot once broker is down past threshold");
 });
+
+// ---------- reconnect: re-subscribe on a broker drop/reconnect (Shelly clears script subs; watchdog
+// can't catch a "connected but deaf" controller — see spec 13) ----------
+test("re-subscribes to the command topic on an MQTT down->up transition", function () {
+  const h = mk(); setDoor(h, "CLOSED");
+  assert.ok(h.subs["devices/garage-controller/command"], "subscribed at boot");
+  // Simulate the broker drop clearing the script's subscription (firmware does not guarantee it survives).
+  h.subs = {};
+  h.setNet(true, false); h.tick();                       // controller observes MQTT down
+  assert.ok(!h.subs["devices/garage-controller/command"], "still unsubscribed while the broker is down");
+  h.setNet(true, true); h.tick();                        // broker back: down->up edge -> re-subscribe
+  assert.ok(h.subs["devices/garage-controller/command"], "re-subscribed on reconnect");
+  h.sendCmd("open");                                     // and the fresh subscription actually delivers
+  assert.equal(h.switchSets.length, 1, "command received and acted on after the reconnect");
+});
+test("no double-subscribe churn while the broker stays connected", function () {
+  const h = mk(); setDoor(h, "CLOSED");
+  let subCalls = 0;
+  const realSub = h.sandbox.MQTT.subscribe;              // count subscribe calls across steady-state ticks
+  h.sandbox.MQTT.subscribe = function (t, cb) { subCalls++; return realSub.call(this, t, cb); };
+  h.setNet(true, true); h.tick(5);
+  assert.equal(subCalls, 0, "no re-subscribe while continuously connected (only on a down->up edge)");
+});

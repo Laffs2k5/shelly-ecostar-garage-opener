@@ -29,6 +29,25 @@ Wi-Fi is up and MQTT is enabled; any reconnect resets to 0) and reboots when a t
 - Overridable via KVS key **`wd_cfg`** = `{"on":0|1,"wifi":<s>,"mqtt":<s>}` (read at boot). Absent → defaults.
 - `mqttEnabled` comes from `Mqtt.GetConfig.enable` at boot; if MQTT is disabled the broker check is skipped.
 
+## Command re-subscription on broker reconnect (controller)
+
+The watchdog recovers a *wedged* stack, but it cannot recover a subtler failure: the controller stays
+`mqtt.connected == true` yet silently stops receiving commands. Shelly clears a script's `MQTT.subscribe`
+subscriptions when the script stops and **does not guarantee they survive a broker drop/reconnect** (the
+docs only promise the connect-established handler fires on each reconnect). If a transient outage (Wi-Fi
+blip, broker restart, keepalive timeout) drops and restores the link, a subscribe-once-at-boot controller
+becomes **"connected but deaf"** until a manual restart — and the watchdog never fires, because
+`mqtt.connected` reads back `true` (any reconnect resets `mqttDown` to 0).
+
+**Fix (controller only — the i4 subscribes to nothing):** `subscribeCmd()` runs at boot **and again on
+every MQTT down→up edge**, detected by the existing 1 s tick (`mqttUp()`), re-subscribing exactly once per
+reconnect. `mqttWasUp` is seeded at boot so a steady connection never re-subscribes. Unit-tested
+(`controller.test.js` — re-subscribe on transition + no steady-state churn). Latency to re-subscribe is
+≤ 1 tick; a sub-second drop+reconnect entirely inside one tick window is not detected (acceptable — a blip
+that brief is unlikely to have dropped the subscription). This complements the app-side gaps (fire-and-
+forget QoS-1 to a **non-retained** command topic, no end-to-end ACK) — a command that lands while the
+controller is briefly deaf is still lost, so the app path is the other half of the reliability story.
+
 ## Validation (2026-06-07/08)
 
 - **Unit:** 31 device tests incl. `wdReboot` decision + an integration that reboots after the broker-down

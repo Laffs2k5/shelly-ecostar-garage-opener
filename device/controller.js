@@ -49,6 +49,7 @@ var FIRES = 0;                               // monotonic count of pulse sequenc
 var LOCKED = false;                          // full-sequence pulse lockout (drop commands while set)
 var PENDING = { cmd: "", deadline: 0 };      // at-rest queue: a command waiting for the door to stop moving
 var ticks = 0; var booted = false;
+var mqttWasUp = false;                       // reconnect detector: re-subscribe on each MQTT down->up edge
 
 // ---- pure: how many pulses does (cmd, doorState) need? (spec 02 table + D-09) ----
 // 0 = suppress (already there / already going the right way). Kept dependency-free for the Node tests.
@@ -259,6 +260,13 @@ function applyLogicCfg(str) {
 function tick() {
   ticks++;
   watchdogTick();
+  // Re-subscribe on a broker reconnect. Shelly clears script subscriptions when the script stops and does
+  // NOT guarantee they survive a broker drop/reconnect; the watchdog can't catch this (it sees mqtt
+  // .connected flip back to true), so a transient outage would otherwise leave us "connected but deaf" to
+  // commands until a manual restart. Fire subscribeCmd exactly once per down->up edge. (spec 13)
+  var mup = mqttUp();
+  if (mup && !mqttWasUp) { print("controller: MQTT reconnected — re-subscribing to command topic"); subscribeCmd(); }
+  mqttWasUp = mup;
   if (PENDING.cmd !== "" && ticks > PENDING.deadline) {   // at-rest queue timed out -> drop
     print("controller: queued", PENDING.cmd, "timed out — dropped"); PENDING.cmd = "";
   }
@@ -270,6 +278,12 @@ function startLoop() {
   publishHeartbeat(); publishAlive();
   Timer.set(TICK_MS, true, tick);
   print("controller: started");
+}
+
+// (Re)subscribe to the command topic. Called at boot and again on every MQTT reconnect (see tick).
+function subscribeCmd() {
+  if (CFG.cmdTopic === "" || typeof MQTT === "undefined") return;
+  MQTT.subscribe(CFG.cmdTopic, function (topic, msg) { handleCommand(msg, "mqtt"); });
 }
 
 function boot() {
@@ -284,9 +298,8 @@ function boot() {
           if (id !== "") CFG.aliveTopic = "mon/" + id + "/alive";
           WD.mqttEnabled = (cfg.enable === true);
         }
-        if (CFG.cmdTopic !== "" && typeof MQTT !== "undefined") {
-          MQTT.subscribe(CFG.cmdTopic, function (topic, msg) { handleCommand(msg, "mqtt"); });
-        }
+        subscribeCmd();
+        mqttWasUp = mqttUp();   // seed the reconnect detector so the first tick doesn't double-subscribe
         Shelly.call("KVS.Get", { key: "wd_cfg" }, function (w) {
           applyWdCfg(w && w.value);
           Shelly.call("KVS.Get", { key: "logic_cfg" }, function (lc) {
