@@ -12,8 +12,8 @@ on the S1 (commands). All timing is **config-tunable** (see *Tunables* below).
 
 | # | Where | Behaviour | Trigger | Duration / when it ends |
 |---|---|---|---|---|
-| 1 | i4 | **Ignore** brief input noise (debounce) | any input edge | accept after stable **200 ms** (`DEBOUNCE_TICKS`=2 × 100 ms) |
-| 2 | i4 | **Hold** the end-state, **ignore** the end-of-travel reverse-kick; **wait** before declaring a departure | reed engaged + motor driving *away* (`(c&&op)\|\|(o&&cl)`) | flips to OPENING/CLOSING only after the conflict persists **400 ms** (`GATE_TICKS`=4); shorter ⇒ stays CLOSED/OPEN |
+| 1 | i4 | **Ignore** brief input noise (debounce) | any input edge | accept after stable **400 ms** (`DEBOUNCE_TICKS`=2 × 200 ms) |
+| 2 | i4 | **Hold** the end-state, **ignore** the end-of-travel reverse-kick; **wait** before declaring a departure | reed engaged + motor driving *away* (`(c&&op)\|\|(o&&cl)`) | flips to OPENING/CLOSING only after the conflict persists **800 ms** (`GATE_TICKS`=4 × 200 ms); shorter ⇒ stays CLOSED/OPEN until the reed releases |
 | 3 | S1 | **Queue** (wait) a command, don't pulse | command arrives while door at an end **and** still moving (arrival overlap) | fires the instant the i4 pushes `moving:false`; **dropped after 5 s** (`QUEUE_TIMEOUT_TICKS`) if never settles |
 | 4 | S1 | **Ignore** (drop) new commands | just fired a pulse sequence (`LOCKED`) | **800 ms** after a 1-pulse cmd, **2500 ms** after a 2-pulse stop-then-reverse (`lockMs`). **`stop` is exempt** — see below |
 | 5 | S1 | **Fail-open override** — never block | door state UNKNOWN or `moving` unknown | always pulses best-effort (D-19); never queues/locks itself out |
@@ -42,18 +42,22 @@ Lockout sizes to the whole sequence: `lockMs(n) = (n-1)·(PULSE_MS+PULSE_GAP_MS)
 
 | Param | Configured | Measured | Status |
 |---|---|---|---|
-| Debounce | 200 ms | sub-sample bounce | fine |
-| Gate (ignore reverse) | 400 ms | reverse kick **140–220 ms** (n=2) | ~2× above kick — **measured-grounded** |
-| Gate (detect departure) | 400 ms | departure overlap **510–780 ms** | below shortest departure — **measured-grounded** |
+| Debounce | 400 ms (200 ms until 2026-10-30) | sub-sample bounce | fine |
+| Gate (ignore reverse) | 800 ms (400 ms until 2026-10-30) | reverse kick **140–220 ms** (n=2) | ≥3× above kick — **measured-grounded** |
+| Gate (detect departure) | 800 ms (400 ms until 2026-10-30) | departure overlap **510–780 ms** | **above** the overlap since D-23: a departure shows when the reed releases instead |
 | Queue fire | on motor-stop | motor runs **~0.85 s** past reed-seat + kick | fires ~1 s after press |
 | Queue timeout | 5 s | arrival ~1 s | ~5× margin |
 | Pulse width | 500 ms | *not measured* | engineering default |
 | Pulse gap (2-pulse) | 1200 ms | *not measured* (D-09 "a delay") | **provisional — tune at commissioning (Q-03)** |
 | Lockout 1 / 2-pulse | 800 / 2500 ms | derived from pulse+gap | follows the above |
 
-The **gate** is grounded in real data (sits cleanly in the 220→510 ms gap). The **pulse-width / pulse-gap
+The **gate** was grounded in real data (400 ms sat cleanly in the 220→510 ms gap). With the i4's 200 ms
+tick (D-23) a 4-tick gate is ~800 ms. It still never trips on the reverse, but now waits out the whole
+departure overlap, so OPENING/CLOSING mostly appears when the reed releases (≤0.8 s after the motor
+starts). That is the safe direction (see the ✅ note below). `GATE_TICKS`=3 (~400–600 ms at 200 ms
+sampling) would land back in the gap if the earlier departure is ever wanted. The **pulse-width / pulse-gap
 / lockout** are engineering defaults — the EcoStar's true minimum impulse spacing is the key commissioning
-unknown. Caveat: the kick varied 57 % across two samples; if a real kick ever exceeds ~400 ms it would
+unknown. Caveat: the kick varied 57 % across two samples; if a real kick ever exceeds ~600 ms it would
 momentarily show OPENING — hence the value stays tunable and is re-checked on the real door.
 
 ### Tunables (KVS, no reflash)

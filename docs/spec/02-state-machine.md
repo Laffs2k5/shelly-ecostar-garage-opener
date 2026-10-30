@@ -58,7 +58,7 @@ out so the i4 script handles it deliberately rather than glitching through a spu
 > ⚠️ **Arrival vs departure.** With the real MR-00326 reed's wide ~5 cm window, "reed active + motor
 > driving *away* from that end" (e.g. SW1 still active + SW3 opening, just after leaving closed) is a
 > *departure* — there the reed reading is stale and the motor direction is the truth. **Fixed (Q-16):**
-> `derive()` uses a **time-gated motor-direction tiebreaker** (`GATE_TICKS`, ~400 ms — a brief reverse-kick
+> `derive()` uses a **time-gated motor-direction tiebreaker** (`GATE_TICKS`, ~800 ms at the 200 ms tick, D-23 — a brief reverse-kick
 > is absorbed, a sustained departure flips the state). See
 > [14-motion-timing-and-pulse-safety.md](14-motion-timing-and-pulse-safety.md). Hardware-validated
 > 2026-06-10; the exact gate is provisional/tunable pending commissioning.

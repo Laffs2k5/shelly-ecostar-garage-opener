@@ -16,15 +16,16 @@
 //   input:2 = SW3 motor OPENING  input:3 = SW4 motor CLOSING
 
 var SCHEMA = 1;            // heartbeat payload version
-var TICK_MS = 100;         // input poll (10 Hz). NOTE: this poll costs ~83% script CPU on the i4 (real,
-                           // confirmed vs coffee plug's 0%); accepted — RAM/heap/FS fine. Mitigation:
-                           // event-driven inputs (D-14) or ~1 Hz poll. See Q-14 / spec 13.
-var DEBOUNCE_TICKS = 2;    // snapshot must be stable this many ticks before we accept it (~200ms)
+var TICK_MS = 200;         // input poll (5 Hz). One tick costs ~100 ms of script CPU on the i4, so a 100 ms
+                           // timer can't keep up: on 2026-10-30 it silently fired every other slot and
+                           // doubled every tick-counted period. Declare the rate it can hold (D-23, Q-14).
+                           // Every period below derives from TICK_MS — never hard-code ticks per second.
+var DEBOUNCE_TICKS = 2;    // snapshot must be stable this many ticks before we accept it (~400ms)
 // Motor-direction tiebreaker gate (Q-16 / spec 14, garage observation 2026-06-10). A reed engaged while
 // the motor drives AWAY from it looks identical for a real DEPARTURE (sustained, measured ~510-780ms) and
 // the EcoStar's end-of-travel relief REVERSE kick (brief, measured 140-220ms). Only treat it as departure
-// once the conflict persists this many ticks. 4 ticks (~400ms) clears the 220ms reverse with margin and
-// still fires within the 510ms+ departure overlap. PROVISIONAL/small-sample — should become config-tunable.
+// once the conflict persists this many ticks. 4 ticks (~800ms) never trips on the reverse (it spans at most
+// 2 samples); a departure mostly shows when the reed releases instead (D-23). PROVISIONAL — config-tunable.
 var GATE_TICKS = 4;
 var ALIVE_MS = 30000;      // liveness ping period
 var POST_TIMEOUT = 5;      // seconds; controller POST is fire-and-forget
@@ -32,7 +33,7 @@ var POST_TIMEOUT = 5;      // seconds; controller POST is fire-and-forget
 // not land AFTER a newer state-change POST and overwrite it. A POST asked for while one is in flight sets
 // POST_AGAIN and the LATEST picture follows when it completes. POST_STUCK_TICKS: if a callback never comes,
 // stop waiting for it (a stuck flag would silently kill the S1's feed).
-var POST_STUCK_TICKS = (POST_TIMEOUT + 5) * 10;
+var POST_STUCK_TICKS = (POST_TIMEOUT + 5) * 1000 / TICK_MS;
 var POSTING = false; var POST_AGAIN = false; var POST_T = 0;
 
 // Connectivity watchdog (Phase 7): reboot to recover a wedged Wi-Fi/MQTT stack after a prolonged

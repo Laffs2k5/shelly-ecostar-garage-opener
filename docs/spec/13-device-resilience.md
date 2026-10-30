@@ -118,7 +118,8 @@ stateDiagram-v2
 
 - The i4 sat at −76 to −87 dBm that day, a median around −81. The default −85 wouldn't fire there, and the
   i4 kept working. Set `rssi` higher if the i4 ever needs it.
-- The i4's 100 ms tick runs slow under load, so its window is approximate.
+- The window and the watchdog count script ticks. They're only as accurate as the tick, so keep the tick
+  inside its CPU budget (D-23).
 - After any S1 reboot (guard, watchdog or power), its door picture is `UNKNOWN` until the i4's next
   re-send, which comes at most 30 s later (D-22). In that window an `open`/`close` sends one best-effort
   pulse (D-19), and `stop` is a no-op.
@@ -135,9 +136,15 @@ stateDiagram-v2
   thresholds are approximate — acceptable for a recover-a-wedged-stack timer; revisit if exact timing
   ever matters.
 
-## Known: i4 monitor CPU (~83%) — accepted (Q-14)
+## Known: i4 monitor CPU (~49% at 5 Hz) — accepted (Q-14)
 
-The i4 monitor polls its inputs every 100 ms, which costs **~83% of the script core** — confirmed real
+**Since 2026-10-30 the poll runs every 200 ms (D-23), at ~49% CPU.** One tick costs ~100 ms of script
+CPU. At 100 ms the weak-signal guard's extra work pushed it past the timer, which then fired every other
+slot and silently doubled every tick-counted period. The script reports nothing when this happens.
+Spot it from alive's spacing, which should be 30 s, or from `ticks` read with `Script.Eval` against the
+wall clock.
+
+Until then the i4 monitor polled its inputs every 100 ms, which cost **~83% of the script core** — confirmed real
 (the coffee plug's always-on script, same fw, reads **0%** with a 30 s timer; the S1 controller reads
 **4%** at 1 s). It's **accepted for now**: RAM/heap/FS margins are healthy and the device is stable.
 **Mitigation if it ever matters** (more per-tick work, heat/power, or a second script on the device):

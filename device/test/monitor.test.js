@@ -3,6 +3,10 @@ const { test } = require("node:test");
 const assert = require("node:assert");
 const { createHarness } = require("./harness");
 
+// Periods come from the script's own constants, never a hard-coded tick rate (D-23).
+function ticksFor(h, ms) { return ms / h.sandbox.TICK_MS; }
+function aliveTicks(h) { return ticksFor(h, h.sandbox.ALIVE_MS); }
+
 // ---------- pure derivation (spec 02) ----------
 test("derive: reeds win and map to end states", function () {
   const { derive } = createHarness();
@@ -117,7 +121,7 @@ test("tick: ~140-220ms reverse kick at close arrival does NOT glitch CLOSED->OPE
   h.settle();
   assert.equal(h.state(), "CLOSED");
   const n = h.heartbeats().length;
-  h.setInputs(true, false, true, false); h.tick(2);   // opening kick ~200ms, closed reed still engaged
+  h.setInputs(true, false, true, false); h.tick(2);   // a 140-220ms kick spans at most 2 samples; closed reed still engaged
   h.setInputs(true, false, false, false); h.tick(2);  // kick ends
   assert.equal(h.state(), "CLOSED", "reverse kick absorbed — no spurious OPENING");
   assert.equal(h.heartbeats().length, n, "no extra heartbeat from the kick");
@@ -155,10 +159,10 @@ test("controller POST: fires on state change when controller_url is set", functi
 
 test("controller POST: picture re-sent every 30 s without a state change (heals a rebooted S1)", function () {
   const h = createHarness({ inputs: { c: true }, controllerUrl: "http://10.0.0.5/script/1/door_state" });
-  h.tick(300);                                               // one ALIVE_MS period, door untouched
+  h.tick(aliveTicks(h));                                     // one ALIVE_MS period, door untouched
   assert.equal(h.posts.length, 1, "periodic re-send");
   assert.equal(JSON.parse(h.posts[0].body).state, "CLOSED");
-  h.tick(300);
+  h.tick(aliveTicks(h));
   assert.equal(h.posts.length, 2);
 });
 test("controller POST: single-flight — a newer picture waits for the in-flight POST, then the latest goes", function () {
@@ -179,10 +183,18 @@ test("controller POST: a callback that never comes doesn't stall the feed", func
   const h = createHarness({ inputs: { c: true }, controllerUrl: "http://10.0.0.5/script/1/door_state" });
   h.postDefer = true;
   h.setInputs(false, false, true, false); h.settle();        // POST #1, callback lost
-  h.tick(120);                                               // past POST_STUCK_TICKS (~10 s)
+  h.tick(h.sandbox.POST_STUCK_TICKS + 1);                    // past POST_STUCK_TICKS (~10 s)
   h.setInputs(false, true, false, false); h.settle();        // OPEN
   assert.equal(h.posts.length, 2, "sent anyway once the in-flight POST is presumed lost");
   assert.equal(JSON.parse(h.posts[1].body).state, "OPEN");
+});
+
+test("timing: tick-counted periods divide evenly by TICK_MS (a 100 ms tick overran on the i4, D-23)", function () {
+  const sb = createHarness().sandbox;
+  assert.equal(sb.TICK_MS, 200, "the i4 can't hold a faster tick (Q-14)");
+  assert.equal(sb.ALIVE_MS % sb.TICK_MS, 0, "alive/re-send dispatch is ticks % (ALIVE_MS / TICK_MS)");
+  assert.equal(sb.POST_STUCK_TICKS * sb.TICK_MS, (sb.POST_TIMEOUT + 5) * 1000);
+  assert.equal((sb.WD.rssiWinMs / sb.RSSI_N) % sb.TICK_MS, 0, "guard sample period");
 });
 
 // ---------- outputs: MQTT skipped when disconnected (never blocks) ----------
@@ -247,9 +259,9 @@ test("watchdog: no reboot while connected, or when broker disabled", function ()
 });
 
 // ---------- weak-signal guard (spec 13) ----------
-// rssiWin=15 s -> one sample per 1 s = every 10 ticks of 100 ms. (Harness clock: +1 per tick.)
+// rssiWin=15 s -> one sample per 1 s, i.e. every ticksFor(h, 1000) ticks. (Harness clock: +1 per tick.)
 const FAST = { wd_cfg: JSON.stringify({ rssiWin: 15 }) };
-function feed(h, seq) { seq.forEach(function (r) { h.wifiRssi = r; h.tick(10); }); }
+function feed(h, seq) { seq.forEach(function (r) { h.wifiRssi = r; h.tick(ticksFor(h, 1000)); }); }
 function weak(n) { const a = []; for (let i = 0; i < n; i++) a.push(-90); return a; }
 
 test("guard: sustained weak signal with the motor idle -> records, then reboots", function () {
@@ -285,7 +297,7 @@ test("guard: hold clears on recovery and the monitor republishes its heartbeat",
 test("alive carries rssi + wd every 30 s (fresh, unlike the change-only heartbeat); heartbeat has no wd", function () {
   const h = createHarness({ inputs: { c: true } });
   assert.ok(!Object.prototype.hasOwnProperty.call(h.lastHeartbeat(), "wd"), "guard status stays off the bridged heartbeat");
-  h.wifiRssi = -77; h.tick(300);                       // one ALIVE_MS period, no door change
+  h.wifiRssi = -77; h.tick(aliveTicks(h));             // one ALIVE_MS period, no door change
   const a = h.lastAlive();
   assert.equal(a.rssi, -77, "fresh rssi without a door change");
   assert.deepEqual(a.wd, { last: 0, why: "", rssi: null, hold: false });

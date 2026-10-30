@@ -144,7 +144,8 @@ Some i4 logic is **timing-dependent** and cannot be judged from a settled snapsh
 long* a condition holds. The prime example is the **Q-16 motor-direction gate** (spec 14): a reed engaged
 while the motor drives away from it means *departure* if sustained (~510–780 ms, measured) but is the
 harmless *end-of-travel reverse kick* if brief (~140–220 ms, measured). The script tells them apart by
-duration (`GATE_TICKS`, ~400 ms). Debounce and the watchdog thresholds are similarly time-based.
+duration (`GATE_TICKS`, ~800 ms at the 200 ms tick, D-23). Debounce and the watchdog thresholds are similarly
+time-based.
 
 **Why the Pico is the right tool:** the host→Pico link (powershell → mpremote, seconds of latency) cannot
 produce precise sub-second input sequences. **MicroPython on the Pico can** — so we put the timing
