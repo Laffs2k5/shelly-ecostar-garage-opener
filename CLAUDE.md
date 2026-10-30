@@ -15,7 +15,8 @@ Two devices, two roles (see `docs/spec/01-architecture.md`):
   switches + 2 optocoupler motor-direction signals). On every state change it (a) publishes to MQTT so
   any subscriber can follow the door, and (b) HTTP-POSTs the state directly to the controller for
   lowest latency. If the controller is unreachable the i4 just keeps publishing to MQTT — the POST is
-  fire-and-forget and **never blocks** (D-10).
+  fire-and-forget and **never blocks** (D-10). It also re-sends the picture every 30 s (single-flight, D-22)
+  because the controller holds it in RAM only.
 - **Shelly 1 Gen3 — CONTROLLING unit.** Receives open/close/toggle commands from the outside world,
   holds the latest door picture (from the i4), and pulses the EcoStar impulse input (terminals 1+2) —
   but *suppresses counterproductive pulses* (e.g. won't pulse while already OPENING, which would stop
@@ -53,8 +54,9 @@ Two channels, **both kept by design** (do not collapse them):
 
 - `devices/<id>/heartbeat` — **retained**, app status (door state, `rssi`, schema version `v`, `ts`).
   Immediate-on-connect.
-- `mon/<id>/alive` — **non-retained**, LAN-only infra liveness. **The monitor watches `alive`, never the
-  retained heartbeat** (a retained payload would resurrect a dead device on monitor restart).
+- `mon/<id>/alive` — **non-retained**, LAN-only infra liveness, payload `{ts, rssi, wd}`. Monitoring extras
+  ride here, never on the bridged heartbeat (mqtt-leiflan convention). **The monitor watches `alive`, never
+  the retained heartbeat** (a retained payload would resurrect a dead device on monitor restart).
 - `devices/<id>/online` — retained LWT, firmware-published.
 - `devices/<controller-id>/command` — open/close/toggle/**stop** to the controller. (Config tuning is via
   KVS `logic_cfg`/`wd_cfg` over RPC — there is **no** MQTT config topic.)
