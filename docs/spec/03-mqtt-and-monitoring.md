@@ -7,7 +7,7 @@ Do **not** collapse them.
 
 | Topic | Retain | Consumer | Purpose |
 |---|---|---|---|
-| `devices/<id>/heartbeat` | **YES** | app / web | Application status: door state (+ `dir` on the monitor), `rssi`, schema version `v`, `ts`. Retained so a client gets the current picture immediately on connect. |
+| `devices/<id>/heartbeat` | **YES** | app / web | Application status: door state (+ `dir` on the monitor), `rssi`, `wd` (last weak-signal-guard reboot, spec 13), schema version `v`, `ts`. Retained so a client gets the current picture immediately on connect. |
 | `mon/<id>/alive` | **NO** | layer-3 monitor | Pure infra liveness. Payload irrelevant. LAN-only, staleness-based (`expire_after`). |
 | `devices/<id>/online` | YES (LWT) | both | Firmware-published last-will connect/disconnect. |
 | `devices/<controller-id>/command` | NO | controller (S1) | open / close / toggle / stop from the outside world (`stop` = safety halt, only acts on a moving door). |

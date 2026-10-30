@@ -213,3 +213,44 @@ test("watchdog: no reboot while connected, or when broker disabled", function ()
   h.sandbox.WD.mqttEnabled = false; h.setNet(true, false); h.tick(10); // broker down but MQTT disabled
   assert.equal(h.reboots, 0);
 });
+
+// ---------- weak-signal guard (spec 13) ----------
+// rssiWin=15 s -> one sample per 1 s = every 10 ticks of 100 ms. (Harness clock: +1 per tick.)
+const FAST = { wd_cfg: JSON.stringify({ rssiWin: 15 }) };
+function feed(h, seq) { seq.forEach(function (r) { h.wifiRssi = r; h.tick(10); }); }
+function weak(n) { const a = []; for (let i = 0; i < n; i++) a.push(-90); return a; }
+
+test("guard: sustained weak signal with the motor idle -> records, then reboots", function () {
+  const h = createHarness({ inputs: { c: true }, kvs: FAST });
+  feed(h, weak(14));
+  assert.equal(h.reboots, 0, "window not full yet");
+  feed(h, weak(1));
+  assert.equal(h.reboots, 1);
+  const rec = h.wdLast();
+  assert.equal(rec.why, "rssi"); assert.equal(rec.rssi, -90); assert.equal(rec.hold, 1);
+  assert.equal(h.lastHeartbeat().wd.hold, true, "heartbeat published with the record before going down");
+});
+test("guard: never reboots while the motor runs; fires once the door is at rest", function () {
+  const h = createHarness({ inputs: { c: true }, kvs: FAST });
+  h.setInputs(false, false, true, false); h.settle();       // OPENING
+  feed(h, weak(20));
+  assert.equal(h.reboots, 0, "motor running");
+  h.setInputs(false, true, false, false); h.settle();       // OPEN, motor stopped
+  feed(h, weak(1));
+  assert.equal(h.reboots, 1);
+});
+test("guard: hold clears on recovery and the monitor republishes its heartbeat", function () {
+  const h = createHarness({ inputs: { c: true }, kvs: Object.assign({ wd_last: JSON.stringify({ ts: 1, why: "rssi", rssi: -90, hold: 1 }) }, FAST) });
+  feed(h, weak(30));
+  assert.equal(h.reboots, 0, "hold");
+  const n = h.heartbeats().length;
+  const ok = []; for (let i = 0; i < 15; i++) ok.push(-72);
+  feed(h, ok);
+  assert.equal(h.wdLast().hold, 0);
+  assert.ok(h.heartbeats().length > n, "heartbeat republished on recovery (the i4 otherwise only publishes on door changes)");
+  assert.equal(h.lastHeartbeat().wd.hold, false);
+});
+test("heartbeat carries wd (last guard reboot) with safe defaults", function () {
+  const h = createHarness({ inputs: { c: true } });
+  assert.deepEqual(h.lastHeartbeat().wd, { last: 0, why: "", rssi: null, hold: false });
+});

@@ -19,8 +19,13 @@ function createHarness(opts) {
     switchConfig: null,
     wifiUp: true,
     wifiRssi: (opts.wifiRssi !== undefined ? opts.wifiRssi : -55),
+    wifiBssid: "aa:bb:cc:00:00:01",
     mqttConn: opts.mqttConnected !== false,
     reboots: 0,
+    kvsSets: [],     // {key, value} — every KVS.Set the script made
+    kvsFail: false,  // make KVS.Set report an error
+    kvsDefer: false, // hold KVS.Set callbacks until flushKvs() (to observe the gap before a reboot)
+    kvsPending: [],
     published: [],   // {topic, msg, qos, retain}
     posts: [],       // HTTP.POST {url, body}
     switchSets: [],  // {id, on}
@@ -39,7 +44,7 @@ function createHarness(opts) {
   function compStatus(key) {
     if (key.indexOf("input:") === 0) { const id = parseInt(key.slice(6), 10); return { id: id, state: !!h.inputs[id] }; }
     if (key.indexOf("switch:") === 0) { return { id: 0, output: h.switchOutput }; }
-    if (key === "wifi") return { status: h.wifiUp ? "got ip" : "disconnected", rssi: h.wifiRssi };
+    if (key === "wifi") return { status: h.wifiUp ? "got ip" : "disconnected", rssi: h.wifiRssi, bssid: h.wifiBssid };
     if (key === "mqtt") return { connected: h.mqttConn };
     if (key === "sys") return { unixtime: h.clock };
     return undefined;
@@ -53,6 +58,15 @@ function createHarness(opts) {
         const key = params && params.key;
         if (Object.prototype.hasOwnProperty.call(h.kvs, key)) return void cb({ value: h.kvs[key] }, 0, "");
         return void cb(null, -105, "no such key");
+      }
+      if (method === "KVS.Set") {
+        h.kvsSets.push({ key: params.key, value: params.value });
+        const done = function () {
+          if (h.kvsFail) return void (cb && cb(null, -1, "kvs fail"));
+          h.kvs[params.key] = params.value; if (cb) cb({ etag: "x" }, 0, "");
+        };
+        if (h.kvsDefer) h.kvsPending.push(done); else done();
+        return;
       }
       if (method === "HTTP.POST") { h.posts.push({ url: params.url, body: params.body }); return void cb({ code: 200 }, 0, ""); }
       if (method === "Switch.Set") { h.switchSets.push({ id: params.id, on: params.on }); h.switchOutput = !!params.on; return void (cb && cb({ was_on: false }, 0, "")); }
@@ -84,6 +98,10 @@ function createHarness(opts) {
   h.derive = sandbox.derive;            // monitor pure fn
   h.pulsesFor = sandbox.pulsesFor;      // controller pure fn
   h.wdReboot = sandbox.wdReboot;        // watchdog pure fn (both scripts)
+  h.rssiGuard = sandbox.rssiGuard;      // weak-signal guard pure fn (both scripts)
+  h.medianOf = sandbox.medianOf;
+  h.flushKvs = function () { const p = h.kvsPending; h.kvsPending = []; p.forEach(function (f) { f(); }); };
+  h.wdLast = function () { const v = h.kvs.wd_last; return typeof v === "string" ? JSON.parse(v) : v; };
   h.setNet = function (wifiUp, mqttConn) { h.wifiUp = wifiUp; h.mqttConn = mqttConn; };
   h.setInputs = function (c, o, op, cl) { h.inputs[0] = c; h.inputs[1] = o; h.inputs[2] = op; h.inputs[3] = cl; };
   h._repeatCb = function () { const t = h.timers.filter(function (t) { return t.repeat; })[0]; return t && t.cb; };

@@ -40,7 +40,18 @@ var RESUME_SAME_DIR = false;
 // Connectivity watchdog (Phase 7): reboot to recover a wedged Wi-Fi/MQTT stack after a prolonged
 // outage. The controller is boot-safe (relay initial_state:off, never auto-acts) and holds no resumable
 // state, so boot is always safe — no reset_reason gate. Overridable via KVS "wd_cfg" {on,wifi,mqtt}.
-var WD = { on: true, wifiMs: 600000, mqttMs: 1800000, mqttEnabled: false, wifiDown: 0, mqttDown: 0 };
+// Weak-signal guard (spec 13): Shelly's own roaming can leave us on a far AP for hours; only a reboot is
+// proven to re-pick the strongest one. Reboot when the MEDIAN of the last RSSI_N samples over rssiWinMs is
+// below rssi dBm and the door is idle; at most once per rssiGapS, then hold until the signal is seen
+// recovered (so a spot where every AP is weak can't loop). KVS "wd_cfg" {rssiOn,rssi,rssiWin,rssiGap}.
+var WD = { on: true, wifiMs: 600000, mqttMs: 1800000, mqttEnabled: false, wifiDown: 0, mqttDown: 0,
+           rssiOn: true, rssi: -85, rssiWinMs: 900000, rssiGapS: 21600 };
+var RSSI_N = 15;             // samples per window (odd: the median is the middle one)
+var RSSI_HYST = 5;           // dB above the threshold the median must reach to count as "recovered"
+var DOOR_FRESH_S = 120;      // a "moving" door picture older than this is stale (no travel lasts that long)
+// guard runtime: sample ring, sample-period accumulator, current AP, persisted last guard reboot (KVS
+// "wd_last" {ts,why,rssi,hold}), a KVS write in flight, and the commit-to-reboot latch.
+var RG = { buf: [], i: 0, acc: 0, bssid: "", rec: null, busy: false, going: false };
 
 var CFG = { hbTopic: "", aliveTopic: "", cmdTopic: "", id: "" };
 var DOOR = { state: "UNKNOWN", dir: "", since: 0, ts: 0, rx: 0, moving: false };   // last picture from the i4
@@ -87,6 +98,27 @@ function wdReboot(wifiDownMs, mqttDownMs, cfg) {
   if (wifiDownMs >= cfg.wifiMs) return "wifi";
   if (mqttDownMs >= cfg.mqttMs) return "mqtt";
   return "";
+}
+
+// pure: median of the first n entries of a (n odd). Counting selection — no sort/temp array in mJS.
+function medianOf(a, n) {
+  var k = (n - 1) / 2;
+  for (var i = 0; i < n; i++) {
+    var lt = 0; var eq = 0;
+    for (var j = 0; j < n; j++) { if (a[j] < a[i]) lt++; else if (a[j] === a[i]) eq++; }
+    if (lt <= k && k < lt + eq) return a[i];
+  }
+  return null;
+}
+// pure weak-signal guard decision (shared shape with monitor.js) — tested in the harness.
+// med = window median (null until the window is full); rec = last guard reboot {ts,hold} or null.
+// -> "reboot" | "recover" (clear the hold) | "".
+function rssiGuard(med, idle, now, rec, cfg) {
+  if (!cfg.on || !cfg.rssiOn || med === null) return "";
+  if (rec && rec.hold) return (med >= cfg.rssi + RSSI_HYST) ? "recover" : "";
+  if (med >= cfg.rssi || !idle || now <= 0) return "";
+  if (rec && rec.ts && now - rec.ts < cfg.rssiGapS) return "";
+  return "reboot";
 }
 
 // ---- parse a command from an MQTT message or a query value ----
@@ -169,8 +201,13 @@ function payload() {
     relay: relayOn(), lastCmd: LASTCMD, lastCmdTs: LASTCMD_TS, lastPulses: LASTPULSES,
     door: { state: DOOR.state, dir: DOOR.dir, ts: DOOR.ts, rx: DOOR.rx, moving: DOOR.moving },
     queued: PENDING.cmd, locked: LOCKED, fires: FIRES, resumeSameDir: RESUME_SAME_DIR,
-    ts: nowTs(), rssi: wifiRssi(), v: SCHEMA
+    ts: nowTs(), rssi: wifiRssi(), wd: wdInfo(), v: SCHEMA
   };
+}
+function wdInfo() {
+  var r = RG.rec;
+  if (!r) return { last: 0, why: "", rssi: null, hold: false };
+  return { last: r.ts || 0, why: r.why || "", rssi: (typeof r.rssi === "number") ? r.rssi : null, hold: !!r.hold };
 }
 function publishHeartbeat() {
   if (CFG.hbTopic === "" || typeof MQTT === "undefined" || !MQTT.isConnected()) return;
@@ -187,6 +224,8 @@ function handleCommand(raw, src) {
   // safety stop always gets through the pulse-lockout; its state-gate (pulsesFor) keeps it from firing a
   // bad pulse anyway — if the door isn't confirmed moving, stop is a no-op.
   if (cmd !== "stop" && LOCKED) { print("controller: locked (pulse in progress) — dropping", cmd, "(" + src + ")"); return; }
+  // a committed guard reboot would cut a multi-pulse sequence short (e.g. stop-then-reverse) -> drop
+  if (cmd !== "stop" && RG.going) { print("controller: rebooting (weak Wi-Fi) — dropping", cmd, "(" + src + ")"); return; }
   if (needsRest(cmd)) {            // at an end but still moving (arrival overlap) -> queue until at rest
     PENDING.cmd = cmd; PENDING.deadline = ticks + QUEUE_TIMEOUT_TICKS;
     print("controller: door moving into", DOOR.state, "— queued", cmd, "(" + src + ")");
@@ -231,6 +270,53 @@ function watchdogTick() {
   var why = wdReboot(WD.wifiDown, WD.mqttDown, WD);
   if (why !== "") { print("controller: watchdog reboot —", why, "down too long"); Shelly.call("Shelly.Reboot", {}); }
 }
+
+// idle = nothing the reboot could cut short: no pulse/sequence/lockout, nothing queued, door not moving.
+// A "moving" picture only counts while fresh: a feed that died mid-travel (the weak-signal case itself)
+// must not block the guard forever.
+function doorIdle() {
+  var moving = DOOR.moving || DOOR.state === "OPENING" || DOOR.state === "CLOSING";
+  var fresh = DOOR.rx > 0 && (nowTs() - DOOR.rx) < DOOR_FRESH_S;
+  return !LOCKED && SEQ_LEFT <= 0 && PENDING.cmd === "" && !relayOn() && !(moving && fresh);
+}
+function saveRec(rec, cb) {
+  RG.busy = true;
+  Shelly.call("KVS.Set", { key: "wd_last", value: JSON.stringify(rec) }, function (r, ec) {
+    RG.busy = false;
+    cb(!ec);
+  });
+}
+function rssiTick() {
+  RG.acc += TICK_MS;
+  if (RG.acc < WD.rssiWinMs / RSSI_N) return;
+  RG.acc = 0;
+  var w = Shelly.getComponentStatus("wifi");
+  if (!w || w.status !== "got ip" || typeof w.rssi !== "number") return;   // no IP: the Wi-Fi watchdog's job
+  if (w.bssid !== RG.bssid) { RG.bssid = w.bssid; RG.buf = []; RG.i = 0; }   // (re)associated: fresh window
+  // ring: fill by push, then overwrite the oldest (index RG.i)
+  if (RG.buf.length < RSSI_N) RG.buf.push(w.rssi); else { RG.buf[RG.i] = w.rssi; RG.i = (RG.i + 1) % RSSI_N; }
+  if (RG.busy || RG.going) return;
+  var med = (RG.buf.length === RSSI_N) ? medianOf(RG.buf, RSSI_N) : null;
+  var act = rssiGuard(med, doorIdle(), nowTs(), RG.rec, WD);
+  if (act === "recover") {
+    var ok = { ts: RG.rec.ts, why: RG.rec.why, rssi: RG.rec.rssi, hold: 0 };
+    saveRec(ok, function (saved) {
+      if (!saved) return;
+      RG.rec = ok; print("controller: rssi guard — signal recovered (median", med, "dBm), hold cleared");
+      publishHeartbeat();
+    });
+  } else if (act === "reboot") {
+    RG.going = true;              // from here on, drop new commands (see handleCommand)
+    var rec = { ts: nowTs(), why: "rssi", rssi: med, hold: 1 };
+    print("controller: rssi guard reboot — median", med, "dBm <", WD.rssi, "over", WD.rssiWinMs / 1000, "s");
+    // persist FIRST: without the record the rate limit can't survive the reboot -> never reboot unrecorded
+    saveRec(rec, function (saved) {
+      if (!saved) { RG.going = false; print("controller: rssi guard — KVS.Set failed, not rebooting"); return; }
+      RG.rec = rec; publishHeartbeat();
+      Shelly.call("Shelly.Reboot", {});
+    });
+  }
+}
 // KVS values can come back either as a JSON STRING or, if they were stored as JSON, as an already-parsed
 // OBJECT. JSON.parse(object) THROWS on-device (SyntaxError) and would crash boot — so never parse a
 // non-string. Boot-safe: object passes through, JSON text is parsed, anything else is ignored.
@@ -245,6 +331,14 @@ function applyWdCfg(str) {
   if (typeof c.on !== "undefined") WD.on = c.on ? true : false;
   if (c.wifi) WD.wifiMs = c.wifi * 1000;
   if (c.mqtt) WD.mqttMs = c.mqtt * 1000;
+  if (typeof c.rssiOn !== "undefined") WD.rssiOn = c.rssiOn ? true : false;
+  if (typeof c.rssi === "number" && c.rssi >= -100 && c.rssi <= -60) WD.rssi = c.rssi;   // sane range only
+  if (c.rssiWin >= 15) WD.rssiWinMs = c.rssiWin * 1000;
+  if (c.rssiGap >= 60) WD.rssiGapS = c.rssiGap;
+}
+function applyWdLast(v) {
+  var r = cfgObj(v);
+  if (r && typeof r.ts === "number") RG.rec = r;
 }
 // pulse-safety tunables (KVS "logic_cfg" {pulseGap,lockMargin,queueTimeout}, all ms except ticks) —
 // lets commissioning tune timing on the real door without reflashing (spec 14, Q-16).
@@ -260,6 +354,7 @@ function applyLogicCfg(str) {
 function tick() {
   ticks++;
   watchdogTick();
+  rssiTick();
   // Re-subscribe on a broker reconnect. Shelly clears script subscriptions when the script stops and does
   // NOT guarantee they survive a broker drop/reconnect; the watchdog can't catch this (it sees mqtt
   // .connected flip back to true), so a transient outage would otherwise leave us "connected but deaf" to
@@ -304,8 +399,11 @@ function boot() {
           applyWdCfg(w && w.value);
           Shelly.call("KVS.Get", { key: "logic_cfg" }, function (lc) {
             applyLogicCfg(lc && lc.value);
-            registerHttp();
-            startLoop();
+            Shelly.call("KVS.Get", { key: "wd_last" }, function (wl) {
+              applyWdLast(wl && wl.value);
+              registerHttp();
+              startLoop();
+            });
           });
         });
       });

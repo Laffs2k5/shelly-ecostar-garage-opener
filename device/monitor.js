@@ -32,7 +32,17 @@ var POST_TIMEOUT = 5;      // seconds; controller POST is fire-and-forget
 // outage. Our devices are STATELESS across reboot (door state is re-derived from live inputs), so boot
 // is always safe — no reset_reason/resume gate needed. Defaults overridable via KVS "wd_cfg"
 // {on:0|1, wifi:<s>, mqtt:<s>}; for the on-device test, set a short threshold then restore.
-var WD = { on: true, wifiMs: 600000, mqttMs: 1800000, mqttEnabled: false, wifiDown: 0, mqttDown: 0 };
+// Weak-signal guard (spec 13): Shelly's own roaming can leave us on a far AP for hours; only a reboot is
+// proven to re-pick the strongest one. Reboot when the MEDIAN of the last RSSI_N samples over rssiWinMs is
+// below rssi dBm and the motor is idle; at most once per rssiGapS, then hold until the signal is seen
+// recovered (so a spot where every AP is weak can't loop). KVS "wd_cfg" {rssiOn,rssi,rssiWin,rssiGap}.
+var WD = { on: true, wifiMs: 600000, mqttMs: 1800000, mqttEnabled: false, wifiDown: 0, mqttDown: 0,
+           rssiOn: true, rssi: -85, rssiWinMs: 900000, rssiGapS: 21600 };
+var RSSI_N = 15;           // samples per window (odd: the median is the middle one)
+var RSSI_HYST = 5;         // dB above the threshold the median must reach to count as "recovered"
+// guard runtime: sample ring, sample-period accumulator, current AP, persisted last guard reboot (KVS
+// "wd_last" {ts,why,rssi,hold}), a KVS write in flight, and the commit-to-reboot latch.
+var RG = { buf: [], i: 0, acc: 0, bssid: "", rec: null, busy: false, going: false };
 
 // ---- runtime state ----
 var CFG = { hbTopic: "", aliveTopic: "", controllerUrl: "" };
@@ -73,6 +83,27 @@ function wdReboot(wifiDownMs, mqttDownMs, cfg) {
   return "";
 }
 
+// pure: median of the first n entries of a (n odd). Counting selection — no sort/temp array in mJS.
+function medianOf(a, n) {
+  var k = (n - 1) / 2;
+  for (var i = 0; i < n; i++) {
+    var lt = 0; var eq = 0;
+    for (var j = 0; j < n; j++) { if (a[j] < a[i]) lt++; else if (a[j] === a[i]) eq++; }
+    if (lt <= k && k < lt + eq) return a[i];
+  }
+  return null;
+}
+// pure weak-signal guard decision (shared shape with controller.js) — tested in the harness.
+// med = window median (null until the window is full); rec = last guard reboot {ts,hold} or null.
+// -> "reboot" | "recover" (clear the hold) | "".
+function rssiGuard(med, idle, now, rec, cfg) {
+  if (!cfg.on || !cfg.rssiOn || med === null) return "";
+  if (rec && rec.hold) return (med >= cfg.rssi + RSSI_HYST) ? "recover" : "";
+  if (med >= cfg.rssi || !idle || now <= 0) return "";
+  if (rec && rec.ts && now - rec.ts < cfg.rssiGapS) return "";
+  return "reboot";
+}
+
 // ---- helpers ----
 function readInput(id) {
   var s = Shelly.getComponentStatus("input:" + id);
@@ -98,8 +129,13 @@ function payload() {
   return {
     state: STATE, dir: LASTDIR,
     inputs: { c: s.c, o: s.o, op: s.op, cl: s.cl },
-    since: SINCE, ts: nowTs(), rssi: wifiRssi(), v: SCHEMA
+    since: SINCE, ts: nowTs(), rssi: wifiRssi(), wd: wdInfo(), v: SCHEMA
   };
+}
+function wdInfo() {
+  var r = RG.rec;
+  if (!r) return { last: 0, why: "", rssi: null, hold: false };
+  return { last: r.ts || 0, why: r.why || "", rssi: (typeof r.rssi === "number") ? r.rssi : null, hold: !!r.hold };
 }
 
 function publishHeartbeat() {
@@ -156,10 +192,56 @@ function watchdogTick() {
   if (why !== "") { print("monitor: watchdog reboot —", why, "down too long"); Shelly.call("Shelly.Reboot", {}); }
 }
 
+// idle = motor not running (live inputs and the last applied picture), so a reboot never blinds the
+// controller mid-travel. The i4 holds nothing else a reboot could cut short (D-20).
+function doorIdle() {
+  var s = snapshot();
+  return !s.op && !s.cl && !LASTMOVING;
+}
+function saveRec(rec, cb) {
+  RG.busy = true;
+  Shelly.call("KVS.Set", { key: "wd_last", value: JSON.stringify(rec) }, function (r, ec) {
+    RG.busy = false;
+    cb(!ec);
+  });
+}
+function rssiTick() {
+  RG.acc += TICK_MS;
+  if (RG.acc < WD.rssiWinMs / RSSI_N) return;
+  RG.acc = 0;
+  var w = Shelly.getComponentStatus("wifi");
+  if (!w || w.status !== "got ip" || typeof w.rssi !== "number") return;   // no IP: the Wi-Fi watchdog's job
+  if (w.bssid !== RG.bssid) { RG.bssid = w.bssid; RG.buf = []; RG.i = 0; }   // (re)associated: fresh window
+  // ring: fill by push, then overwrite the oldest (index RG.i)
+  if (RG.buf.length < RSSI_N) RG.buf.push(w.rssi); else { RG.buf[RG.i] = w.rssi; RG.i = (RG.i + 1) % RSSI_N; }
+  if (RG.busy || RG.going) return;
+  var med = (RG.buf.length === RSSI_N) ? medianOf(RG.buf, RSSI_N) : null;
+  var act = rssiGuard(med, doorIdle(), nowTs(), RG.rec, WD);
+  if (act === "recover") {
+    var ok = { ts: RG.rec.ts, why: RG.rec.why, rssi: RG.rec.rssi, hold: 0 };
+    saveRec(ok, function (saved) {
+      if (!saved) return;
+      RG.rec = ok; print("monitor: rssi guard — signal recovered (median", med, "dBm), hold cleared");
+      publishHeartbeat();
+    });
+  } else if (act === "reboot") {
+    RG.going = true;
+    var rec = { ts: nowTs(), why: "rssi", rssi: med, hold: 1 };
+    print("monitor: rssi guard reboot — median", med, "dBm <", WD.rssi, "over", WD.rssiWinMs / 1000, "s");
+    // persist FIRST: without the record the rate limit can't survive the reboot -> never reboot unrecorded
+    saveRec(rec, function (saved) {
+      if (!saved) { RG.going = false; print("monitor: rssi guard — KVS.Set failed, not rebooting"); return; }
+      RG.rec = rec; publishHeartbeat();
+      Shelly.call("Shelly.Reboot", {});
+    });
+  }
+}
+
 function tick() {
   ticks++;
   evaluate();
   watchdogTick();
+  rssiTick();
   if ((ticks % (ALIVE_MS / TICK_MS)) === 0) publishAlive();
 }
 
@@ -176,6 +258,14 @@ function applyWdCfg(str) {
   if (typeof c.on !== "undefined") WD.on = c.on ? true : false;
   if (c.wifi) WD.wifiMs = c.wifi * 1000;
   if (c.mqtt) WD.mqttMs = c.mqtt * 1000;
+  if (typeof c.rssiOn !== "undefined") WD.rssiOn = c.rssiOn ? true : false;
+  if (typeof c.rssi === "number" && c.rssi >= -100 && c.rssi <= -60) WD.rssi = c.rssi;   // sane range only
+  if (c.rssiWin >= 15) WD.rssiWinMs = c.rssiWin * 1000;
+  if (c.rssiGap >= 60) WD.rssiGapS = c.rssiGap;
+}
+function applyWdLast(v) {
+  var r = cfgObj(v);
+  if (r && typeof r.ts === "number") RG.rec = r;
 }
 
 // ---- HTTP status endpoint: GET /script/<id>/state ----
@@ -217,8 +307,11 @@ function boot() {
       if (r && r.value) CFG.controllerUrl = r.value;
       Shelly.call("KVS.Get", { key: "wd_cfg" }, function (w) {
         applyWdCfg(w && w.value);
-        registerHttp();
-        startLoop();
+        Shelly.call("KVS.Get", { key: "wd_last" }, function (wl) {
+          applyWdLast(wl && wl.value);
+          registerHttp();
+          startLoop();
+        });
       });
     });
   });

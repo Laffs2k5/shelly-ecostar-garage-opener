@@ -58,7 +58,7 @@ momentarily show OPENING — hence the value stays tunable and is re-checked on 
 
 ### Tunables (KVS, no reflash)
 
-- **i4** `wd_cfg` `{on,wifi,mqtt}` (watchdog). *(Gate `GATE_TICKS` is a code constant today — promote to
+- **Both** `wd_cfg` `{on,wifi,mqtt,rssiOn,rssi,rssiWin,rssiGap}` (watchdog + weak-signal guard, spec 13). *(Gate `GATE_TICKS` is a code constant today — promote to
   KVS if it needs field tuning.)*
 - **S1** `logic_cfg` `{pulseGap,lockMargin,queueTimeout,resumeSameDir}` — `pulseGap`/`lockMargin` ms,
   `queueTimeout` ticks, **`resumeSameDir`** bool (default `false` = the door ALTERNATES direction on restart
@@ -71,7 +71,7 @@ momentarily show OPENING — hence the value stays tunable and is re-checked on 
   controller (regression-tested).
 - **Heartbeat observability:** `devices/<id>/heartbeat` now carries `rssi`; the S1 heartbeat also carries
   `door.moving`, `queued`, `locked`, `fires` (monotonic pulse-sequence count), and `resumeSameDir` (active
-  restart model).
+  restart model). Both carry `wd` `{last,why,rssi,hold}` (weak-signal guard, spec 13).
 
 ---
 

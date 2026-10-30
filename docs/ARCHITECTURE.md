@@ -60,7 +60,8 @@ graph LR
   the monitor watches `alive`, never the retained heartbeat). Devices are mTLS clients
   (`garage-monitor`, `garage-controller`); the app is a per-app identity (`garage-app`).
 - **Resilience** (spec [13](spec/13-device-resilience.md)): a connectivity watchdog reboots a device that's
-  lost Wi-Fi/broker too long. Devices are stateless across reboot (monitor re-derives; controller boots
+  lost Wi-Fi/broker too long, and a weak-signal guard reboots one stuck on a far AP (rate-limited, holds
+  if the reboot didn't help). Devices are stateless across reboot (monitor re-derives; controller boots
   relay-off), so boot is always safe — no resume gate.
 
 ## Components / repo layout

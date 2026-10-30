@@ -340,3 +340,166 @@ test("no double-subscribe churn while the broker stays connected", function () {
   h.setNet(true, true); h.tick(5);
   assert.equal(subCalls, 0, "no re-subscribe while continuously connected (only on a down->up edge)");
 });
+
+// ---------- weak-signal guard (spec 13): reboot to re-pick the strongest AP ----------
+// rssiWin=15 s -> one sample per 1 s tick, so 15 ticks fill the window. Clock = 1 s per tick here.
+const FAST = { wd_cfg: JSON.stringify({ rssiWin: 15 }) };
+const mkG = (o) => mk(Object.assign({ kvs: Object.assign({}, FAST) }, o));
+function feed(h, seq) { seq.forEach(function (r) { h.wifiRssi = r; h.tick(); }); }
+function weak(n) { const a = []; for (let i = 0; i < n; i++) a.push(-90); return a; }
+
+test("medianOf: middle value of an unsorted window, duplicates ok", function () {
+  const { medianOf } = mk();
+  assert.equal(medianOf([-90, -70, -80], 3), -80);
+  assert.equal(medianOf([-88, -88, -60, -92, -88], 5), -88);
+  assert.equal(medianOf([-91, -76, -87, -79, -90, -92, -84, -89, -88, -77, -90, -86, -91, -78, -89], 15), -88);
+});
+
+test("rssiGuard pure decision table", function () {
+  const { rssiGuard } = mk();
+  const cfg = { on: true, rssiOn: true, rssi: -85, rssiGapS: 21600 };
+  const now = 100000;
+  assert.equal(rssiGuard(null, true, now, null, cfg), "", "window not full yet");
+  assert.equal(rssiGuard(-84, true, now, null, cfg), "", "at/above threshold");
+  assert.equal(rssiGuard(-85, true, now, null, cfg), "", "threshold itself is not weak");
+  assert.equal(rssiGuard(-86, true, now, null, cfg), "reboot");
+  assert.equal(rssiGuard(-90, false, now, null, cfg), "", "door busy");
+  assert.equal(rssiGuard(-90, true, 0, null, cfg), "", "no wall clock -> can't rate-limit -> don't");
+  assert.equal(rssiGuard(-90, true, now, { ts: now - 3600, hold: 0 }, cfg), "", "inside the 6 h gap");
+  assert.equal(rssiGuard(-90, true, now, { ts: now - 21600, hold: 0 }, cfg), "reboot", "gap passed");
+  assert.equal(rssiGuard(-90, true, now, { ts: 1, hold: 1 }, cfg), "", "hold: last reboot didn't help");
+  assert.equal(rssiGuard(-81, true, now, { ts: 1, hold: 1 }, cfg), "", "hold needs thr+5 to clear");
+  assert.equal(rssiGuard(-80, false, now, { ts: 1, hold: 1 }, cfg), "recover", "recovery doesn't need idle");
+  assert.equal(rssiGuard(-95, true, now, null, Object.assign({}, cfg, { rssiOn: false })), "", "guard off");
+  assert.equal(rssiGuard(-95, true, now, null, Object.assign({}, cfg, { on: false })), "", "watchdog off");
+});
+
+test("guard defaults (-85 dBm, 900 s window, 6 h gap) and wd_cfg overrides with range checks", function () {
+  const d = mk().sandbox.WD;
+  assert.equal(d.rssiOn, true); assert.equal(d.rssi, -85); assert.equal(d.rssiWinMs, 900000); assert.equal(d.rssiGapS, 21600);
+  const o = mk({ kvs: { wd_cfg: JSON.stringify({ rssiOn: 0, rssi: -88, rssiWin: 600, rssiGap: 7200 }) } }).sandbox.WD;
+  assert.equal(o.rssiOn, false); assert.equal(o.rssi, -88); assert.equal(o.rssiWinMs, 600000); assert.equal(o.rssiGapS, 7200);
+  const bad = mk({ kvs: { wd_cfg: JSON.stringify({ rssi: -20, rssiWin: 5, rssiGap: 1 }) } }).sandbox.WD;
+  assert.equal(bad.rssi, -85, "a threshold that would fire on a good signal is ignored");
+  assert.equal(bad.rssiWinMs, 900000); assert.equal(bad.rssiGapS, 21600);
+});
+
+test("guard: sustained weak signal -> records the reboot in KVS first, then reboots", function () {
+  const h = mkG(); setDoor(h, "CLOSED");
+  feed(h, weak(14));
+  assert.equal(h.reboots, 0, "window not full yet");
+  feed(h, weak(1));
+  assert.equal(h.reboots, 1, "rebooted once the 15-sample window is weak");
+  const rec = h.wdLast();
+  assert.equal(rec.why, "rssi"); assert.equal(rec.rssi, -90); assert.equal(rec.hold, 1); assert.ok(rec.ts > 0);
+  assert.ok(h.logs.some(function (l) { return /rssi guard reboot/.test(l); }), "reason printed");
+  assert.equal(h.lastHeartbeat().wd.hold, true, "heartbeat shows the guard reboot before going down");
+  assert.equal(h.switchSets.length, 0, "the guard never touches the relay");
+});
+
+test("guard: median rides out ±5 dB swings (a third of samples strong still reboots)", function () {
+  const h = mkG();
+  const seq = []; for (let i = 0; i < 15; i++) seq.push(i % 3 === 0 ? -80 : -90);   // 5 strong, 10 weak
+  feed(h, seq);
+  assert.equal(h.reboots, 1);
+});
+test("guard: a mostly-good signal with weak dips does not reboot", function () {
+  const h = mkG();
+  const seq = []; for (let i = 0; i < 45; i++) seq.push(i % 3 === 0 ? -92 : -78);   // 1/3 weak
+  feed(h, seq);
+  assert.equal(h.reboots, 0);
+});
+test("guard: an AP change (BSSID) starts a fresh window", function () {
+  const h = mkG();
+  feed(h, weak(14));
+  h.wifiBssid = "aa:bb:cc:00:00:02";          // firmware roamed/reassociated
+  feed(h, weak(14));
+  assert.equal(h.reboots, 0, "old AP's samples don't count");
+  feed(h, weak(1));
+  assert.equal(h.reboots, 1);
+});
+test("guard: samples without an IP are skipped (that's the Wi-Fi watchdog's job)", function () {
+  const h = mkG();
+  h.sandbox.WD.wifiMs = 9e9;
+  h.wifiUp = false; feed(h, weak(30));
+  assert.equal(h.reboots, 0);
+});
+
+test("guard: never reboots mid-pulse, mid-lockout or with a command queued", function () {
+  const h = mkG(); setDoor(h, "CLOSED");
+  h.post("command", { query: "cmd=open" });   // fires: relay on + LOCKED (harness relay stays on)
+  feed(h, weak(20));
+  assert.equal(h.reboots, 0, "pulse/lockout in progress");
+  h.fireOneShots(); h.switchOutput = false;   // sequence done, lockout cleared, relay auto-off
+  setDoorMoving(h, "CLOSED", false, true);    // arrival overlap -> a command gets queued
+  h.post("command", { query: "cmd=open" });
+  assert.equal(h.lastHeartbeat().queued, "open");
+  h.wifiRssi = -90; h.tick();
+  assert.equal(h.reboots, 0, "queued command pending");
+});
+test("guard: waits while the door picture says moving, but a stale moving picture doesn't block it", function () {
+  const h = mkG();
+  setDoorMoving(h, "OPENING", true, false);   // fresh: door travelling
+  feed(h, weak(20));
+  assert.equal(h.reboots, 0, "door moving");
+  h.clock += 200;                              // the i4 feed died mid-travel (> DOOR_FRESH_S)
+  feed(h, weak(1));
+  assert.equal(h.reboots, 1, "stale picture is not motion");
+});
+test("guard: commands are dropped once the reboot is committed (no truncated pulse sequence)", function () {
+  const h = mkG(); setDoor(h, "CLOSED");
+  h.kvsDefer = true;
+  feed(h, weak(15));                           // decision made, KVS write in flight
+  assert.equal(h.reboots, 0);
+  h.post("command", { query: "cmd=open" });
+  assert.equal(h.switchSets.length, 0, "open dropped while rebooting");
+  h.flushKvs();
+  assert.equal(h.reboots, 1);
+});
+test("guard: if the record can't be saved it does not reboot, and commands work again", function () {
+  const h = mkG(); setDoor(h, "CLOSED");
+  h.kvsFail = true;
+  feed(h, weak(15));
+  assert.equal(h.reboots, 0, "unrecorded reboot would defeat the rate limit");
+  h.post("command", { query: "cmd=open" });
+  assert.equal(h.switchSets.length, 1, "not stuck in the rebooting state");
+});
+
+test("guard: rate limit — no second guard reboot inside rssiGap", function () {
+  const h = mkG({ kvs: Object.assign({ wd_last: JSON.stringify({ ts: 900, why: "rssi", rssi: -90, hold: 0 }) }, FAST) });
+  feed(h, weak(30));
+  assert.equal(h.reboots, 0, "last guard reboot was minutes ago");
+  h.clock += 21600;
+  feed(h, weak(1));
+  assert.equal(h.reboots, 1, "allowed again after the gap");
+});
+test("guard: hold after a reboot that didn't help; clears on recovery; then may fire again", function () {
+  const h = mkG({ kvs: Object.assign({ wd_last: JSON.stringify({ ts: 1, why: "rssi", rssi: -91, hold: 1 }) }, FAST) });
+  assert.deepEqual(h.lastHeartbeat().wd, { last: 1, why: "rssi", rssi: -91, hold: true }, "boot loads the record");
+  feed(h, weak(60));
+  assert.equal(h.reboots, 0, "still weak after the reboot -> every AP is weak here -> hold");
+  const seq = []; for (let i = 0; i < 15; i++) seq.push(-82);
+  feed(h, seq);
+  assert.equal(h.wdLast().hold, 1, "-82 isn't a recovery (needs >= -80)");
+  feed(h, [-75, -75, -75, -75, -75, -75, -75, -75]);
+  assert.equal(h.wdLast().hold, 0, "median >= -80 -> hold cleared in KVS");
+  assert.equal(h.lastHeartbeat().wd.hold, false, "and on the heartbeat");
+  h.clock += 21600;                            // and the 6 h gap since that reboot has passed
+  feed(h, weak(15));
+  assert.equal(h.reboots, 1, "a fresh weak spell can reboot again");
+});
+test("guard: wd_last stored as an OBJECT (KVS footgun) still loads and doesn't crash boot", function () {
+  const h = mkG({ kvs: Object.assign({ wd_last: { ts: 1, why: "rssi", rssi: -90, hold: 1 } }, FAST) });
+  assert.ok(h.endpoints["command"], "boot chain completed");
+  assert.equal(h.lastHeartbeat().wd.hold, true);
+});
+test("guard: heartbeat wd defaults when no guard reboot has happened", function () {
+  const h = mk();
+  assert.deepEqual(h.lastHeartbeat().wd, { last: 0, why: "", rssi: null, hold: false });
+});
+test("guard: off via wd_cfg rssiOn:0, or with the whole watchdog off", function () {
+  const a = mk({ kvs: { wd_cfg: JSON.stringify({ rssiWin: 15, rssiOn: 0 }) } });
+  feed(a, weak(30)); assert.equal(a.reboots, 0);
+  const b = mk({ kvs: { wd_cfg: JSON.stringify({ rssiWin: 15, on: 0 }) } });
+  feed(b, weak(30)); assert.equal(b.reboots, 0);
+});

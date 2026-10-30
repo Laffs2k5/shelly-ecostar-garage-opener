@@ -1,7 +1,9 @@
-# 13 — Device resilience (connectivity watchdog)
+# 13 — Device resilience (connectivity watchdog + weak-signal guard)
 
 Both device scripts carry a **connectivity watchdog**: if Wi-Fi or the broker is down for too long, reboot
-to recover a wedged network/TLS stack. (NEW-PROJECT-GUIDE §4 pattern.)
+to recover a wedged network/TLS stack. (NEW-PROJECT-GUIDE §4 pattern.) They also carry a
+**[weak-signal guard](#weak-signal-guard)**: reboot when the Wi-Fi signal stays weak, so the device re-picks
+the strongest AP.
 
 ## Why it's safe here — no resume gate
 
@@ -48,6 +50,79 @@ that brief is unlikely to have dropped the subscription). This complements the a
 forget QoS-1 to a **non-retained** command topic, no end-to-end ACK) — a command that lands while the
 controller is briefly deaf is still lost, so the app path is the other half of the reliability story.
 
+## Weak-signal guard
+
+**Why (incident 2026-10-30).** The gateway was down for ~20 min. Both devices lost their IP, the Wi-Fi
+watchdog rebooted them, and they came back on worse APs. The S1 then sat at −88 to −92 dBm for 6 h, while
+another AP was ~17 dB better. At that level it stopped answering ARP from new LAN clients. So the app's
+HTTP-direct commands failed, and so did the i4's door POSTs. The controller's door picture stayed `UNKNOWN`,
+which made `stop` a no-op. MQTT commands still worked. One manual reboot put it on the best AP.
+
+The firmware's own roaming (`roam.rssi_thr` −80, `interval` 60) never fired, and nothing documents why:
+Shelly publishes no algorithm, and no changelog entry mentions roaming. A full reboot is the one thing proven
+to re-pick the strongest AP. A Wi-Fi-only reconnect may reuse the same BSSID. A script can't survey the APs
+either: `WiFi.Scan` hides any AP at about −85 dBm or weaker (fw ≥ 1.5.0).
+
+**Rule (both scripts).** The guard samples `rssi` from the `wifi` status 15 times per window: `rssiWin`,
+default 900 s, so one sample a minute.
+
+- Samples without an IP are skipped. A lost IP is the Wi-Fi watchdog's job.
+- An AP change (BSSID) clears the window, so a firmware roam is never answered with a reboot.
+- Once the window is full, the guard works on the **median**. The i4 swings ±5 dB, so no single sample
+  decides.
+- The pure `rssiGuard(median, idle, now, rec, cfg) -> "reboot" | "recover" | ""` makes the decision
+  (unit-tested).
+
+```mermaid
+stateDiagram-v2
+  [*] --> Watching
+  Watching --> Rebooting: median < rssi, door idle, last guard reboot ≥ rssiGap ago
+  Rebooting --> Watching: KVS write failed (no reboot)
+  Rebooting --> Held: wd_last {hold:1} saved, then Shelly.Reboot
+  Held --> Watching: median ≥ rssi + 5
+```
+
+- **Reboot** when the median is below `rssi` (default −85 dBm), the door is idle, the wall clock is set, and
+  the last guard reboot was at least `rssiGap` ago (default 6 h).
+- **Record first.** Before rebooting, the script saves KVS `wd_last` = `{ts, why:"rssi", rssi:<median>,
+  hold:1}`. If that write fails, it doesn't reboot: an unrecorded reboot would escape the rate limit.
+- **Hold.** A guard reboot leaves the guard held, and it won't reboot again while held. The hold clears
+  once a full window's median reaches `rssi` + 5 dB (−80). A reboot that helped clears it within one window.
+  If every AP is weak at that spot, the guard stays held until the signal recovers, so it can't loop.
+- **Door idle.** The **S1** needs no pulse, sequence or lockout in progress, nothing queued, the relay off,
+  and a door picture that isn't moving. A "moving" picture older than 120 s counts as stale: a weak signal
+  kills the i4's feed, and that mustn't block its own fix. Once the S1 commits to a reboot, it drops new
+  commands until it goes down, so the reboot can't cut a stop-then-reverse short. `stop` still gets through:
+  it is a single pulse, and a truncated one is no worse than a dropped one. The **i4** needs its motor
+  inputs idle.
+- **Relay safety is unchanged.** The S1 relay boots off (`initial_state:off`, 0.5 s auto-off, set at boot).
+
+**Config.** The guard extends KVS `wd_cfg`. Out-of-range values are ignored and the default stays.
+
+| key | default | accepted | meaning |
+|---|---|---|---|
+| `rssiOn` | 1 | 0/1 | guard on/off (`on:0` turns off the whole watchdog, guard included) |
+| `rssi` | −85 | −100 … −60 | threshold, dBm |
+| `rssiWin` | 900 | ≥ 15 | window, s (15 samples) |
+| `rssiGap` | 21600 | ≥ 60 | minimum time between guard reboots, s |
+
+**Visibility.**
+
+- The script `print()`s the reason when it reboots and when the hold clears.
+- Both heartbeats carry `wd: {last, why, rssi, hold}`. `last` is the unixtime of the last guard reboot (0
+  means never), and `rssi` is the median that triggered it.
+- The i4 publishes its heartbeat only on door changes, so it also republishes when the hold clears.
+- To reset the guard, run `KVS.Delete wd_last` and restart the script.
+
+**Limits.**
+
+- The i4 sat at −76 to −87 dBm that day, a median around −81. The default −85 wouldn't fire there, and the
+  i4 kept working. Set `rssi` higher if the i4 ever needs it.
+- The i4's 100 ms tick runs slow under load, so its window is approximate.
+- After any S1 reboot (guard, watchdog or power), its door picture is `UNKNOWN` until the i4's next state
+  change. In that state an `open`/`close` sends one best-effort pulse (D-19), and `stop` is a no-op. This
+  predates the guard.
+
 ## Validation (2026-06-07/08)
 
 - **Unit:** 31 device tests incl. `wdReboot` decision + an integration that reboots after the broker-down
@@ -79,4 +154,14 @@ The i4 monitor polls its inputs every 100 ms, which costs **~83% of the script c
 curl -s -X POST http://192.0.2.160/rpc -d '{"id":1,"method":"KVS.Set","params":{"key":"wd_cfg","value":"{\"on\":1,\"wifi\":86400,\"mqtt\":150}"}}'
 # … induce a disconnect, observe via Script.Eval "WD.mqttDown" …
 curl -s -X POST http://192.0.2.160/rpc -d '{"id":1,"method":"KVS.Delete","params":{"key":"wd_cfg"}}'   # back to defaults
+```
+
+The weak-signal guard can be exercised without moving the door. Set the threshold above the live signal and
+use a short window. The device reboots once, then stays held, because −55 is never reached. Then clear both
+keys and restart the script:
+```bash
+curl -s -X POST http://192.0.2.160/rpc -d '{"id":1,"method":"KVS.Set","params":{"key":"wd_cfg","value":"{\"rssi\":-60,\"rssiWin\":60}"}}'
+# … restart the script, watch the heartbeat's wd.last/hold …
+curl -s -X POST http://192.0.2.160/rpc -d '{"id":1,"method":"KVS.Delete","params":{"key":"wd_cfg"}}'
+curl -s -X POST http://192.0.2.160/rpc -d '{"id":1,"method":"KVS.Delete","params":{"key":"wd_last"}}'
 ```
