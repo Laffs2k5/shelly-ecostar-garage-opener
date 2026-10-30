@@ -3,6 +3,24 @@
 What was **actually observed on real hardware** (vs. mocked/inferred) — NEW-PROJECT-GUIDE §10. Newest
 first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 
+## 2026-10-30 — Weak-signal guard + i4 picture re-send deployed (installed devices) — PASS (deploy only)
+
+Deployed `fe8d556`, the i4 first and then the S1, as script restarts with no device reboot. The door was
+CLOSED and idle the whole time, and it was never commanded. Read-only RPC plus `scripts/mqtt-sub.sh` only.
+
+- **Code:** `Script.GetCode` on each device equals `device/<name>.min.js`. `running:true`, no errors.
+  Memory peak was i4 7504 B (from 5740) and S1 8792 B (from 7560), with ~20 KB free on each.
+- **S1 relay config unchanged:** detached, `initial_state:off`, auto-off 0.5 s; output off.
+- **`mon/<id>/alive`** on both devices: `{ts, rssi, wd:{last:0,why:"",rssi:null,hold:false}}` every 30 s.
+  The heartbeats keep `rssi` and carry no `wd`.
+- **Re-send heals the S1 (D-22):** the S1 came back from its restart `UNKNOWN` (`rx:0`) and showed
+  `CLOSED` at the i4's next re-send, within 30 s. Before the S1 deploy, its `door.rx` had already moved
+  from 11 minutes old to current on the first re-send.
+- **No reboots:** both uptimes kept counting. Signal at deploy was −70…−79 dBm on both, well above −85.
+- **Guard reboot path not exercised on hardware yet.** It is unit-tested. For an on-device check, see the
+  spec 13 bench snippet (`rssi` −60, `rssiWin` 60), or steer one device onto a weak AP (owner +
+  opnsense-leiflan).
+
 ## 2026-06-13 — Overnight WiFi/RSSI survey at the final-box location — PASS
 
 Q-17 RSSI survey, run with `scripts/rssi-watch.sh` (60 s interval) from the always-on PC on the same WiFi
