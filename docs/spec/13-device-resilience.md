@@ -119,9 +119,9 @@ stateDiagram-v2
 - The i4 sat at −76 to −87 dBm that day, a median around −81. The default −85 wouldn't fire there, and the
   i4 kept working. Set `rssi` higher if the i4 ever needs it.
 - The i4's 100 ms tick runs slow under load, so its window is approximate.
-- After any S1 reboot (guard, watchdog or power), its door picture is `UNKNOWN` until the i4's next state
-  change. In that state an `open`/`close` sends one best-effort pulse (D-19), and `stop` is a no-op. This
-  predates the guard.
+- After any S1 reboot (guard, watchdog or power), its door picture is `UNKNOWN` until the i4's next
+  re-send, which comes at most 30 s later (D-22). In that window an `open`/`close` sends one best-effort
+  pulse (D-19), and `stop` is a no-op.
 
 ## Validation (2026-06-07/08)
 

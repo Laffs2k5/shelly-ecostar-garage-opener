@@ -13,6 +13,9 @@ This project splits responsibility across the two Shellys. This is the defining 
      path S1's command logic depends on.
   2. **Publish to MQTT** (`devices/<i4-id>/heartbeat`, retained) so any subscriber — app, web, the
      layer-3 monitor's neighbours — can follow the door.
+- **Re-sends the picture to the S1 every 30 s** as well (D-22). The S1 holds the picture only in RAM, so
+  this heals it within 30 s after an S1 reboot or a failed POST. The POSTs are **single-flight**: one at a
+  time, and the latest picture follows the one in flight, so they reach the S1 in order.
 - Publishes `mon/<i4-id>/alive` (non-retained) for infra liveness.
 
 ### Shelly 1 Gen3 — CONTROLLING unit
@@ -71,5 +74,5 @@ graph LR
 | Broker / Pi down | Yes (button, RF, local HTTP, i4→S1 HTTP) | Local only; MQTT subscribers stale |
 | WiFi down | Yes (button, RF) | No smart control until WiFi returns |
 | i4 down | Yes (button, RF, direct command to S1) | No derived state; S1 should treat state as UNKNOWN |
-| S1 down / unreachable | Yes (button, RF) | i4 **never blocks** on the failed POST — still publishes state to MQTT and carries on (D-10) |
+| S1 down / unreachable | Yes (button, RF) | i4 **never blocks** on the failed POST — still publishes state to MQTT and carries on (D-10). The S1's picture heals within 30 s of it coming back (D-22) |
 | Mains power loss | Yes once restored | Boot to safe state; resume only on `reset_reason == 3` |

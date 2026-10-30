@@ -26,6 +26,8 @@ function createHarness(opts) {
     kvsFail: false,  // make KVS.Set report an error
     kvsDefer: false, // hold KVS.Set callbacks until flushKvs() (to observe the gap before a reboot)
     kvsPending: [],
+    postDefer: false, // hold HTTP.POST callbacks until flushPosts() (to observe an in-flight POST)
+    postPending: [],
     published: [],   // {topic, msg, qos, retain}
     posts: [],       // HTTP.POST {url, body}
     switchSets: [],  // {id, on}
@@ -68,7 +70,11 @@ function createHarness(opts) {
         if (h.kvsDefer) h.kvsPending.push(done); else done();
         return;
       }
-      if (method === "HTTP.POST") { h.posts.push({ url: params.url, body: params.body }); return void cb({ code: 200 }, 0, ""); }
+      if (method === "HTTP.POST") {
+        h.posts.push({ url: params.url, body: params.body });
+        if (h.postDefer) return void h.postPending.push(function () { cb({ code: 200 }, 0, ""); });
+        return void cb({ code: 200 }, 0, "");
+      }
       if (method === "Switch.Set") { h.switchSets.push({ id: params.id, on: params.on }); h.switchOutput = !!params.on; return void (cb && cb({ was_on: false }, 0, "")); }
       if (method === "Switch.SetConfig") { h.switchConfig = params.config; return void (cb && cb({ restart_required: false }, 0, "")); }
       if (method === "Shelly.Reboot") { h.reboots++; return void (cb && cb(null, 0, "")); }
@@ -100,6 +106,7 @@ function createHarness(opts) {
   h.wdReboot = sandbox.wdReboot;        // watchdog pure fn (both scripts)
   h.rssiGuard = sandbox.rssiGuard;      // weak-signal guard pure fn (both scripts)
   h.medianOf = sandbox.medianOf;
+  h.flushPosts = function () { const p = h.postPending; h.postPending = []; p.forEach(function (f) { f(); }); };
   h.flushKvs = function () { const p = h.kvsPending; h.kvsPending = []; p.forEach(function (f) { f(); }); };
   h.wdLast = function () { const v = h.kvs.wd_last; return typeof v === "string" ? JSON.parse(v) : v; };
   h.setNet = function (wifiUp, mqttConn) { h.wifiUp = wifiUp; h.mqttConn = mqttConn; };

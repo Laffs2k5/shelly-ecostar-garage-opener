@@ -153,6 +153,38 @@ test("controller POST: fires on state change when controller_url is set", functi
   assert.equal(JSON.parse(h.posts[0].body).state, "OPENING");
 });
 
+test("controller POST: picture re-sent every 30 s without a state change (heals a rebooted S1)", function () {
+  const h = createHarness({ inputs: { c: true }, controllerUrl: "http://10.0.0.5/script/1/door_state" });
+  h.tick(300);                                               // one ALIVE_MS period, door untouched
+  assert.equal(h.posts.length, 1, "periodic re-send");
+  assert.equal(JSON.parse(h.posts[0].body).state, "CLOSED");
+  h.tick(300);
+  assert.equal(h.posts.length, 2);
+});
+test("controller POST: single-flight — a newer picture waits for the in-flight POST, then the latest goes", function () {
+  const h = createHarness({ inputs: { c: true }, controllerUrl: "http://10.0.0.5/script/1/door_state" });
+  h.postDefer = true;
+  h.setInputs(false, false, true, false); h.settle();        // OPENING -> POST #1 in flight
+  assert.equal(h.posts.length, 1);
+  h.setInputs(false, false, false, false); h.settle();       // STOPPED_OPENING while #1 is in flight
+  h.setInputs(false, true, false, false); h.settle();        // OPEN while #1 is still in flight
+  assert.equal(h.posts.length, 1, "no overlapping POST (could arrive out of order)");
+  h.flushPosts();                                            // #1 completes -> latest picture follows
+  assert.equal(h.posts.length, 2);
+  assert.equal(JSON.parse(h.posts[1].body).state, "OPEN", "only the latest picture, in order");
+  h.flushPosts();
+  assert.equal(h.posts.length, 2, "nothing more pending");
+});
+test("controller POST: a callback that never comes doesn't stall the feed", function () {
+  const h = createHarness({ inputs: { c: true }, controllerUrl: "http://10.0.0.5/script/1/door_state" });
+  h.postDefer = true;
+  h.setInputs(false, false, true, false); h.settle();        // POST #1, callback lost
+  h.tick(120);                                               // past POST_STUCK_TICKS (~10 s)
+  h.setInputs(false, true, false, false); h.settle();        // OPEN
+  assert.equal(h.posts.length, 2, "sent anyway once the in-flight POST is presumed lost");
+  assert.equal(JSON.parse(h.posts[1].body).state, "OPEN");
+});
+
 // ---------- outputs: MQTT skipped when disconnected (never blocks) ----------
 test("MQTT disconnected: no publishes, but derivation/endpoint still work", function () {
   const h = createHarness({ inputs: { c: true }, mqttConnected: false });

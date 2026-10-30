@@ -3,6 +3,7 @@
 // Reads 4 dry-contact inputs, derives the door state (spec 02), and on every change:
 //   (a) publishes a retained heartbeat to MQTT  devices/<id>/heartbeat   (any subscriber follows it)
 //   (b) HTTP-POSTs the state to the controller (S1) for low latency — fire-and-forget, NEVER blocks (D-10)
+// It also re-sends the picture to the S1 every ALIVE_MS, so the S1 heals after its own reboot or a failed POST.
 // Also publishes a non-retained liveness ping to  mon/<id>/alive  periodically (spec 03), and exposes
 // the current state at the local HTTP endpoint  /script/<id>/state  (handy for tests, no MQTT needed).
 //
@@ -27,6 +28,12 @@ var DEBOUNCE_TICKS = 2;    // snapshot must be stable this many ticks before we 
 var GATE_TICKS = 4;
 var ALIVE_MS = 30000;      // liveness ping period
 var POST_TIMEOUT = 5;      // seconds; controller POST is fire-and-forget
+// Controller POSTs are single-flight so pictures reach the S1 in order: a periodic re-send in flight must
+// not land AFTER a newer state-change POST and overwrite it. A POST asked for while one is in flight sets
+// POST_AGAIN and the LATEST picture follows when it completes. POST_STUCK_TICKS: if a callback never comes,
+// stop waiting for it (a stuck flag would silently kill the S1's feed).
+var POST_STUCK_TICKS = (POST_TIMEOUT + 5) * 10;
+var POSTING = false; var POST_AGAIN = false; var POST_T = 0;
 
 // Connectivity watchdog (Phase 7): reboot to recover a wedged Wi-Fi/MQTT stack after a prolonged
 // outage. Our devices are STATELESS across reboot (door state is re-derived from live inputs), so boot
@@ -150,11 +157,15 @@ function publishAlive() {
 }
 function postController() {
   if (CFG.controllerUrl === "") return;   // S1 not configured yet -> skip cleanly
-  // fire-and-forget; the callback only logs. NEVER block on the controller (D-10).
+  if (POSTING && ticks - POST_T < POST_STUCK_TICKS) { POST_AGAIN = true; return; }
+  POSTING = true; POST_AGAIN = false; POST_T = ticks;
+  // fire-and-forget: the tick never waits on it. NEVER block on the controller (D-10).
   Shelly.call("HTTP.POST",
     { url: CFG.controllerUrl, body: JSON.stringify(payload()), timeout: POST_TIMEOUT },
     function (res, ec, em) {
+      POSTING = false;
       if (ec) { print("monitor: controller POST failed (ignored):", ec, em); }
+      if (POST_AGAIN) postController();    // a newer picture was asked for meanwhile -> send the latest
     });
 }
 
@@ -244,7 +255,7 @@ function tick() {
   evaluate();
   watchdogTick();
   rssiTick();
-  if ((ticks % (ALIVE_MS / TICK_MS)) === 0) publishAlive();
+  if ((ticks % (ALIVE_MS / TICK_MS)) === 0) { publishAlive(); postController(); }
 }
 
 // KVS values may come back as a JSON STRING or an already-parsed OBJECT; JSON.parse(object) throws on-device
