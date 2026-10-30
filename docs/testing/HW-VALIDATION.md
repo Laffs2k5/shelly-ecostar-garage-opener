@@ -3,6 +3,30 @@
 What was **actually observed on real hardware** (vs. mocked/inferred) — NEW-PROJECT-GUIDE §10. Newest
 first. "Bench" = i4 + S1 + Pico rig, **not** wired to the EcoStar.
 
+## 2026-10-30 — i4 tick overran its 100 ms timer; 200 ms tick deployed (installed i4) — PASS
+
+Found while reviewing the signal after the guard deploy. The door was CLOSED and idle throughout, and it
+was never commanded. Read-only RPC plus `scripts/mqtt-sub.sh`; the one `Script.Eval` read only `ticks`.
+
+- **Symptom:** the i4's `mon/garage-monitor/alive` `ts` stepped 60 s apart, while the S1's stepped 30 s.
+  Both use `ALIVE_MS` 30000.
+- **Measured:** the i4's `ticks` advanced at 202 ms per tick against the wall clock. The count since the
+  script started matched 200 ms ticks since the guard deploy. The S1 measured 960 ms per tick on its
+  1000 ms timer.
+- **When:** the i4's script CPU read 86% just before the guard deploy and 49% right after. One tick costs
+  ~100 ms, so the added work pushed it past the 100 ms timer, which then fired every other slot. Every
+  tick-counted period on the i4 had doubled: alive and the S1 re-send, the Wi-Fi/broker watchdog, and the
+  guard's window.
+- **Fix:** `TICK_MS` 200 (`0dbcfff`, D-23), deployed as a script restart. `Script.GetCode` equals
+  `device/monitor.min.js` byte for byte. `running:true`, no errors, memory peak 7518 B, ~20.6 KB free.
+- **After:** `ticks` advance at ~200 ms per tick and CPU reads 50%. Alive `ts` steps 30, 30 and 31 s. The
+  S1's `door.rx` refreshes every 30 s (CLOSED). No reboot: uptime kept counting. Signal −70…−79 dBm.
+- **Gotcha:** compare `Script.GetCode` output by bytes, not characters. The build has multi-byte
+  characters, and a character-offset read loop re-reads some of them and reports a false mismatch.
+- **Not re-tested:** debounce (~400 ms) and the reverse-kick gate (~800 ms) on the real door. That is the
+  timing the i4 has run since the guard deploy. A brief stop or a reverse during a door run would show
+  whether it still reads cleanly (spec 14).
+
 ## 2026-10-30 — Weak-signal guard + i4 picture re-send deployed (installed devices) — PASS (deploy only)
 
 Deployed `fe8d556`, the i4 first and then the S1, as script restarts with no device reboot. The door was
@@ -11,8 +35,9 @@ CLOSED and idle the whole time, and it was never commanded. Read-only RPC plus `
 - **Code:** `Script.GetCode` on each device equals `device/<name>.min.js`. `running:true`, no errors.
   Memory peak was i4 7504 B (from 5740) and S1 8792 B (from 7560), with ~20 KB free on each.
 - **S1 relay config unchanged:** detached, `initial_state:off`, auto-off 0.5 s; output off.
-- **`mon/<id>/alive`** on both devices: `{ts, rssi, wd:{last:0,why:"",rssi:null,hold:false}}` every 30 s.
-  The heartbeats keep `rssi` and carry no `wd`.
+- **`mon/<id>/alive`** on both devices: `{ts, rssi, wd:{last:0,why:"",rssi:null,hold:false}}`. The S1's
+  came every 30 s. **The i4's came every 60 s, which was missed here** (see the entry above). The
+  heartbeats keep `rssi` and carry no `wd`.
 - **Re-send heals the S1 (D-22):** the S1 came back from its restart `UNKNOWN` (`rx:0`) and showed
   `CLOSED` at the i4's next re-send, within 30 s. Before the S1 deploy, its `door.rx` had already moved
   from 11 minutes old to current on the first re-send.
