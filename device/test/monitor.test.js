@@ -228,7 +228,7 @@ test("guard: sustained weak signal with the motor idle -> records, then reboots"
   assert.equal(h.reboots, 1);
   const rec = h.wdLast();
   assert.equal(rec.why, "rssi"); assert.equal(rec.rssi, -90); assert.equal(rec.hold, 1);
-  assert.equal(h.lastHeartbeat().wd.hold, true, "heartbeat published with the record before going down");
+  assert.equal(h.lastAlive().wd.hold, true, "alive published with the record before going down");
 });
 test("guard: never reboots while the motor runs; fires once the door is at rest", function () {
   const h = createHarness({ inputs: { c: true }, kvs: FAST });
@@ -243,14 +243,19 @@ test("guard: hold clears on recovery and the monitor republishes its heartbeat",
   const h = createHarness({ inputs: { c: true }, kvs: Object.assign({ wd_last: JSON.stringify({ ts: 1, why: "rssi", rssi: -90, hold: 1 }) }, FAST) });
   feed(h, weak(30));
   assert.equal(h.reboots, 0, "hold");
-  const n = h.heartbeats().length;
+  const n = h.alives().length;
   const ok = []; for (let i = 0; i < 15; i++) ok.push(-72);
   feed(h, ok);
   assert.equal(h.wdLast().hold, 0);
-  assert.ok(h.heartbeats().length > n, "heartbeat republished on recovery (the i4 otherwise only publishes on door changes)");
-  assert.equal(h.lastHeartbeat().wd.hold, false);
+  assert.ok(h.alives().length > n, "alive published on recovery");
+  assert.equal(h.lastAlive().wd.hold, false);
 });
-test("heartbeat carries wd (last guard reboot) with safe defaults", function () {
+test("alive carries rssi + wd every 30 s (fresh, unlike the change-only heartbeat); heartbeat has no wd", function () {
   const h = createHarness({ inputs: { c: true } });
-  assert.deepEqual(h.lastHeartbeat().wd, { last: 0, why: "", rssi: null, hold: false });
+  assert.ok(!Object.prototype.hasOwnProperty.call(h.lastHeartbeat(), "wd"), "guard status stays off the bridged heartbeat");
+  h.wifiRssi = -77; h.tick(300);                       // one ALIVE_MS period, no door change
+  const a = h.lastAlive();
+  assert.equal(a.rssi, -77, "fresh rssi without a door change");
+  assert.deepEqual(a.wd, { last: 0, why: "", rssi: null, hold: false });
+  assert.equal(h.alives()[h.alives().length - 1].retain, false);
 });

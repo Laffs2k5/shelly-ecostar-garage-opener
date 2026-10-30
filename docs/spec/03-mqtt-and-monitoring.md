@@ -7,8 +7,8 @@ Do **not** collapse them.
 
 | Topic | Retain | Consumer | Purpose |
 |---|---|---|---|
-| `devices/<id>/heartbeat` | **YES** | app / web | Application status: door state (+ `dir` on the monitor), `rssi`, `wd` (last weak-signal-guard reboot, spec 13), schema version `v`, `ts`. Retained so a client gets the current picture immediately on connect. |
-| `mon/<id>/alive` | **NO** | layer-3 monitor | Pure infra liveness. Payload irrelevant. LAN-only, staleness-based (`expire_after`). |
+| `devices/<id>/heartbeat` | **YES** | app / web | Application status: door state (+ `dir` on the monitor), `rssi`, schema version `v`, `ts`. Retained so a client gets the current picture immediately on connect. |
+| `mon/<id>/alive` | **NO** | layer-3 monitor / HA | Infra liveness, LAN-only, staleness-based (`expire_after`). Payload `{ts, rssi, wd}`: the monitoring extras ride here, never on the bridged heartbeat (`wd` = weak-signal guard, spec 13). |
 | `devices/<id>/online` | YES (LWT) | both | Firmware-published last-will connect/disconnect. |
 | `devices/<controller-id>/command` | NO | controller (S1) | open / close / toggle / stop from the outside world (`stop` = safety halt, only acts on a moving door). |
 
@@ -23,14 +23,19 @@ its own alive). Both devices appear in `mon/#`.
 
 **The monitor watches `mon/<id>/alive`, never the retained heartbeat.** A retained heartbeat would let
 the broker replay the last payload on monitor restart and *resurrect a dead device to "online"*
-(reference: HA issue #148860). `alive` can't be replaced by the heartbeat — it carries no payload and
-is not retained. The heartbeat is **not** deprecated; it is the app's status channel and is
+(reference: HA issue #148860). `alive` can't be replaced by the heartbeat — it is not retained, so it
+goes stale when the device dies. The heartbeat is **not** deprecated; it is the app's status channel and is
 deliberately retained for immediate-on-connect state.
 
 ## Bridge & quota discipline (carry-forward)
 
 - Keep `mon/#` **outside** the bridged `devices/#` tree, so high-frequency `alive` stays LAN-only and
   never burns the cloud free-tier quota.
+- **Monitoring extras go on `alive`, not the heartbeat** (mqtt-leiflan `docs/onboarding-devices.md` §5.2,
+  2026-10-25). `devices/` is for state an off-LAN app needs; it is bridged, and any cloud credential can
+  read it. So `rssi` and the guard's `wd` ride `alive` every 30 s, which also keeps the i4's values fresh,
+  because its heartbeat goes out only on door changes. The heartbeat keeps `rssi` for existing consumers.
+  (Until 2026-10-30 this repo kept `alive` to `{ts}` only. The monitor spec never required that.)
 - On each Shelly, set MQTT `status_ntf` and `rpc_ntf` = **`false`** (else the firmware publishes its
   whole `devices/<id>/status/#` tree and the bridge mirrors it to the cloud).
 - Set a unique, stable `client_id` per device; `topic_prefix` must be non-empty.

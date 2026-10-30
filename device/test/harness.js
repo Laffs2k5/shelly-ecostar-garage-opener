@@ -129,6 +129,7 @@ function createHarness(opts) {
   h.lastHeartbeat = function () { const hb = h.heartbeats(); return hb.length ? JSON.parse(hb[hb.length - 1].msg) : null; };
   h.state = function () { const hb = h.lastHeartbeat(); return hb && hb.state; };
   h.alives = function () { return h.published.filter(function (p) { return /^mon\/.*\/alive$/.test(p.topic); }); };
+  h.lastAlive = function () { const a = h.alives(); return a.length ? JSON.parse(a[a.length - 1].msg) : null; };
   h.endpointState = function () {
     let body = null;
     const res = { code: 0, headers: null, body: null, send: function () { body = this.body; } };

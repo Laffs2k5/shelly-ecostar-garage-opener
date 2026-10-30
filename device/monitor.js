@@ -129,7 +129,7 @@ function payload() {
   return {
     state: STATE, dir: LASTDIR,
     inputs: { c: s.c, o: s.o, op: s.op, cl: s.cl },
-    since: SINCE, ts: nowTs(), rssi: wifiRssi(), wd: wdInfo(), v: SCHEMA
+    since: SINCE, ts: nowTs(), rssi: wifiRssi(), v: SCHEMA
   };
 }
 function wdInfo() {
@@ -142,9 +142,11 @@ function publishHeartbeat() {
   if (CFG.hbTopic === "" || typeof MQTT === "undefined" || !MQTT.isConnected()) return;
   MQTT.publish(CFG.hbTopic, JSON.stringify(payload()), 0, true);   // retained
 }
+// alive also carries the monitoring extras (rssi, weak-signal guard): LAN-only, never bridged (spec 03).
+// Sent every ALIVE_MS, so HA gets a fresh rssi/wd even though the heartbeat only goes out on door changes.
 function publishAlive() {
   if (CFG.aliveTopic === "" || typeof MQTT === "undefined" || !MQTT.isConnected()) return;
-  MQTT.publish(CFG.aliveTopic, JSON.stringify({ ts: nowTs() }), 0, false);  // NOT retained
+  MQTT.publish(CFG.aliveTopic, JSON.stringify({ ts: nowTs(), rssi: wifiRssi(), wd: wdInfo() }), 0, false);  // NOT retained
 }
 function postController() {
   if (CFG.controllerUrl === "") return;   // S1 not configured yet -> skip cleanly
@@ -222,7 +224,7 @@ function rssiTick() {
     saveRec(ok, function (saved) {
       if (!saved) return;
       RG.rec = ok; print("monitor: rssi guard — signal recovered (median", med, "dBm), hold cleared");
-      publishHeartbeat();
+      publishAlive();
     });
   } else if (act === "reboot") {
     RG.going = true;
@@ -231,7 +233,7 @@ function rssiTick() {
     // persist FIRST: without the record the rate limit can't survive the reboot -> never reboot unrecorded
     saveRec(rec, function (saved) {
       if (!saved) { RG.going = false; print("monitor: rssi guard — KVS.Set failed, not rebooting"); return; }
-      RG.rec = rec; publishHeartbeat();
+      RG.rec = rec; publishAlive();
       Shelly.call("Shelly.Reboot", {});
     });
   }

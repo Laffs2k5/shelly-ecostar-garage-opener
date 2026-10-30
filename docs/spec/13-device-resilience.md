@@ -109,9 +109,9 @@ stateDiagram-v2
 **Visibility.**
 
 - The script `print()`s the reason when it reboots and when the hold clears.
-- Both heartbeats carry `wd: {last, why, rssi, hold}`. `last` is the unixtime of the last guard reboot (0
-  means never), and `rssi` is the median that triggered it.
-- The i4 publishes its heartbeat only on door changes, so it also republishes when the hold clears.
+- Both devices' `mon/<id>/alive` (every 30 s, LAN-only, spec 03) carries `rssi` and `wd: {last, why,
+  rssi, hold}`. `last` is the unixtime of the last guard reboot (0 means never), and `rssi` is the median
+  that triggered it. Alive is also published at once when the guard reboots and when the hold clears.
 - To reset the guard, run `KVS.Delete wd_last` and restart the script.
 
 **Limits.**
@@ -161,7 +161,7 @@ use a short window. The device reboots once, then stays held, because −55 is n
 keys and restart the script:
 ```bash
 curl -s -X POST http://192.0.2.160/rpc -d '{"id":1,"method":"KVS.Set","params":{"key":"wd_cfg","value":"{\"rssi\":-60,\"rssiWin\":60}"}}'
-# … restart the script, watch the heartbeat's wd.last/hold …
+# … restart the script, watch mon/<id>/alive's wd.last/hold …
 curl -s -X POST http://192.0.2.160/rpc -d '{"id":1,"method":"KVS.Delete","params":{"key":"wd_cfg"}}'
 curl -s -X POST http://192.0.2.160/rpc -d '{"id":1,"method":"KVS.Delete","params":{"key":"wd_last"}}'
 ```

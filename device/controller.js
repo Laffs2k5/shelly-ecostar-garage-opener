@@ -201,7 +201,7 @@ function payload() {
     relay: relayOn(), lastCmd: LASTCMD, lastCmdTs: LASTCMD_TS, lastPulses: LASTPULSES,
     door: { state: DOOR.state, dir: DOOR.dir, ts: DOOR.ts, rx: DOOR.rx, moving: DOOR.moving },
     queued: PENDING.cmd, locked: LOCKED, fires: FIRES, resumeSameDir: RESUME_SAME_DIR,
-    ts: nowTs(), rssi: wifiRssi(), wd: wdInfo(), v: SCHEMA
+    ts: nowTs(), rssi: wifiRssi(), v: SCHEMA
   };
 }
 function wdInfo() {
@@ -213,9 +213,10 @@ function publishHeartbeat() {
   if (CFG.hbTopic === "" || typeof MQTT === "undefined" || !MQTT.isConnected()) return;
   MQTT.publish(CFG.hbTopic, JSON.stringify(payload()), 0, true);   // retained
 }
+// alive also carries the monitoring extras (rssi, weak-signal guard): LAN-only, never bridged (spec 03)
 function publishAlive() {
   if (CFG.aliveTopic === "" || typeof MQTT === "undefined" || !MQTT.isConnected()) return;
-  MQTT.publish(CFG.aliveTopic, JSON.stringify({ ts: nowTs() }), 0, false);
+  MQTT.publish(CFG.aliveTopic, JSON.stringify({ ts: nowTs(), rssi: wifiRssi(), wd: wdInfo() }), 0, false);
 }
 
 function handleCommand(raw, src) {
@@ -303,7 +304,7 @@ function rssiTick() {
     saveRec(ok, function (saved) {
       if (!saved) return;
       RG.rec = ok; print("controller: rssi guard — signal recovered (median", med, "dBm), hold cleared");
-      publishHeartbeat();
+      publishAlive();
     });
   } else if (act === "reboot") {
     RG.going = true;              // from here on, drop new commands (see handleCommand)
@@ -312,7 +313,7 @@ function rssiTick() {
     // persist FIRST: without the record the rate limit can't survive the reboot -> never reboot unrecorded
     saveRec(rec, function (saved) {
       if (!saved) { RG.going = false; print("controller: rssi guard — KVS.Set failed, not rebooting"); return; }
-      RG.rec = rec; publishHeartbeat();
+      RG.rec = rec; publishAlive();
       Shelly.call("Shelly.Reboot", {});
     });
   }

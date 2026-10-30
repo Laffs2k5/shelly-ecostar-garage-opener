@@ -76,14 +76,15 @@ test("boot: relay configured safe (detached, off, 0.5s auto-off) + subscribes + 
   assert.equal(h.switchSets.length, 0, "no pulse on boot (boot-to-safe)");
 });
 
-test("heartbeat carries rssi (our payload, not mon/alive)", function () {
+test("heartbeat carries rssi; alive carries the LAN-only monitoring extras (rssi, wd), not retained", function () {
   const h = mk();
   const hb = JSON.parse(h.heartbeats()[0].msg);
-  assert.ok(Object.prototype.hasOwnProperty.call(hb, "rssi"), "heartbeat has rssi");
-  assert.equal(hb.rssi, -55);
-  // mon/alive must stay minimal (ts only) — monitor-spec bound, no rssi
-  const alive = JSON.parse(h.alives()[0].msg);
-  assert.ok(!Object.prototype.hasOwnProperty.call(alive, "rssi"), "alive must NOT carry rssi");
+  assert.equal(hb.rssi, -55, "heartbeat keeps rssi (existing consumers)");
+  assert.ok(!Object.prototype.hasOwnProperty.call(hb, "wd"), "guard status stays off the bridged heartbeat");
+  assert.equal(h.alives()[0].retain, false);
+  const alive = h.lastAlive();
+  assert.ok(alive.ts > 0); assert.equal(alive.rssi, -55);
+  assert.deepEqual(alive.wd, { last: 0, why: "", rssi: null, hold: false });
 });
 
 // ---------- door picture from the i4 ----------
@@ -393,7 +394,7 @@ test("guard: sustained weak signal -> records the reboot in KVS first, then rebo
   const rec = h.wdLast();
   assert.equal(rec.why, "rssi"); assert.equal(rec.rssi, -90); assert.equal(rec.hold, 1); assert.ok(rec.ts > 0);
   assert.ok(h.logs.some(function (l) { return /rssi guard reboot/.test(l); }), "reason printed");
-  assert.equal(h.lastHeartbeat().wd.hold, true, "heartbeat shows the guard reboot before going down");
+  assert.equal(h.lastAlive().wd.hold, true, "alive shows the guard reboot before going down");
   assert.equal(h.switchSets.length, 0, "the guard never touches the relay");
 });
 
@@ -475,7 +476,7 @@ test("guard: rate limit — no second guard reboot inside rssiGap", function () 
 });
 test("guard: hold after a reboot that didn't help; clears on recovery; then may fire again", function () {
   const h = mkG({ kvs: Object.assign({ wd_last: JSON.stringify({ ts: 1, why: "rssi", rssi: -91, hold: 1 }) }, FAST) });
-  assert.deepEqual(h.lastHeartbeat().wd, { last: 1, why: "rssi", rssi: -91, hold: true }, "boot loads the record");
+  assert.deepEqual(h.lastAlive().wd, { last: 1, why: "rssi", rssi: -91, hold: true }, "boot loads the record");
   feed(h, weak(60));
   assert.equal(h.reboots, 0, "still weak after the reboot -> every AP is weak here -> hold");
   const seq = []; for (let i = 0; i < 15; i++) seq.push(-82);
@@ -483,7 +484,7 @@ test("guard: hold after a reboot that didn't help; clears on recovery; then may 
   assert.equal(h.wdLast().hold, 1, "-82 isn't a recovery (needs >= -80)");
   feed(h, [-75, -75, -75, -75, -75, -75, -75, -75]);
   assert.equal(h.wdLast().hold, 0, "median >= -80 -> hold cleared in KVS");
-  assert.equal(h.lastHeartbeat().wd.hold, false, "and on the heartbeat");
+  assert.equal(h.lastAlive().wd.hold, false, "and on alive");
   h.clock += 21600;                            // and the 6 h gap since that reboot has passed
   feed(h, weak(15));
   assert.equal(h.reboots, 1, "a fresh weak spell can reboot again");
@@ -491,11 +492,7 @@ test("guard: hold after a reboot that didn't help; clears on recovery; then may 
 test("guard: wd_last stored as an OBJECT (KVS footgun) still loads and doesn't crash boot", function () {
   const h = mkG({ kvs: Object.assign({ wd_last: { ts: 1, why: "rssi", rssi: -90, hold: 1 } }, FAST) });
   assert.ok(h.endpoints["command"], "boot chain completed");
-  assert.equal(h.lastHeartbeat().wd.hold, true);
-});
-test("guard: heartbeat wd defaults when no guard reboot has happened", function () {
-  const h = mk();
-  assert.deepEqual(h.lastHeartbeat().wd, { last: 0, why: "", rssi: null, hold: false });
+  assert.equal(h.lastAlive().wd.hold, true);
 });
 test("guard: off via wd_cfg rssiOn:0, or with the whole watchdog off", function () {
   const a = mk({ kvs: { wd_cfg: JSON.stringify({ rssiWin: 15, rssiOn: 0 }) } });

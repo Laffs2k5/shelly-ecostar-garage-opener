@@ -71,7 +71,7 @@ momentarily show OPENING — hence the value stays tunable and is re-checked on 
   controller (regression-tested).
 - **Heartbeat observability:** `devices/<id>/heartbeat` now carries `rssi`; the S1 heartbeat also carries
   `door.moving`, `queued`, `locked`, `fires` (monotonic pulse-sequence count), and `resumeSameDir` (active
-  restart model). Both carry `wd` `{last,why,rssi,hold}` (weak-signal guard, spec 13).
+  restart model). The weak-signal guard's `wd` rides `mon/<id>/alive` instead (spec 03, 13).
 
 ---
 
