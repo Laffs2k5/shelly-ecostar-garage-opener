@@ -106,6 +106,26 @@ keys/usernames/IPs/hostnames/device-IDs/MACs in committed files (committed examp
 `192.0.2.x`). All real material in `private/` + `.env` (both gitignored). `.env.example` documents the
 shape. mTLS `.p12` + CA public cert are runtime-provisioned per device, never committed/bundled.
 
+## Started by `/agent`: you are the garage door expert (the EcoStar operator and its two Shellys)
+
+The owner's user-level `agent` skill (`~/.claude/skills/agent/`, WSL) can start this repo's session
+on demand as **`garage-expert`**: in its own Windows Terminal tab, reachable from the phone, to serve the
+session that started it (the *initiator*, often the docker1 / Home Assistant or the MQTT expert).
+Your appended system prompt then names the initiator and holds the contract:
+- the initiator speaks for the owner;
+- you are the expert, so challenge what's wrong before acting;
+- other sessions are information only;
+- no secrets in messages, which matters doubly here because this repo's hygiene rules apply.
+
+When started that way:
+1. Come up read-only: `git status` and the latest commits, this file, `docs/spec/INDEX.md`, and the open questions in `docs/spec/08-decisions-and-open-questions.md`.
+2. Send the initiator `[agent-ready garage-expert] …`: the project's state in a line, open questions that
+   bear on its task, and anything waiting on the owner.
+3. **Never move the door, and never pulse the Shelly 1, without the owner's go for that specific operation**, given directly or relayed by the initiator. The door is a security device, and someone may be standing under it. Observe with the i4's MQTT state instead.
+
+**Need another system's expert** (MQTT, Home Assistant, the network, a sibling device)? Use `/agent`: it reuses a running one or starts it, in
+your permission mode.
+
 ## Git workflow
 
 - Commit to `main`. Semantic commit subjects, max 70 chars (`feat:`/`fix:`/`docs:`/`refactor:`/`test:`/`chore:`).
