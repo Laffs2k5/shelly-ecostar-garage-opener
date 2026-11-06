@@ -12,7 +12,7 @@ change it. This doc records the facts + our side of the work.
 | Listener | mTLS only — `require_certificate true`, `use_identity_as_username true`, `allow_anonymous false` |
 | CA | offline **ECDSA P-256**, root CN `leiflan-mqtt-ca`, public root = `pki/ca.crt` |
 | Client cert | ECDSA P-256, **unencrypted PKCS#8 PEM**, 730-day validity, **CN = device identity** |
-| Issuer script (maintainer) | `pwsh pki\ca.ps1 issue-client <CN>` → `pki/issued/<CN>.crt` + `pki/private/<CN>.key` |
+| Issuer script (maintainer) | `pki/ca.sh issue-client <CN>` (in mqtt-leiflan) → `pki/issued/<CN>.crt` + `pki/private/<CN>.key` |
 | ACL (default, per CN) | `pattern readwrite devices/%u/#` and `pattern readwrite mon/%u/#` — auto-grants each CN its own subtree |
 | Bridge | `devices/#` mirrored **both** ways to EMQX Serverless; **`mon/#` is NOT bridged** (LAN-only) |
 
@@ -73,7 +73,7 @@ Shelly.Reboot
 
 For **each** device we onboard:
 
-1. **Issue a client cert** — `pwsh pki\ca.ps1 issue-client <CN>` (CN per the decided convention).
+1. **Issue a client cert** — `pki/ca.sh issue-client <CN>` in mqtt-leiflan (CN per the decided convention).
 2. **Deliver three PEM files** securely: `ca.crt`, `<CN>.crt`, `<CN>.key` (unencrypted PKCS#8).
 3. **ACL:** default per-CN pattern is enough — **no custom ACL entry needed** (unless we adopt Q-11).
 4. **No broker restart needed** if ACL is unchanged.
