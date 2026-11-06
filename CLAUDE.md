@@ -32,8 +32,8 @@ Carry the coffee-timer boot-to-safe pattern: resume persisted state only on a so
 
 - `private/NEW-PROJECT-GUIDE.md` — hard-won lessons from the reference build. Read it.
 - `~/code/github/Laffs2k5/shelly-coffee-timer` — the reference repo (same tech stack & structure).
-- `C:\temp\mqtt-leiflan` — operator-side local Mosquitto (mTLS) + cloud bridge + PKI.
-- `C:\temp\nas-leiflan\docs\layer3-monitor-spec.md` — WIP monitor spec we adhere to. Flag breakage.
+- `~/code/github/Laffs2k5/mqtt-leiflan` — operator-side local Mosquitto (mTLS) + cloud bridge + PKI.
+- `~/code/github/Laffs2k5/nas-leiflan/docs/layer3-monitor-spec.md` — WIP monitor spec we adhere to. Flag breakage.
 - `docs/initial-research/hardware-spec.md` — the original hardware design (wiring, BOM, circuits).
 
 ## Tech stack (mirrors the reference repo)
